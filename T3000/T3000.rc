@@ -11546,6 +11546,7 @@ BEGIN
         MENUITEM "Status Bar",                  ID_VIEW_STATUS_BAR
         POPUP "&Application Look"
         BEGIN
+            MENUITEM "Windows &7",                  ID_VIEW_APPLOOK_WINDOWS_7
             MENUITEM "Office 200&3",                ID_VIEW_APPLOOK_OFF_2003
             POPUP "Office 200&7"
             BEGIN
@@ -11605,6 +11606,7 @@ END
 
 IDR_THEME_MENU MENU
 BEGIN
+    MENUITEM "Windows &7",                  ID_VIEW_APPLOOK_WINDOWS_7
     MENUITEM "Office 2007 (&Blue Style)",   ID_VIEW_APPLOOK_OFF_2007_BLUE
     MENUITEM "Office 2007 (B&lack Style)",  ID_VIEW_APPLOOK_OFF_2007_BLACK
     MENUITEM "Office 2007 (&Silver Style)", ID_VIEW_APPLOOK_OFF_2007_SILVER

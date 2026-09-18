@@ -281,8 +281,8 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
     ON_WM_CREATE()
     ON_COMMAND(ID_VIEW_CUSTOMIZE, &CMainFrame::OnViewCustomize)
     ON_REGISTERED_MESSAGE(AFX_WM_CREATETOOLBAR, &CMainFrame::OnToolbarCreateNew)
-    ON_COMMAND_RANGE(ID_VIEW_APPLOOK_WIN_2000, ID_VIEW_APPLOOK_OFF_2007_AQUA, &CMainFrame::OnApplicationLook)
-    ON_UPDATE_COMMAND_UI_RANGE(ID_VIEW_APPLOOK_WIN_2000, ID_VIEW_APPLOOK_OFF_2007_AQUA, &CMainFrame::OnUpdateApplicationLook)
+    ON_COMMAND_RANGE(ID_VIEW_APPLOOK_WIN_2000, ID_VIEW_APPLOOK_WINDOWS_7, &CMainFrame::OnApplicationLook)
+    ON_UPDATE_COMMAND_UI_RANGE(ID_VIEW_APPLOOK_WIN_2000, ID_VIEW_APPLOOK_WINDOWS_7, &CMainFrame::OnUpdateApplicationLook)
     ON_COMMAND(ID_BUILDINGBAR, OnCheckBuildingBar)
     ON_UPDATE_COMMAND_UI(ID_BUILDINGBAR, OnUpdateCheckBuildingBar)
     ON_COMMAND(ID_INPUTOUTPUTPANE, OnCheckIOPane)
@@ -557,7 +557,21 @@ CMainFrame::CMainFrame()
 {
 
 
-    theApp.m_nAppLook = theApp.GetInt(_T("ApplicationLook"), ID_VIEW_APPLOOK_VS_2005);
+    theApp.m_nAppLook = theApp.GetInt(_T("ApplicationLook"), ID_VIEW_APPLOOK_WINDOWS_7);
+
+    // One-time migration to the Windows 7 look. Installs predating it had the old
+    // VS2005 default written to the registry automatically on first run, so changing
+    // the default above would never reach them. Only that auto-written value is moved;
+    // a look the user picked deliberately is left untouched.
+    if (theApp.GetInt(_T("ApplicationLookVersion"), 0) < 1)
+    {
+        if (theApp.m_nAppLook == ID_VIEW_APPLOOK_VS_2005)
+        {
+            theApp.m_nAppLook = ID_VIEW_APPLOOK_WINDOWS_7;
+        }
+
+        theApp.WriteInt(_T("ApplicationLookVersion"), 1);
+    }
     m_nStyle=0;
 	m_pFreshTree = NULL;
     m_strCurSubBuldingName.Empty();
@@ -1296,6 +1310,11 @@ void CMainFrame::OnApplicationLook(UINT id)
 
     case ID_VIEW_APPLOOK_VS_2005:
         CMFCVisualManager::SetDefaultManager(RUNTIME_CLASS(CMFCVisualManagerVS2005));
+        CDockingManager::SetDockingMode(DT_SMART);
+        break;
+
+    case ID_VIEW_APPLOOK_WINDOWS_7:
+        CMFCVisualManager::SetDefaultManager(RUNTIME_CLASS(CMFCVisualManagerWindows7));
         CDockingManager::SetDockingMode(DT_SMART);
         break;
 
