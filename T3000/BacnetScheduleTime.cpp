@@ -146,16 +146,16 @@ void CBacnetScheduleTime::Initial_List()
 {
 	m_schedule_time_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 	m_schedule_time_list.SetExtendedStyle(m_schedule_time_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_NUM, _T(" "), 40, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_MONDAY, _T("Monday"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_TUESDAY, _T("Tuesday"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_WEDNESDAY, _T("Wednesday"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_THURSDAY, _T("Thursday"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_FRIDAY, _T("Friday"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_SATURDAY, _T("Saturday"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_SUNDAY, _T("Sunday"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_HOLIDAY1, _T("Holiday1"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_HOLIDAY2, _T("Holiday2"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_NUM, _T(" "), 46, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_MONDAY, _T("Monday"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_TUESDAY, _T("Tuesday"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_WEDNESDAY, _T("Wednesday"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_THURSDAY, _T("Thursday"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_FRIDAY, _T("Friday"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_SATURDAY, _T("Saturday"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_SUNDAY, _T("Sunday"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_HOLIDAY1, _T("Holiday1"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_schedule_time_list.InsertColumn(SCHEDULE_TIME_HOLIDAY2, _T("Holiday2"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
 
 	m_WeeklyParent_Hwnd = g_hwnd_now;

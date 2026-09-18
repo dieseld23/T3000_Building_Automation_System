@@ -200,15 +200,15 @@ void CCO2_NodeView::Initial_List()
 
     m_co2_node_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
     m_co2_node_list.SetExtendedStyle(m_co2_node_list.GetExtendedStyle() | LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-    m_co2_node_list.InsertColumn(CO2_NODE_TYPE_NAME, _T("Name"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-    m_co2_node_list.InsertColumn(CO2_NODE_NAME_UNIT, _T("Unit"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-    m_co2_node_list.InsertColumn(CO2_NODE_TYPE_VALUE, _T("Value"), 150, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    m_co2_node_list.InsertColumn(CO2_NODE_SETPOINT, _T("Setpoint"), 100, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    m_co2_node_list.InsertColumn(CO2_NODE_OUTPUT_VALUE, _T("Output Value"), 100, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    m_co2_node_list.InsertColumn(CO2_NODE_OUTPUT_RANGE, _T("Range"), 100, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    m_co2_node_list.InsertColumn(CO2_NODE_MIN_VALUE , _T("Output Min Value"), 100, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    m_co2_node_list.InsertColumn(CO2_NODE_MAX_VALUE , _T("Output Max Value"), 100, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    m_co2_node_list.InsertColumn(CO2_NODE_CALIBRATION, _T("Calibration"), 100, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_co2_node_list.InsertColumn(CO2_NODE_TYPE_NAME, _T("Name"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+    m_co2_node_list.InsertColumn(CO2_NODE_NAME_UNIT, _T("Unit"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+    m_co2_node_list.InsertColumn(CO2_NODE_TYPE_VALUE, _T("Value"), 172, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_co2_node_list.InsertColumn(CO2_NODE_SETPOINT, _T("Setpoint"), 115, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_co2_node_list.InsertColumn(CO2_NODE_OUTPUT_VALUE, _T("Output Value"), 115, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_co2_node_list.InsertColumn(CO2_NODE_OUTPUT_RANGE, _T("Range"), 115, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_co2_node_list.InsertColumn(CO2_NODE_MIN_VALUE , _T("Output Min Value"), 115, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_co2_node_list.InsertColumn(CO2_NODE_MAX_VALUE , _T("Output Max Value"), 115, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_co2_node_list.InsertColumn(CO2_NODE_CALIBRATION, _T("Calibration"), 115, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
     m_co2_node_list.SetListHwnd(this->m_hWnd);
     CRect list_rect, win_rect;
     m_co2_node_list.GetWindowRect(list_rect);

@@ -61,9 +61,9 @@ void CBacnet_Range_Msv::Initial_List()
 {
     m_range_msv_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
     m_range_msv_list.SetExtendedStyle(m_range_msv_list.GetExtendedStyle() | LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-    m_range_msv_list.InsertColumn(CUSTOMER_MSV_RANGE_NUM, _T("NUM"), 50, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-    m_range_msv_list.InsertColumn(CUSTOMER_MSV_RANGE_DESCRIPTION, _T("Description"), 100, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_range_msv_list.InsertColumn(CUSTOMER_MSV_RANGE_VALUE, _T("Value"), 70, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_range_msv_list.InsertColumn(CUSTOMER_MSV_RANGE_NUM, _T("NUM"), 57, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+    m_range_msv_list.InsertColumn(CUSTOMER_MSV_RANGE_DESCRIPTION, _T("Description"), 115, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_range_msv_list.InsertColumn(CUSTOMER_MSV_RANGE_VALUE, _T("Value"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
     m_range_msv_list.SetListHwnd(this->m_hWnd);
     m_msv_dlg_hwnd = this->m_hWnd;
     for (int i = 0;i < 8;i++)

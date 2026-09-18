@@ -298,12 +298,12 @@ void CScanDbWaitDlg::Initial_List()
     m_scan_com_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
     //m_scan_com_list.SetExtendedStyle(m_scan_com_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
     m_scan_com_list.SetExtendedStyle(m_scan_com_list.GetExtendedStyle() |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-    m_scan_com_list.InsertColumn(SCAN_MODE, _T("Scanning Mode"), 120, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-    //m_scan_com_list.InsertColumn(SCAN_BAUDRATE, _T("Baudrate"), 60, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    //m_scan_com_list.InsertColumn(SCAN_SKIP, _T("Skip"), 60, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_scan_com_list.InsertColumn(SCAN_STATUS, _T("Status"), 60, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_scan_com_list.InsertColumn(SCAN_FOUND, _T("Reply"), 60, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_scan_com_list.InsertColumn(SCAN_NOTES, _T("Notes"), 480, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_scan_com_list.InsertColumn(SCAN_MODE, _T("Scanning Mode"), 138, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+    //m_scan_com_list.InsertColumn(SCAN_BAUDRATE, _T("Baudrate"), 69, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    //m_scan_com_list.InsertColumn(SCAN_SKIP, _T("Skip"), 69, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_scan_com_list.InsertColumn(SCAN_STATUS, _T("Status"), 69, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_scan_com_list.InsertColumn(SCAN_FOUND, _T("Reply"), 69, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_scan_com_list.InsertColumn(SCAN_NOTES, _T("Notes"), 552, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
     m_scan_dlg_hwnd = this->m_hWnd;
     g_hwnd_now = m_scan_dlg_hwnd;

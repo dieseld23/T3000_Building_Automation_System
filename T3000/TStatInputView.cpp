@@ -1134,16 +1134,16 @@ void CTStatInputView::Initial_ListFor_Tstat(){
     {
         m_input_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_input_list.SetExtendedStyle(m_input_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-        m_input_list.InsertColumn(0, _T("NUM"), 50, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        m_input_list.InsertColumn(1, _T("Full Label"), 140, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_input_list.InsertColumn(2, _T("Auto/Manual"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_input_list.InsertColumn(3, _T("Value"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_input_list.InsertColumn(4, _T("Units"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_input_list.InsertColumn(5, _T("Range"), 100, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_input_list.InsertColumn(6, _T("Calibration"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_input_list.InsertColumn(7, _T("Filter"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_input_list.InsertColumn(8, _T("Function"), 80, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_input_list.InsertColumn(9, _T("Custom Table"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_input_list.InsertColumn(0, _T("NUM"), 57, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        m_input_list.InsertColumn(1, _T("Full Label"), 161, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_input_list.InsertColumn(2, _T("Auto/Manual"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_input_list.InsertColumn(3, _T("Value"), 92, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_input_list.InsertColumn(4, _T("Units"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_input_list.InsertColumn(5, _T("Range"), 115, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_input_list.InsertColumn(6, _T("Calibration"), 92, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_input_list.InsertColumn(7, _T("Filter"), 92, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_input_list.InsertColumn(8, _T("Function"), 92, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_input_list.InsertColumn(9, _T("Custom Table"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
         CString strTemp;
         //m_input_list.DeleteAllItems();
@@ -1184,15 +1184,15 @@ void CTStatInputView::Initial_ListFor_Tstat(){
     {
         m_input_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_input_list.SetExtendedStyle(m_input_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-        m_input_list.InsertColumn(0, _T("NUM"), 50, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        m_input_list.InsertColumn(1, _T("Full Label"), 140, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_input_list.InsertColumn(2, _T("Auto/Manual"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_input_list.InsertColumn(3, _T("Value"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_input_list.InsertColumn(4, _T("Units"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_input_list.InsertColumn(5, _T("Range"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_input_list.InsertColumn(6, _T("Calibration"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_input_list.InsertColumn(7, _T("Filter"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_input_list.InsertColumn(8, _T("Function"), 80, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_input_list.InsertColumn(0, _T("NUM"), 57, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        m_input_list.InsertColumn(1, _T("Full Label"), 161, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_input_list.InsertColumn(2, _T("Auto/Manual"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_input_list.InsertColumn(3, _T("Value"), 92, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_input_list.InsertColumn(4, _T("Units"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_input_list.InsertColumn(5, _T("Range"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_input_list.InsertColumn(6, _T("Calibration"), 92, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_input_list.InsertColumn(7, _T("Filter"), 92, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_input_list.InsertColumn(8, _T("Function"), 92, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
         m_input_list.InsertColumn(9, _T("Custom Table"), 0, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
         CString strTemp;

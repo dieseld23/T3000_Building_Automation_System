@@ -78,9 +78,9 @@ void CBacnetProperty::Initial_List()
         m_bacnet_property_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
         //m_bacnet_property_list.SetExtendedStyle(m_bacnet_property_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
         m_bacnet_property_list.SetExtendedStyle(m_bacnet_property_list.GetExtendedStyle() | LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-        m_bacnet_property_list.InsertColumn(0, _T("Priority"), 50, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-        m_bacnet_property_list.InsertColumn(1, _T("Description"), 300, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_bacnet_property_list.InsertColumn(2, _T(" "), 50, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_bacnet_property_list.InsertColumn(0, _T("Priority"), 57, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+        m_bacnet_property_list.InsertColumn(1, _T("Description"), 345, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_bacnet_property_list.InsertColumn(2, _T(" "), 57, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
         m_bacnet_property_list.Setlistcolcharlimit(1, STR_PROGRAM_DESCRIPTION_LENGTH - 1);
         m_bacnet_property_list.Setlistcolcharlimit(6, STR_PROGRAM_LABEL_LENGTH - 1);
 

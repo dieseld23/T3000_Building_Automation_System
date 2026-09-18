@@ -86,9 +86,9 @@ void CBacnetBuildingProperty::Initial_List()
 	m_property_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
 	//m_property_list.SetExtendedStyle(m_property_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
 	m_property_list.SetExtendedStyle(m_property_list.GetExtendedStyle() | LVS_EX_GRIDLINES & (~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_property_list.InsertColumn(PROPERTY_NUM, _T("Num"), 40, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_property_list.InsertColumn(PROPERTY_TYPE, _T("Item Type"), 150, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_property_list.InsertColumn(PROPERTY_COUNT, _T("Count"), 100, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_property_list.InsertColumn(PROPERTY_NUM, _T("Num"), 46, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_property_list.InsertColumn(PROPERTY_TYPE, _T("Item Type"), 172, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_property_list.InsertColumn(PROPERTY_COUNT, _T("Count"), 115, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 
 
 	m_property_list.SetListHwnd(this->m_hWnd);

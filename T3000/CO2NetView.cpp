@@ -1709,13 +1709,13 @@ void CCO2NetView::Initial_OutputList()
 
 		m_output_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 		m_output_list.SetExtendedStyle(m_output_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
-		m_output_list.InsertColumn(CO2NET_NUM, _T("NUM"), 40, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-		m_output_list.InsertColumn(CO2NET_FULL_LABEL, _T("Full Label"), 60, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-		m_output_list.InsertColumn(CO2NET_VALUE, _T("Value"), 45, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-		m_output_list.InsertColumn(CO2NET_RANGE, _T("Range"), 45, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-		m_output_list.InsertColumn(CO2NET_MIN_OUT_SCALE, _T("Min Out Scale"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-		m_output_list.InsertColumn(CO2NET_MAX_OUT_SCALE, _T("Max Out Scale"), 85, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-		m_output_list.InsertColumn(CO2NET_AUTO_MANUAL, _T("Auto/Manual"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+		m_output_list.InsertColumn(CO2NET_NUM, _T("NUM"), 46, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+		m_output_list.InsertColumn(CO2NET_FULL_LABEL, _T("Full Label"), 69, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+		m_output_list.InsertColumn(CO2NET_VALUE, _T("Value"), 52, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+		m_output_list.InsertColumn(CO2NET_RANGE, _T("Range"), 52, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+		m_output_list.InsertColumn(CO2NET_MIN_OUT_SCALE, _T("Min Out Scale"), 92, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+		m_output_list.InsertColumn(CO2NET_MAX_OUT_SCALE, _T("Max Out Scale"), 98, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+		m_output_list.InsertColumn(CO2NET_AUTO_MANUAL, _T("Auto/Manual"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
 	
 
 		g_hwnd_now = this->m_hWnd;
@@ -1870,12 +1870,12 @@ void CCO2NetView::Initial_OutputList()
  
 void CCO2NetView::Initial_VarList()
 {
-	//m_input_list.InsertColumn(0, _T("NUM"), 50, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-	//m_input_list.InsertColumn(1, _T("Full Label"), 70, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	//m_input_list.InsertColumn(2, _T("Auto/Manual"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	//m_input_list.InsertColumn(3, _T("Value"), 50, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	//m_input_list.InsertColumn(4, _T("Range"), 60, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	//m_input_list.InsertColumn(5, _T("Calibration"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	//m_input_list.InsertColumn(0, _T("NUM"), 57, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+	//m_input_list.InsertColumn(1, _T("Full Label"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	//m_input_list.InsertColumn(2, _T("Auto/Manual"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	//m_input_list.InsertColumn(3, _T("Value"), 57, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	//m_input_list.InsertColumn(4, _T("Range"), 69, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	//m_input_list.InsertColumn(5, _T("Calibration"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 	unsigned short TempDataArray[100];
 	
 	CString strTemp;
@@ -1887,12 +1887,12 @@ void CCO2NetView::Initial_VarList()
 	m_user_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 	m_user_list.SetExtendedStyle(m_user_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
 
-	m_user_list.InsertColumn(0, _T("NUM"), 50, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-	m_user_list.InsertColumn(1, _T("Full Label"), 90, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_user_list.InsertColumn(2, _T("Auto/Manual"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_user_list.InsertColumn(3, _T("Value"), 50, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_user_list.InsertColumn(4, _T("Range"), 60, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_user_list.InsertColumn(5, _T("Calibration"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_user_list.InsertColumn(0, _T("NUM"), 57, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+	m_user_list.InsertColumn(1, _T("Full Label"), 103, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_user_list.InsertColumn(2, _T("Auto/Manual"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_user_list.InsertColumn(3, _T("Value"), 57, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_user_list.InsertColumn(4, _T("Range"), 69, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_user_list.InsertColumn(5, _T("Calibration"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
 
 	g_hwnd_now = this->m_hWnd;

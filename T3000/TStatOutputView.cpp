@@ -858,17 +858,17 @@ void CTStatOutputView::Initial_ListFor_Tstat(){
     {
         m_output_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_output_list.SetExtendedStyle(m_output_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-        m_output_list.InsertColumn(OUTPUT_NUM, _T("NUM"), 40, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        m_output_list.InsertColumn(TStat_OutputName, _T("Full Label"), 140, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_output_list.InsertColumn(TStat_AM, _T("Input Type"), 80, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_output_list.InsertColumn(TStat_Value, _T("Min"), 60, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_output_list.InsertColumn(TStat_Unit, _T("Max"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_output_list.InsertColumn(TStat_Range, _T("Signal"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        // 		m_output_list.InsertColumn(TStat_Funcation, _T("Function"), 60, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        // 		m_output_list.InsertColumn(TStat_Interlock, _T("Interlock"), 60, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        // 		m_output_list.InsertColumn(TStat_OFFON_Delay, _T("OFF->ON Delay"), 100, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        // 		m_output_list.InsertColumn(TStat_ONOFF_Delay, _T("ON->OFF Delay"), 100, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        // 		m_output_list.InsertColumn(TStat_Signal_Type, _T("Signal Type"), 70, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_output_list.InsertColumn(OUTPUT_NUM, _T("NUM"), 46, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        m_output_list.InsertColumn(TStat_OutputName, _T("Full Label"), 161, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_output_list.InsertColumn(TStat_AM, _T("Input Type"), 92, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_output_list.InsertColumn(TStat_Value, _T("Min"), 69, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_output_list.InsertColumn(TStat_Unit, _T("Max"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_output_list.InsertColumn(TStat_Range, _T("Signal"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        // 		m_output_list.InsertColumn(TStat_Funcation, _T("Function"), 69, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        // 		m_output_list.InsertColumn(TStat_Interlock, _T("Interlock"), 69, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        // 		m_output_list.InsertColumn(TStat_OFFON_Delay, _T("OFF->ON Delay"), 115, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        // 		m_output_list.InsertColumn(TStat_ONOFF_Delay, _T("ON->OFF Delay"), 115, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        // 		m_output_list.InsertColumn(TStat_Signal_Type, _T("Signal Type"), 80, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
         CString strTemp;
         //m_input_list.DeleteAllItems();
         for (int i=0;i<m_tstat_output_data.size();i++)
@@ -888,17 +888,17 @@ void CTStatOutputView::Initial_ListFor_Tstat(){
     else if(product_type == T3000_6_ADDRESS){
         m_output_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_output_list.SetExtendedStyle(m_output_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-        m_output_list.InsertColumn(OUTPUT_NUM, _T("NUM"), 40, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        m_output_list.InsertColumn(TStat_OutputName, _T("Full Label"), 140, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_output_list.InsertColumn(TStat_AM, _T("Auto/Manual"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_output_list.InsertColumn(TStat_Value, _T("Value"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_output_list.InsertColumn(TStat_Unit, _T("Units"), 60, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_output_list.InsertColumn(TStat_Range, _T("Range"), 80, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_output_list.InsertColumn(TStat_Funcation, _T("Function"), 60, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_output_list.InsertColumn(TStat_Interlock, _T("Interlock"), 60, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_output_list.InsertColumn(TStat_OFFON_Delay, _T("OFF->ON Delay"), 100, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_output_list.InsertColumn(TStat_ONOFF_Delay, _T("ON->OFF Delay"), 100, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_output_list.InsertColumn(TStat_Signal_Type, _T("Signal Type"), 70, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_output_list.InsertColumn(OUTPUT_NUM, _T("NUM"), 46, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        m_output_list.InsertColumn(TStat_OutputName, _T("Full Label"), 161, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_output_list.InsertColumn(TStat_AM, _T("Auto/Manual"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_output_list.InsertColumn(TStat_Value, _T("Value"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_output_list.InsertColumn(TStat_Unit, _T("Units"), 69, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_output_list.InsertColumn(TStat_Range, _T("Range"), 92, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_output_list.InsertColumn(TStat_Funcation, _T("Function"), 69, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_output_list.InsertColumn(TStat_Interlock, _T("Interlock"), 69, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_output_list.InsertColumn(TStat_OFFON_Delay, _T("OFF->ON Delay"), 115, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_output_list.InsertColumn(TStat_ONOFF_Delay, _T("ON->OFF Delay"), 115, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_output_list.InsertColumn(TStat_Signal_Type, _T("Signal Type"), 80, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
         CString strTemp;
         //m_input_list.DeleteAllItems();

@@ -101,24 +101,24 @@ void CBacnetTstat::Initial_List()
 {
 	m_tstat_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 	m_tstat_list.SetExtendedStyle(m_tstat_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_tstat_list.InsertColumn(TSTAT_NUM, _T("NUM"), 40, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-	m_tstat_list.InsertColumn(TSTAT_PRODUCT_MODEL_TYPE, _T("Model Type"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_tstat_list.InsertColumn(TSTAT_ADDRESS , _T("Address"), 60, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_tstat_list.InsertColumn(TSTAT_SERIAL_NUM , _T("Serial Number"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_tstat_list.InsertColumn(TSTAT_OCCUPIED , _T("Un/Occupied"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_tstat_list.InsertColumn(TSTAT_COOL_SETPOINT , _T("Cool SP"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_tstat_list.InsertColumn(TSTAT_HEAT_SETPOINT , _T("Heat SP"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_tstat_list.InsertColumn(TSTAT_ROOM_SETPOINT , _T("Room SP"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_tstat_list.InsertColumn(TSTAT_ROOM_TEM , _T("Room Temp"), 70, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_tstat_list.InsertColumn(TSTAT_MODE , _T("Stage"), 50, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_tstat_list.InsertColumn(TSTAT_COOL_HEAT_MODE , _T("COOL/HEAT"), 70, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_tstat_list.InsertColumn(TSTAT_OUTPUT_STATE , _T("Output State"), 90, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_tstat_list.InsertColumn(TSTAT_NIGHT_HEAT_DB , _T("NHeat DB"), 70, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_tstat_list.InsertColumn(TSTAT_NIGHT_COOL_DB , _T("NCool DB"), 70, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_tstat_list.InsertColumn(TSTAT_NIGHT_HEAT_SP , _T("NHeat SP"), 70, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_tstat_list.InsertColumn(TSTAT_NIGHT_COOL_SP , _T("NCool SP"), 70, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tstat_list.InsertColumn(TSTAT_NUM, _T("NUM"), 46, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+	m_tstat_list.InsertColumn(TSTAT_PRODUCT_MODEL_TYPE, _T("Model Type"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tstat_list.InsertColumn(TSTAT_ADDRESS , _T("Address"), 69, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tstat_list.InsertColumn(TSTAT_SERIAL_NUM , _T("Serial Number"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tstat_list.InsertColumn(TSTAT_OCCUPIED , _T("Un/Occupied"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tstat_list.InsertColumn(TSTAT_COOL_SETPOINT , _T("Cool SP"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tstat_list.InsertColumn(TSTAT_HEAT_SETPOINT , _T("Heat SP"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tstat_list.InsertColumn(TSTAT_ROOM_SETPOINT , _T("Room SP"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tstat_list.InsertColumn(TSTAT_ROOM_TEM , _T("Room Temp"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tstat_list.InsertColumn(TSTAT_MODE , _T("Stage"), 57, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tstat_list.InsertColumn(TSTAT_COOL_HEAT_MODE , _T("COOL/HEAT"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tstat_list.InsertColumn(TSTAT_OUTPUT_STATE , _T("Output State"), 103, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tstat_list.InsertColumn(TSTAT_NIGHT_HEAT_DB , _T("NHeat DB"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tstat_list.InsertColumn(TSTAT_NIGHT_COOL_DB , _T("NCool DB"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tstat_list.InsertColumn(TSTAT_NIGHT_HEAT_SP , _T("NHeat SP"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tstat_list.InsertColumn(TSTAT_NIGHT_COOL_SP , _T("NCool SP"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 	
-	//m_tstat_list.InsertColumn(TSTAT_SERIAL_NUM, _T("Serial Number"), 70, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	//m_tstat_list.InsertColumn(TSTAT_SERIAL_NUM, _T("Serial Number"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 	m_tstat_dlg_hwnd = this->m_hWnd;
 	//g_hwnd_now = m_tstat_dlg_hwnd;
 

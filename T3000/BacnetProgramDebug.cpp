@@ -114,22 +114,22 @@ void CBacnetProgramDebug::Initial_List(unsigned int list_type)
 		{
 			m_program_debug_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 			m_program_debug_list.SetExtendedStyle(m_program_debug_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-			m_program_debug_list.InsertColumn(OUTPUT_NUM, _T("Output"), 60, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-			m_program_debug_list.InsertColumn(OUTPUT_PANEL, _T("Panel"), 60, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+			m_program_debug_list.InsertColumn(OUTPUT_NUM, _T("Output"), 69, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+			m_program_debug_list.InsertColumn(OUTPUT_PANEL, _T("Panel"), 69, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
 
-			m_program_debug_list.InsertColumn(OUTPUT_FULL_LABLE, _T("Full Label"), 140, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(OUTPUT_AUTO_MANUAL, _T("Auto/Manual"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(OUTPUT_HW_SWITCH, _T("HOA Switch"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(OUTPUT_VALUE, _T("Value"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(OUTPUT_UNITE, _T("Units"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(OUTPUT_RANGE, _T("Range"), 100, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(OUTPUT_FULL_LABLE, _T("Full Label"), 161, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(OUTPUT_AUTO_MANUAL, _T("Auto/Manual"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(OUTPUT_HW_SWITCH, _T("HOA Switch"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(OUTPUT_VALUE, _T("Value"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(OUTPUT_UNITE, _T("Units"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(OUTPUT_RANGE, _T("Range"), 115, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
 
-			m_program_debug_list.InsertColumn(OUTPUT_LOW_VOLTAGE, _T("Low V"), 50, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(OUTPUT_HIGH_VOLTAGE, _T("High V"), 50, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(OUTPUT_LOW_VOLTAGE, _T("Low V"), 57, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(OUTPUT_HIGH_VOLTAGE, _T("High V"), 57, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 
-			m_program_debug_list.InsertColumn(OUTPUT_PWM_PERIOD, _T("PWM Period"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(OUTPUT_DECOM, _T("Status"), 70, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(OUTPUT_LABLE, _T("Label"), 70, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(OUTPUT_PWM_PERIOD, _T("PWM Period"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(OUTPUT_DECOM, _T("Status"), 80, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(OUTPUT_LABLE, _T("Label"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 			m_program_debug_list_hwnd = this->m_hWnd;
 			g_hwnd_now = m_program_debug_list_hwnd;
 				CString temp_item;//,temp_value,temp_cal,temp_filter,temp_status,temp_lable;
@@ -175,19 +175,19 @@ void CBacnetProgramDebug::Initial_List(unsigned int list_type)
 
 			m_program_debug_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 			m_program_debug_list.SetExtendedStyle(m_program_debug_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-			m_program_debug_list.InsertColumn(INPUT_NUM, _T("Input"), 50, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-			m_program_debug_list.InsertColumn(INPUT_PANEL, _T("Panel"), 50, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-			m_program_debug_list.InsertColumn(INPUT_FULL_LABLE, _T("Full Label"), 100, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(INPUT_AUTO_MANUAL, _T("Auto/Man"), 70, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(INPUT_VALUE, _T("Value"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(INPUT_UNITE, _T("Units"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(INPUT_RANGE, _T("Range"), 100, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(INPUT_CAL, _T("Calibration"), 70, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(INPUT_CAL_OPERATION, _T("Sign"), 50, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(INPUT_FITLER, _T("Filter"), 60, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(INPUT_DECOM, _T("Status"), 60, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(INPUT_JUMPER, _T("Jumper"), 90, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(INPUT_LABLE, _T("Label"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(INPUT_NUM, _T("Input"), 57, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+			m_program_debug_list.InsertColumn(INPUT_PANEL, _T("Panel"), 57, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+			m_program_debug_list.InsertColumn(INPUT_FULL_LABLE, _T("Full Label"), 115, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(INPUT_AUTO_MANUAL, _T("Auto/Man"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(INPUT_VALUE, _T("Value"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(INPUT_UNITE, _T("Units"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(INPUT_RANGE, _T("Range"), 115, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(INPUT_CAL, _T("Calibration"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(INPUT_CAL_OPERATION, _T("Sign"), 57, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(INPUT_FITLER, _T("Filter"), 69, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(INPUT_DECOM, _T("Status"), 69, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(INPUT_JUMPER, _T("Jumper"), 103, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(INPUT_LABLE, _T("Label"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 			m_program_debug_list_hwnd = this->m_hWnd;
 			g_hwnd_now = m_program_debug_list_hwnd;
 
@@ -242,12 +242,12 @@ void CBacnetProgramDebug::Initial_List(unsigned int list_type)
 		{
 			m_program_debug_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 			m_program_debug_list.SetExtendedStyle(m_program_debug_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-			m_program_debug_list.InsertColumn(VARIABLE_NUM, _T("Variable"), 70, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-			m_program_debug_list.InsertColumn(VARIABLE_FULL_LABLE, _T("Full Label"), 150, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(VARIABLE_AUTO_MANUAL, _T("Auto/Manual"), 150, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(VARIABLE_VALUE, _T("Value"), 120, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(VARIABLE_UNITE, _T("Units"), 120, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(VARIABLE_LABLE, _T("Label"), 100, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(VARIABLE_NUM, _T("Variable"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+			m_program_debug_list.InsertColumn(VARIABLE_FULL_LABLE, _T("Full Label"), 172, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(VARIABLE_AUTO_MANUAL, _T("Auto/Manual"), 172, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(VARIABLE_VALUE, _T("Value"), 138, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(VARIABLE_UNITE, _T("Units"), 138, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(VARIABLE_LABLE, _T("Label"), 115, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 			m_program_debug_list_hwnd = this->m_hWnd;
 
 			g_hwnd_now = m_program_debug_list_hwnd;
@@ -275,21 +275,21 @@ void CBacnetProgramDebug::Initial_List(unsigned int list_type)
 		{
 			m_program_debug_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 			m_program_debug_list.SetExtendedStyle(m_program_debug_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-			m_program_debug_list.InsertColumn(CONTROLLER_NUM, _T("NUM"), 40, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-			m_program_debug_list.InsertColumn(CONTROLLER_INPUT, _T("Input"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(CONTROLLER_INPUTVALUE, _T("Value"), 60, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(CONTROLLER_INPUTUNITS, _T("Units"), 60, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(CONTROLLER_AUTO_MANUAL, _T("A/M"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(CONTROLLER_OUTPUT, _T("Output"), 100, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(CONTROLLER_SETPOINT, _T("Setpoint"), 60, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(CONTROLLER_SETVALUE, _T("Set Value"), 60, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(CONTROLLER_SETPOINTUNITS, _T("Units"), 70, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(CONTROLLER_ACTION, _T("Action"), 50, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(CONTROLLER_PROPORTIONAL, _T("Prop"), 50, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(CONTROLLER_RESET, _T("Int"), 50, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(CONTROLLER_I_TIME, _T("Time"), 50, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(CONTROLLER_RATE, _T("Der"), 50, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-			m_program_debug_list.InsertColumn(CONTROLLER_BIAS, _T("Bias"), 50, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(CONTROLLER_NUM, _T("NUM"), 46, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+			m_program_debug_list.InsertColumn(CONTROLLER_INPUT, _T("Input"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(CONTROLLER_INPUTVALUE, _T("Value"), 69, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(CONTROLLER_INPUTUNITS, _T("Units"), 69, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(CONTROLLER_AUTO_MANUAL, _T("A/M"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(CONTROLLER_OUTPUT, _T("Output"), 115, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(CONTROLLER_SETPOINT, _T("Setpoint"), 69, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(CONTROLLER_SETVALUE, _T("Set Value"), 69, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(CONTROLLER_SETPOINTUNITS, _T("Units"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(CONTROLLER_ACTION, _T("Action"), 57, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(CONTROLLER_PROPORTIONAL, _T("Prop"), 57, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(CONTROLLER_RESET, _T("Int"), 57, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(CONTROLLER_I_TIME, _T("Time"), 57, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(CONTROLLER_RATE, _T("Der"), 57, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+			m_program_debug_list.InsertColumn(CONTROLLER_BIAS, _T("Bias"), 57, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 
 
 			m_program_debug_list_hwnd = this->m_hWnd;
@@ -319,11 +319,11 @@ void CBacnetProgramDebug::Initial_List(unsigned int list_type)
     {
         m_program_debug_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
         m_program_debug_list.SetExtendedStyle(m_program_debug_list.GetExtendedStyle() | LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-        m_program_debug_list.InsertColumn(ANNUAL_ROUTINE_NUM, _T("NUM"), 60, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        m_program_debug_list.InsertColumn(ANNUAL_ROUTINE_FULL_LABEL, _T("Full Label"), 150, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_program_debug_list.InsertColumn(ANNUAL_ROUTINE_AUTO_MANUAL, _T("Auto/Manual"), 90, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_program_debug_list.InsertColumn(ANNUAL_ROUTINE_VALUE, _T("Value"), 80, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_program_debug_list.InsertColumn(ANNUAL_ROUTINE_LABLE, _T("Label"), 90, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_program_debug_list.InsertColumn(ANNUAL_ROUTINE_NUM, _T("NUM"), 69, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        m_program_debug_list.InsertColumn(ANNUAL_ROUTINE_FULL_LABEL, _T("Full Label"), 172, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_program_debug_list.InsertColumn(ANNUAL_ROUTINE_AUTO_MANUAL, _T("Auto/Manual"), 103, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_program_debug_list.InsertColumn(ANNUAL_ROUTINE_VALUE, _T("Value"), 92, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_program_debug_list.InsertColumn(ANNUAL_ROUTINE_LABLE, _T("Label"), 103, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 
         m_program_debug_list_hwnd = this->m_hWnd;
         g_hwnd_now = m_program_debug_list_hwnd;
@@ -356,15 +356,15 @@ void CBacnetProgramDebug::Initial_List(unsigned int list_type)
     {
         m_program_debug_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
         //m_program_debug_list.SetExtendedStyle(m_program_debug_list.GetExtendedStyle() | LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_NUM, _T("NUM"), 60, ListCtrlEx::CheckBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_FULL_LABLE, _T("Full Label"), 150, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_AUTO_MANUAL, _T("Auto/Manual"), 90, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_OUTPUT, _T("Output"), 80, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_HOLIDAY1, _T("Holiday1"), 90, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_STATE1, _T("State1"), 70, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_HOLIDAY2, _T("Holiday2"), 90, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_STATE2, _T("State2"), 70, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_LABEL, _T("Label"), 90, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_NUM, _T("NUM"), 69, ListCtrlEx::CheckBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_FULL_LABLE, _T("Full Label"), 172, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_AUTO_MANUAL, _T("Auto/Manual"), 103, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_OUTPUT, _T("Output"), 92, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_HOLIDAY1, _T("Holiday1"), 103, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_STATE1, _T("State1"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_HOLIDAY2, _T("Holiday2"), 103, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_STATE2, _T("State2"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_program_debug_list.InsertColumn(WEEKLY_ROUTINE_LABEL, _T("Label"), 103, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 
         m_program_debug_list_hwnd = this->m_hWnd;
         g_hwnd_now = m_program_debug_list_hwnd;

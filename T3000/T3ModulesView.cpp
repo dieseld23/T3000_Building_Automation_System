@@ -207,12 +207,12 @@ void CT3ModulesView::Fresh()
     {
         m_T3_Input_List.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_T3_Input_List.SetExtendedStyle(m_T3_Input_List.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
-        m_T3_Input_List.InsertColumn(0, _T("Label"), 50, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        //m_T3_Input_List.InsertColumn(1, _T("Full Label"), 70, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(1, _T("Value"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(2, _T("Date Stamp"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(3, _T("Range"), 90, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(4, _T("Filter"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(0, _T("Label"), 57, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        //m_T3_Input_List.InsertColumn(1, _T("Full Label"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(1, _T("Value"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(2, _T("Date Stamp"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(3, _T("Range"), 103, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(4, _T("Filter"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
         for (int i=0; i<10; i++)
         {
@@ -269,14 +269,14 @@ void CT3ModulesView::Fresh()
     {
         m_T3_Input_List.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_T3_Input_List.SetExtendedStyle(m_T3_Input_List.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
-        m_T3_Input_List.InsertColumn(0, _T("Label"), 50, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        //m_T3_Input_List.InsertColumn(1, _T("Full Label"), 70, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(1, _T("Value"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(2, _T("Date Stamp"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(3, _T("Range"), 90, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(4, _T("Filter"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(5, _T("Lighting Time"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(6, _T("Time Left"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(0, _T("Label"), 57, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        //m_T3_Input_List.InsertColumn(1, _T("Full Label"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(1, _T("Value"), 92, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(2, _T("Date Stamp"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(3, _T("Range"), 103, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(4, _T("Filter"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(5, _T("Lighting Time"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(6, _T("Time Left"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
         for (int i=0; i<8; i++)
         {
@@ -330,10 +330,10 @@ void CT3ModulesView::Fresh()
     {
         m_T3_Input_List.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_T3_Input_List.SetExtendedStyle(m_T3_Input_List.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
-        m_T3_Input_List.InsertColumn(0, _T("Label"), 50, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        m_T3_Input_List.InsertColumn(1, _T("Value"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(2, _T("Range"), 90, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(3, _T("Filter"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(0, _T("Label"), 57, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        m_T3_Input_List.InsertColumn(1, _T("Value"), 92, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(2, _T("Range"), 103, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(3, _T("Filter"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
         for (int i=0; i<8; i++)
         {
@@ -371,10 +371,10 @@ void CT3ModulesView::Fresh()
     {
         m_T3_Input_List.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_T3_Input_List.SetExtendedStyle(m_T3_Input_List.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
-        m_T3_Input_List.InsertColumn(0, _T("Label"), 50, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        m_T3_Input_List.InsertColumn(1, _T("Value"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(2, _T("Range"), 90, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(3, _T("Filter"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(0, _T("Label"), 57, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        m_T3_Input_List.InsertColumn(1, _T("Value"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(2, _T("Range"), 103, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(3, _T("Filter"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
         for (int i=0; i<6; i++)
         {
@@ -514,10 +514,10 @@ void CT3ModulesView::Fresh()
     {
         m_T3_Input_List.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_T3_Input_List.SetExtendedStyle(m_T3_Input_List.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
-        m_T3_Input_List.InsertColumn(0, _T("Label"), 50, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        m_T3_Input_List.InsertColumn(1, _T("Value"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(2, _T("Range"), 90, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(3, _T("Filter"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(0, _T("Label"), 57, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        m_T3_Input_List.InsertColumn(1, _T("Value"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(2, _T("Range"), 103, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(3, _T("Filter"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
         for (int i=0; i<8; i++)
         {
@@ -546,10 +546,10 @@ void CT3ModulesView::Fresh()
     {
         m_T3_Input_List.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_T3_Input_List.SetExtendedStyle(m_T3_Input_List.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
-        m_T3_Input_List.InsertColumn(0, _T("Label"), 50, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        m_T3_Input_List.InsertColumn(1, _T("Value"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(2, _T("Range"), 90, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(3, _T("Filter"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(0, _T("Label"), 57, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        m_T3_Input_List.InsertColumn(1, _T("Value"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(2, _T("Range"), 103, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(3, _T("Filter"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
         for (int i=0; i<32; i++)
         {
             strTemp=Get_Table_Name(m_sn,_T("Input"),i+1);
@@ -586,12 +586,12 @@ void CT3ModulesView::Fresh()
     {
         m_T3_Input_List.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_T3_Input_List.SetExtendedStyle(m_T3_Input_List.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
-        m_T3_Input_List.InsertColumn(0, _T("Number"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        m_T3_Input_List.InsertColumn(1, _T("Name"), 100, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(2, _T("Value"), 90, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(3, _T("Range"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(4, _T("Filter"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(5, _T("Status"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(0, _T("Number"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        m_T3_Input_List.InsertColumn(1, _T("Name"), 115, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(2, _T("Value"), 103, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(3, _T("Range"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(4, _T("Filter"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(5, _T("Status"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
         for (int i=1; i<11; i++)
         {
@@ -735,12 +735,12 @@ void CT3ModulesView::Fresh()
     {
         m_T3_Input_List.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_T3_Input_List.SetExtendedStyle(m_T3_Input_List.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
-        m_T3_Input_List.InsertColumn(0, _T("Number"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        m_T3_Input_List.InsertColumn(1, _T("Name"), 100, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(2, _T("Value"), 90, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(3, _T("Range"), 60, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(4, _T("Filter"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_T3_Input_List.InsertColumn(5, _T("Calibration"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(0, _T("Number"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        m_T3_Input_List.InsertColumn(1, _T("Name"), 115, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(2, _T("Value"), 103, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(3, _T("Range"), 69, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(4, _T("Filter"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_T3_Input_List.InsertColumn(5, _T("Calibration"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
         for (int i=0; i<22; i++)
         {
             strTemp.Format(_T("%d"),i+1);

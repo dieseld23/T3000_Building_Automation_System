@@ -165,21 +165,21 @@ void BacnetController::Initial_List()
 
 	m_controller_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 	m_controller_list.SetExtendedStyle(m_controller_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_controller_list.InsertColumn(CONTROLLER_NUM, _T("NUM"), 40, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_controller_list.InsertColumn(CONTROLLER_INPUT, _T("Input"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_controller_list.InsertColumn(CONTROLLER_INPUTVALUE, _T("Value"), 60, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_controller_list.InsertColumn(CONTROLLER_INPUTUNITS, _T("Units"), 60, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_controller_list.InsertColumn(CONTROLLER_AUTO_MANUAL, _T("A/M"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_controller_list.InsertColumn(CONTROLLER_OUTPUT, _T("Output"), 100, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_controller_list.InsertColumn(CONTROLLER_SETPOINT, _T("Setpoint"), 60, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_controller_list.InsertColumn(CONTROLLER_SETVALUE, _T("Set Value"), 60, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_controller_list.InsertColumn(CONTROLLER_SETPOINTUNITS, _T("Units"), 70, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_controller_list.InsertColumn(CONTROLLER_ACTION, _T("Action"), 50, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_controller_list.InsertColumn(CONTROLLER_PROPORTIONAL, _T("Prop"), 50, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_controller_list.InsertColumn(CONTROLLER_RESET, _T("Int"), 50, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_controller_list.InsertColumn(CONTROLLER_I_TIME, _T("Time"), 50, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_controller_list.InsertColumn(CONTROLLER_RATE, _T("Der"), 50, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_controller_list.InsertColumn(CONTROLLER_BIAS, _T("Bias"), 50, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_controller_list.InsertColumn(CONTROLLER_NUM, _T("NUM"), 46, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_controller_list.InsertColumn(CONTROLLER_INPUT, _T("Input"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_controller_list.InsertColumn(CONTROLLER_INPUTVALUE, _T("Value"), 69, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_controller_list.InsertColumn(CONTROLLER_INPUTUNITS, _T("Units"), 69, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_controller_list.InsertColumn(CONTROLLER_AUTO_MANUAL, _T("A/M"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_controller_list.InsertColumn(CONTROLLER_OUTPUT, _T("Output"), 115, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_controller_list.InsertColumn(CONTROLLER_SETPOINT, _T("Setpoint"), 69, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_controller_list.InsertColumn(CONTROLLER_SETVALUE, _T("Set Value"), 69, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_controller_list.InsertColumn(CONTROLLER_SETPOINTUNITS, _T("Units"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_controller_list.InsertColumn(CONTROLLER_ACTION, _T("Action"), 57, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_controller_list.InsertColumn(CONTROLLER_PROPORTIONAL, _T("Prop"), 57, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_controller_list.InsertColumn(CONTROLLER_RESET, _T("Int"), 57, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_controller_list.InsertColumn(CONTROLLER_I_TIME, _T("Time"), 57, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_controller_list.InsertColumn(CONTROLLER_RATE, _T("Der"), 57, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_controller_list.InsertColumn(CONTROLLER_BIAS, _T("Bias"), 57, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	
 	
 	m_controller_dlg_hwnd = this->m_hWnd;

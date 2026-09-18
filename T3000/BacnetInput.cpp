@@ -347,19 +347,19 @@ void CBacnetInput::Initial_List()
 	m_input_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 	//m_input_list.SetExtendedStyle(m_input_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
 	m_input_list.SetExtendedStyle(m_input_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_input_list.InsertColumn(INPUT_NUM, _T("Input"), 40, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_input_list.InsertColumn(INPUT_PANEL, _T("Panel"), 40, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_input_list.InsertColumn(INPUT_FULL_LABLE, _T("Full Label"), 100, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_input_list.InsertColumn(INPUT_AUTO_MANUAL, _T("Auto/Man"), 65, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_input_list.InsertColumn(INPUT_VALUE, _T("Value"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_input_list.InsertColumn(INPUT_UNITE, _T("Units"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_input_list.InsertColumn(INPUT_RANGE, _T("Range"), 100, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_input_list.InsertColumn(INPUT_CAL, _T("Calibration"), 70, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_input_list.InsertColumn(INPUT_CAL_OPERATION, _T("Sign"), 50, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_input_list.InsertColumn(INPUT_FITLER, _T("Filter"), 60, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_input_list.InsertColumn(INPUT_DECOM, _T("Status"), 60, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_input_list.InsertColumn(INPUT_JUMPER, _T("Signal Type"), 90, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_input_list.InsertColumn(INPUT_LABLE, _T("Label"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_input_list.InsertColumn(INPUT_NUM, _T("Input"), 46, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_input_list.InsertColumn(INPUT_PANEL, _T("Panel"), 46, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_input_list.InsertColumn(INPUT_FULL_LABLE, _T("Full Label"), 115, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_input_list.InsertColumn(INPUT_AUTO_MANUAL, _T("Auto/Man"), 75, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_input_list.InsertColumn(INPUT_VALUE, _T("Value"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_input_list.InsertColumn(INPUT_UNITE, _T("Units"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_input_list.InsertColumn(INPUT_RANGE, _T("Range"), 115, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_input_list.InsertColumn(INPUT_CAL, _T("Calibration"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_input_list.InsertColumn(INPUT_CAL_OPERATION, _T("Sign"), 57, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_input_list.InsertColumn(INPUT_FITLER, _T("Filter"), 69, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_input_list.InsertColumn(INPUT_DECOM, _T("Status"), 69, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_input_list.InsertColumn(INPUT_JUMPER, _T("Signal Type"), 103, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_input_list.InsertColumn(INPUT_LABLE, _T("Label"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 
 	m_input_list.InsertColumn(INPUT_EXTERNAL, _T("Type"), 0, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	m_input_list.InsertColumn(INPUT_PRODUCT, _T("Product Name"), 0, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
@@ -875,7 +875,7 @@ LRESULT CBacnetInput::Fresh_Input_List(WPARAM wParam, LPARAM lParam)
 	if (bacnet_device_type == PM_THIRD_PARTY_DEVICE) // for bacnet devices hiding columns
 	{
 		//m_input_list.DeleteColumn(INPUT_AUTO_MANUAL);
-		//m_input_list.InsertColumn(INPUT_AUTO_MANUAL, _T("Out of service"), 100, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+		//m_input_list.InsertColumn(INPUT_AUTO_MANUAL, _T("Out of service"), 115, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
 		//LVCOLUMN col;
 		TCHAR szBuffer[80];
 
@@ -898,7 +898,7 @@ LRESULT CBacnetInput::Fresh_Input_List(WPARAM wParam, LPARAM lParam)
 	}
 	else { // to show the column for non-bacnet devices
 		//m_input_list.DeleteColumn(INPUT_AUTO_MANUAL);
-		//m_input_list.InsertColumn(INPUT_AUTO_MANUAL, _T("Auto/Manual"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+		//m_input_list.InsertColumn(INPUT_AUTO_MANUAL, _T("Auto/Manual"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
 		TCHAR szBuffer[80];
 
 		LVCOLUMN col;

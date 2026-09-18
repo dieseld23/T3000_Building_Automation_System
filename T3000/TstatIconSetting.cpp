@@ -70,15 +70,15 @@ void CTstatIconSetting::Initial_List()
     m_tstat_icon_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
     //m_tstat_icon_list.SetExtendedStyle(m_tstat_icon_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
     m_tstat_icon_list.SetExtendedStyle(m_tstat_icon_list.GetExtendedStyle() | LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-    m_tstat_icon_list.InsertColumn(TSTAT_ICON_NAME, _T("   "), 70, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-    m_tstat_icon_list.InsertColumn(TSTAT_ICON_NA, _T("N/A"), 40, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_tstat_icon_list.InsertColumn(TSTAT_ICON_K1, _T("K1"), 40, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_tstat_icon_list.InsertColumn(TSTAT_ICON_K2, _T("K2"), 40, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_tstat_icon_list.InsertColumn(TSTAT_ICON_K3, _T("K3"), 40, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_tstat_icon_list.InsertColumn(TSTAT_ICON_K4, _T("K4"), 40, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_tstat_icon_list.InsertColumn(TSTAT_ICON_K5, _T("K5"), 40, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_tstat_icon_list.InsertColumn(TSTAT_ICON_AO1, _T("AO1"), 40, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_tstat_icon_list.InsertColumn(TSTAT_ICON_AO2, _T("AO2"), 40, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_tstat_icon_list.InsertColumn(TSTAT_ICON_NAME, _T("   "), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+    m_tstat_icon_list.InsertColumn(TSTAT_ICON_NA, _T("N/A"), 46, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_tstat_icon_list.InsertColumn(TSTAT_ICON_K1, _T("K1"), 46, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_tstat_icon_list.InsertColumn(TSTAT_ICON_K2, _T("K2"), 46, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_tstat_icon_list.InsertColumn(TSTAT_ICON_K3, _T("K3"), 46, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_tstat_icon_list.InsertColumn(TSTAT_ICON_K4, _T("K4"), 46, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_tstat_icon_list.InsertColumn(TSTAT_ICON_K5, _T("K5"), 46, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_tstat_icon_list.InsertColumn(TSTAT_ICON_AO1, _T("AO1"), 46, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_tstat_icon_list.InsertColumn(TSTAT_ICON_AO2, _T("AO2"), 46, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
     m_pragram_dlg_hwnd = this->m_hWnd;
     //g_hwnd_now = m_pragram_dlg_hwnd;

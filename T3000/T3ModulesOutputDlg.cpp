@@ -112,9 +112,9 @@ void CT3ModulesOutputDlg::Fresh()
     {
         m_outputlist.ModifyStyle(0,LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_outputlist.SetExtendedStyle(m_outputlist.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
-        m_outputlist.InsertColumn(0, _T("Label"), 180, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        m_outputlist.InsertColumn(1, _T("Switch Status"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_outputlist.InsertColumn(2, _T("Value"), 90, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_outputlist.InsertColumn(0, _T("Label"), 207, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        m_outputlist.InsertColumn(1, _T("Switch Status"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_outputlist.InsertColumn(2, _T("Value"), 103, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
         for(int i=1; i<9; i++)
         {
@@ -205,9 +205,9 @@ void CT3ModulesOutputDlg::Fresh()
     {
         m_outputlist.ModifyStyle(0,LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_outputlist.SetExtendedStyle(m_outputlist.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
-        m_outputlist.InsertColumn(0, _T("Label"), 180, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        m_outputlist.InsertColumn(2, _T("Switch Status"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_outputlist.InsertColumn(1, _T("Value"), 90, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_outputlist.InsertColumn(0, _T("Label"), 207, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        m_outputlist.InsertColumn(2, _T("Switch Status"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_outputlist.InsertColumn(1, _T("Value"), 103, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
         bitset<16> BitSwitchValue(product_register_value[116]);
         int SwitchValue[8];
@@ -249,9 +249,9 @@ void CT3ModulesOutputDlg::Fresh()
     {
         m_outputlist.ModifyStyle(0,LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_outputlist.SetExtendedStyle(m_outputlist.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
-        m_outputlist.InsertColumn(0, _T("Label"), 180, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        m_outputlist.InsertColumn(2, _T("Switch Status"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_outputlist.InsertColumn(1, _T("Value"), 90, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_outputlist.InsertColumn(0, _T("Label"), 207, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        m_outputlist.InsertColumn(2, _T("Switch Status"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_outputlist.InsertColumn(1, _T("Value"), 103, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
         bitset<16> BitSwitchValue1(product_register_value[114]);
         bitset<16> BitSwitchValue2(product_register_value[115]);
@@ -337,11 +337,11 @@ void CT3ModulesOutputDlg::Fresh()
     {
         m_outputlist.ModifyStyle(0,LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_outputlist.SetExtendedStyle(m_outputlist.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
-        m_outputlist.InsertColumn(0, _T("Label"), 180, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        m_outputlist.InsertColumn(1, _T("Output Value"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_outputlist.InsertColumn(2, _T("Light Switch"), 90, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_outputlist.InsertColumn(3, _T("Auto/Manual"), 90, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_outputlist.InsertColumn(4, _T("Switch Status"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_outputlist.InsertColumn(0, _T("Label"), 207, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        m_outputlist.InsertColumn(1, _T("Output Value"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_outputlist.InsertColumn(2, _T("Light Switch"), 103, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_outputlist.InsertColumn(3, _T("Auto/Manual"), 103, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_outputlist.InsertColumn(4, _T("Switch Status"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
         for(int i=1; i<14; i++)
         {
@@ -415,9 +415,9 @@ void CT3ModulesOutputDlg::Fresh()
     {
         m_outputlist.ModifyStyle(0,LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_outputlist.SetExtendedStyle(m_outputlist.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
-        m_outputlist.InsertColumn(0, _T("Label"), 180, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        m_outputlist.InsertColumn(2, _T("Switch Status"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_outputlist.InsertColumn(1, _T("Value"), 90, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_outputlist.InsertColumn(0, _T("Label"), 207, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        m_outputlist.InsertColumn(2, _T("Switch Status"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_outputlist.InsertColumn(1, _T("Value"), 103, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
         for(int i=1; i<6; i++)
         {

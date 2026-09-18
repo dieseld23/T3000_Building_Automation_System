@@ -238,16 +238,16 @@ BOOL CNewTstatSchedulesDlg::OnInitDialog()
 	WeeklyList.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
 	//m_input_list.SetExtendedStyle(m_input_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
 	WeeklyList.SetExtendedStyle(WeeklyList.GetExtendedStyle() | LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	WeeklyList.InsertColumn(0, _T("Item"), 40, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	WeeklyList.InsertColumn(1, _T("Time"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	WeeklyList.InsertColumn(2, _T("Monday"), 80, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	WeeklyList.InsertColumn(3, _T("Tuesday"), 80, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	WeeklyList.InsertColumn(4, _T("Wednesday"), 80, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	WeeklyList.InsertColumn(5, _T("Thursday"), 80, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	WeeklyList.InsertColumn(6, _T("Friday"), 80, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	WeeklyList.InsertColumn(7, _T("Saturday"), 80, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	WeeklyList.InsertColumn(8, _T("Sunday"), 80, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	WeeklyList.InsertColumn(9, _T("Holiday"), 80, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	WeeklyList.InsertColumn(0, _T("Item"), 46, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	WeeklyList.InsertColumn(1, _T("Time"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	WeeklyList.InsertColumn(2, _T("Monday"), 92, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	WeeklyList.InsertColumn(3, _T("Tuesday"), 92, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	WeeklyList.InsertColumn(4, _T("Wednesday"), 92, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	WeeklyList.InsertColumn(5, _T("Thursday"), 92, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	WeeklyList.InsertColumn(6, _T("Friday"), 92, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	WeeklyList.InsertColumn(7, _T("Saturday"), 92, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	WeeklyList.InsertColumn(8, _T("Sunday"), 92, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	WeeklyList.InsertColumn(9, _T("Holiday"), 92, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	WeeklyList.SetBkColor(RGB(205, 201, 201));
 
 

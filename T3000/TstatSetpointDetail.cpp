@@ -189,13 +189,13 @@ void CTstatSetpointDetail::Initial_List()
     m_tstat_setpoint_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
     //m_tstat_setpoint_list.SetExtendedStyle(m_tstat_setpoint_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
     m_tstat_setpoint_list.SetExtendedStyle(m_tstat_setpoint_list.GetExtendedStyle() | LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-    m_tstat_setpoint_list.InsertColumn(TSTAT_SETPOINT_ITEM, _T(" "), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-    m_tstat_setpoint_list.InsertColumn(TSTAT_SETPOINT_TYPE, _T("Scrollbar Type"), 100, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    m_tstat_setpoint_list.InsertColumn(TSTAT_SETPOINT_SETPOINT, _T("Setpoint"), 100, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    m_tstat_setpoint_list.InsertColumn(TSTAT_SETPOINT_HEAT_SP, _T("HeatSP"), 100, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    m_tstat_setpoint_list.InsertColumn(TSTAT_SETPOINT_COOL_SP, _T("CoolSP"), 100, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    m_tstat_setpoint_list.InsertColumn(TSTAT_SETPOINT_COOL_DB, _T("CoolDeadband"), 100, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    m_tstat_setpoint_list.InsertColumn(TSTAT_SETPOINT_HEAT_DB, _T("HeatDeadband"), 100, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_tstat_setpoint_list.InsertColumn(TSTAT_SETPOINT_ITEM, _T(" "), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+    m_tstat_setpoint_list.InsertColumn(TSTAT_SETPOINT_TYPE, _T("Scrollbar Type"), 115, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_tstat_setpoint_list.InsertColumn(TSTAT_SETPOINT_SETPOINT, _T("Setpoint"), 115, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_tstat_setpoint_list.InsertColumn(TSTAT_SETPOINT_HEAT_SP, _T("HeatSP"), 115, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_tstat_setpoint_list.InsertColumn(TSTAT_SETPOINT_COOL_SP, _T("CoolSP"), 115, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_tstat_setpoint_list.InsertColumn(TSTAT_SETPOINT_COOL_DB, _T("CoolDeadband"), 115, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_tstat_setpoint_list.InsertColumn(TSTAT_SETPOINT_HEAT_DB, _T("HeatDeadband"), 115, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 
     m_tstat_setpoint_list.SetListHwnd(this->m_hWnd);
     CRect list_rect, win_rect;

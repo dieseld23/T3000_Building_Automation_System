@@ -884,29 +884,29 @@ void CBacnetRegisterListView::Initial_List()
     {
         vector_third_db_name.clear();
         m_register_view.SetExtendedStyle(m_register_view.GetExtendedStyle() | LVS_EX_GRIDLINES & (~LVS_EX_FULLROWSELECT));//Not allow full row select.
-        m_register_view.InsertColumn(REGISTER_LIST_ID, _T("ID"), 40, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-        m_register_view.InsertColumn(REGISTER_LIST_ADDRESS, _T("Address"), 60, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_register_view.InsertColumn(REGUSTER_LIST_OPERATION, _T("Operation"), 130, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_register_view.InsertColumn(REGISTER_LIST_REG_LENGTH, _T("Length"), 50, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_register_view.InsertColumn(REGISTER_LIST_REG_NAME, _T("Register Name"), 140, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_register_view.InsertColumn(REGISTER_LIST_VALUE, _T("Value"), 70, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_register_view.InsertColumn(REGISTER_LIST_DATA_FORMAT, _T("Data Format"), 140, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_register_view.InsertColumn(REGISTER_LIST_DESCRIPTION, _T("Description"), 350, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_register_view.InsertColumn(REGISTER_LIST_UNIT, _T("Unit"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_register_view.InsertColumn(REGISTER_LIST_ID, _T("ID"), 46, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+        m_register_view.InsertColumn(REGISTER_LIST_ADDRESS, _T("Address"), 69, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_register_view.InsertColumn(REGUSTER_LIST_OPERATION, _T("Operation"), 150, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_register_view.InsertColumn(REGISTER_LIST_REG_LENGTH, _T("Length"), 57, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_register_view.InsertColumn(REGISTER_LIST_REG_NAME, _T("Register Name"), 161, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_register_view.InsertColumn(REGISTER_LIST_VALUE, _T("Value"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_register_view.InsertColumn(REGISTER_LIST_DATA_FORMAT, _T("Data Format"), 161, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_register_view.InsertColumn(REGISTER_LIST_DESCRIPTION, _T("Description"), 402, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_register_view.InsertColumn(REGISTER_LIST_UNIT, _T("Unit"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
         ShowThirdPartyWindow(1);
     }
     else
     {
         m_register_view.SetExtendedStyle(m_register_view.GetExtendedStyle() | LVS_EX_GRIDLINES & (~LVS_EX_FULLROWSELECT));//Not allow full row select.
-        m_register_view.InsertColumn(REGISTER_LIST_ID, _T("ID"), 40, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-        m_register_view.InsertColumn(REGISTER_LIST_ADDRESS, _T("Address"), 60, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_register_view.InsertColumn(REGUSTER_LIST_OPERATION, _T("Operation"), 130, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_register_view.InsertColumn(REGISTER_LIST_REG_LENGTH, _T("Length"), 50, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_register_view.InsertColumn(REGISTER_LIST_REG_NAME, _T("Register Name"), 140, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_register_view.InsertColumn(REGISTER_LIST_VALUE, _T("Value"), 70, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_register_view.InsertColumn(REGISTER_LIST_DATA_FORMAT, _T("Data Format"), 140, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_register_view.InsertColumn(REGISTER_LIST_DESCRIPTION, _T("Description"), 350, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-        m_register_view.InsertColumn(REGISTER_LIST_UNIT, _T("Unit"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_register_view.InsertColumn(REGISTER_LIST_ID, _T("ID"), 46, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+        m_register_view.InsertColumn(REGISTER_LIST_ADDRESS, _T("Address"), 69, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_register_view.InsertColumn(REGUSTER_LIST_OPERATION, _T("Operation"), 150, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_register_view.InsertColumn(REGISTER_LIST_REG_LENGTH, _T("Length"), 57, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_register_view.InsertColumn(REGISTER_LIST_REG_NAME, _T("Register Name"), 161, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_register_view.InsertColumn(REGISTER_LIST_VALUE, _T("Value"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_register_view.InsertColumn(REGISTER_LIST_DATA_FORMAT, _T("Data Format"), 161, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_register_view.InsertColumn(REGISTER_LIST_DESCRIPTION, _T("Description"), 402, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+        m_register_view.InsertColumn(REGISTER_LIST_UNIT, _T("Unit"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
         ShowThirdPartyWindow(0);
     }
     m_pragram_dlg_hwnd = this->m_hWnd;

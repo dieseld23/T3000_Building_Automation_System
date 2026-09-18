@@ -202,13 +202,13 @@ int Number = product_register_value[52];
     while ( m_zigbee_list.DeleteColumn (0)) ;
         m_zigbee_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
         m_zigbee_list.SetExtendedStyle(m_zigbee_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-        m_zigbee_list.InsertColumn(0, _T("NUM"), 50, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-        m_zigbee_list.InsertColumn(1, _T("Modbus IDs"), 140, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_zigbee_list.InsertColumn(2, _T("Voltage"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_zigbee_list.InsertColumn(3, _T("Switch Status"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_zigbee_list.InsertColumn(4, _T("Temperature 1"), 120, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_zigbee_list.InsertColumn(5, _T("Temperature 2"), 120, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-        m_zigbee_list.InsertColumn(6, _T("Signal Strength"), 120, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_zigbee_list.InsertColumn(0, _T("NUM"), 57, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+        m_zigbee_list.InsertColumn(1, _T("Modbus IDs"), 161, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_zigbee_list.InsertColumn(2, _T("Voltage"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_zigbee_list.InsertColumn(3, _T("Switch Status"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_zigbee_list.InsertColumn(4, _T("Temperature 1"), 138, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_zigbee_list.InsertColumn(5, _T("Temperature 2"), 138, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+        m_zigbee_list.InsertColumn(6, _T("Signal Strength"), 138, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
          g_hwnd_now = this->m_hWnd;
         if (Number<=0)
         {

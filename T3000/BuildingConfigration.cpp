@@ -82,14 +82,14 @@ BOOL CBuildingConfigration::OnInitDialog()
     m_building_config_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
     //m_building_config_list.SetExtendedStyle(m_building_config_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
     m_building_config_list.SetExtendedStyle(m_building_config_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-    m_building_config_list.InsertColumn(BC_ITEM, _T(""), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-    m_building_config_list.InsertColumn(BC_MAINNAME, _T("Building"), 120, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_building_config_list.InsertColumn(BC_PROTOCOL, _T("Protocol"), 100, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_building_config_list.InsertColumn(BC_IPADDRESS, _T("IP/Domain/Tel#/SerialNumber"), 150, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_building_config_list.InsertColumn(BC_IPPORT, _T("Modbus TCP Port"), 120, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_building_config_list.InsertColumn(BC_COMPORT, _T("COM Port"), 80, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_building_config_list.InsertColumn(BC_BAUDRATE, _T("Baud Rate"), 80, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_building_config_list.InsertColumn(BC_BUILDINGPATH, _T("Building Path"), 600, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_building_config_list.InsertColumn(BC_ITEM, _T(""), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+    m_building_config_list.InsertColumn(BC_MAINNAME, _T("Building"), 138, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_building_config_list.InsertColumn(BC_PROTOCOL, _T("Protocol"), 115, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_building_config_list.InsertColumn(BC_IPADDRESS, _T("IP/Domain/Tel#/SerialNumber"), 172, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_building_config_list.InsertColumn(BC_IPPORT, _T("Modbus TCP Port"), 138, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_building_config_list.InsertColumn(BC_COMPORT, _T("COM Port"), 92, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_building_config_list.InsertColumn(BC_BAUDRATE, _T("Baud Rate"), 92, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_building_config_list.InsertColumn(BC_BUILDINGPATH, _T("Building Path"), 690, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
     m_building_config_hwnd = this->m_hWnd;
     g_hwnd_now = m_building_config_hwnd;
@@ -462,15 +462,15 @@ void CBuildingConfigration::Fresh_List_Row()
     //m_building_config_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
     ////m_building_config_list.SetExtendedStyle(m_building_config_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
     //m_building_config_list.SetExtendedStyle(m_building_config_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-    //m_building_config_list.InsertColumn(BC_ITEM, _T(""), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-    //m_building_config_list.InsertColumn(BC_MAINNAME, _T("Main Building"), 120, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    //m_building_config_list.InsertColumn(BC_ITEM, _T(""), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+    //m_building_config_list.InsertColumn(BC_MAINNAME, _T("Main Building"), 138, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
     ////m_building_config_list.InsertColumn(BC_SUBNAME, _T("Sub Net"), 0, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    //m_building_config_list.InsertColumn(BC_PROTOCOL, _T("Protocol"), 100, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    //m_building_config_list.InsertColumn(BC_IPADDRESS, _T("IP Address / Domain"), 150, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    //m_building_config_list.InsertColumn(BC_IPPORT, _T("IP Port"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    //m_building_config_list.InsertColumn(BC_COMPORT, _T("COM Port"), 80, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    //m_building_config_list.InsertColumn(BC_BAUDRATE, _T("Baud Rate"), 80, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    //m_building_config_list.InsertColumn(BC_BUILDINGPATH, _T("Building Path"), 600, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    //m_building_config_list.InsertColumn(BC_PROTOCOL, _T("Protocol"), 115, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    //m_building_config_list.InsertColumn(BC_IPADDRESS, _T("IP Address / Domain"), 172, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    //m_building_config_list.InsertColumn(BC_IPPORT, _T("IP Port"), 92, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    //m_building_config_list.InsertColumn(BC_COMPORT, _T("COM Port"), 92, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    //m_building_config_list.InsertColumn(BC_BAUDRATE, _T("Baud Rate"), 92, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    //m_building_config_list.InsertColumn(BC_BUILDINGPATH, _T("Building Path"), 690, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
     for (int i=0; i<(int)m_BuildNameLst.size(); i++)
     {

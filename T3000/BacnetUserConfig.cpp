@@ -207,7 +207,7 @@ void CBacnetUserConfig::Initial_List()
 	m_user_config_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 	//m_user_config_list.SetExtendedStyle(m_user_config_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
 	m_user_config_list.SetExtendedStyle(m_user_config_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_user_config_list.InsertColumn(USERLIST_NAME, _T("User  Name"), 150, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+	m_user_config_list.InsertColumn(USERLIST_NAME, _T("User  Name"), 172, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
 
 	m_user_config_hwnd = this->m_hWnd;
 	g_hwnd_now = m_user_config_hwnd;

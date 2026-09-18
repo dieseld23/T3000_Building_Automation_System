@@ -170,13 +170,13 @@ void CBacnetProgram::Initial_List()
 
 	m_program_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 	m_program_list.SetExtendedStyle(m_program_list.GetExtendedStyle() |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_program_list.InsertColumn(PROGRAM_NUM, _T("Program"), 80, ListCtrlEx::CheckBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_program_list.InsertColumn(PROGRAM_FULL_LABLE, _T("Full Label"), 150, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_program_list.InsertColumn(PROGRAM_STATUS, _T("Status"), 100, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_program_list.InsertColumn(PROGRAM_AUTO_MANUAL, _T("Auto/Manual"), 100, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_program_list.InsertColumn(PROGRAM_SIZE_LIST, _T("Size"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_program_list.InsertColumn(PROGRAM_RUN_STATUS, _T("Execution time"), 100, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_program_list.InsertColumn(PROGRAM_LABEL, _T("Label"), 100, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_program_list.InsertColumn(PROGRAM_NUM, _T("Program"), 92, ListCtrlEx::CheckBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_program_list.InsertColumn(PROGRAM_FULL_LABLE, _T("Full Label"), 172, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_program_list.InsertColumn(PROGRAM_STATUS, _T("Status"), 115, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_program_list.InsertColumn(PROGRAM_AUTO_MANUAL, _T("Auto/Manual"), 115, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_program_list.InsertColumn(PROGRAM_SIZE_LIST, _T("Size"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_program_list.InsertColumn(PROGRAM_RUN_STATUS, _T("Execution time"), 115, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_program_list.InsertColumn(PROGRAM_LABEL, _T("Label"), 115, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	m_program_list.Setlistcolcharlimit(1,STR_PROGRAM_DESCRIPTION_LENGTH -1);
 	m_program_list.Setlistcolcharlimit(6,STR_PROGRAM_LABEL_LENGTH-1);
 	m_pragram_dlg_hwnd = this->m_hWnd;

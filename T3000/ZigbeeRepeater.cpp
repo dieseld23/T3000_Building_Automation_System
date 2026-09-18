@@ -306,9 +306,9 @@ void CZigbeeRepeater::Initial_List()
 
     m_zigbee_repeater_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
     m_zigbee_repeater_list.SetExtendedStyle(m_zigbee_repeater_list.GetExtendedStyle() | LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-    m_zigbee_repeater_list.InsertColumn(0, _T("Item"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-    m_zigbee_repeater_list.InsertColumn(1, _T("Modbus ID"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-    m_zigbee_repeater_list.InsertColumn(2, _T("RSSI (dBm)"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_zigbee_repeater_list.InsertColumn(0, _T("Item"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+    m_zigbee_repeater_list.InsertColumn(1, _T("Modbus ID"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+    m_zigbee_repeater_list.InsertColumn(2, _T("RSSI (dBm)"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
     m_zigbee_repeater_list.SetListHwnd(this->m_hWnd);
     //m_zigbee_repeater_list.SetWhetherShowBkCol(false);
     CRect list_rect, win_rect;
@@ -329,13 +329,13 @@ void CZigbeeRepeater::Initial_Moudle_List()
 
     m_zigbee_input_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
     m_zigbee_input_list.SetExtendedStyle(m_zigbee_repeater_list.GetExtendedStyle() | LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-    m_zigbee_input_list.InsertColumn(ZIGBEE_MOUDLE_ITEM,    _T("Item"), 50, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-    m_zigbee_input_list.InsertColumn(ZIGBEE_MOUDLE_MODBUSID, _T("Modbus ID"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-    m_zigbee_input_list.InsertColumn(ZIGBEE_MOUDLE_VOLTAGE, _T("Voltage( V )"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-    m_zigbee_input_list.InsertColumn(ZIGBEE_MOUDLE_STATUS, _T("Status"), 60, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    m_zigbee_input_list.InsertColumn(ZIGBEE_MOUDLE_TEMPERATURE_1, _T("Temperature 1 (Deg.C)"), 150, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    m_zigbee_input_list.InsertColumn(ZIGBEE_MOUDLE_TEMPERATURE_2, _T("Temperature 2 (Deg.C)"), 150, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    m_zigbee_input_list.InsertColumn(ZIGBEE_MOUDLE_RSSI, _T("RSSI (dBm)"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_zigbee_input_list.InsertColumn(ZIGBEE_MOUDLE_ITEM,    _T("Item"), 57, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+    m_zigbee_input_list.InsertColumn(ZIGBEE_MOUDLE_MODBUSID, _T("Modbus ID"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+    m_zigbee_input_list.InsertColumn(ZIGBEE_MOUDLE_VOLTAGE, _T("Voltage( V )"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+    m_zigbee_input_list.InsertColumn(ZIGBEE_MOUDLE_STATUS, _T("Status"), 69, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_zigbee_input_list.InsertColumn(ZIGBEE_MOUDLE_TEMPERATURE_1, _T("Temperature 1 (Deg.C)"), 172, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_zigbee_input_list.InsertColumn(ZIGBEE_MOUDLE_TEMPERATURE_2, _T("Temperature 2 (Deg.C)"), 172, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_zigbee_input_list.InsertColumn(ZIGBEE_MOUDLE_RSSI, _T("RSSI (dBm)"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
     m_zigbee_input_list.SetListHwnd(this->m_hWnd);
     //m_zigbee_input_list.SetWhetherShowBkCol(false);
     CRect list_rect, win_rect;

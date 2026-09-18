@@ -58,10 +58,10 @@ void CBacnetCustomerDigitalRange::Initial_List()
 	m_custom_dig_range_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 	//m_custom_dig_range_list.SetExtendedStyle(m_custom_dig_range_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
 	m_custom_dig_range_list.SetExtendedStyle(m_custom_dig_range_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_custom_dig_range_list.InsertColumn(CUSTOM_DIGITAL_RANGE_NUM, _T("NUM"), 50, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-	m_custom_dig_range_list.InsertColumn(CUSTOM_DIGITAL_RANGE_OFF, _T("Digital Off"), 100, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_custom_dig_range_list.InsertColumn(CUSTOM_DIGITAL_RANGE_ON, _T("Digital On"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_custom_dig_range_list.InsertColumn(CUSTOM_DIGITAL_RANGE_DIRECT_INV, _T("Direct_Invers"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_custom_dig_range_list.InsertColumn(CUSTOM_DIGITAL_RANGE_NUM, _T("NUM"), 57, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+	m_custom_dig_range_list.InsertColumn(CUSTOM_DIGITAL_RANGE_OFF, _T("Digital Off"), 115, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_custom_dig_range_list.InsertColumn(CUSTOM_DIGITAL_RANGE_ON, _T("Digital On"), 92, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_custom_dig_range_list.InsertColumn(CUSTOM_DIGITAL_RANGE_DIRECT_INV, _T("Direct_Invers"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
 	
 	m_custom_digital_range_dlg_hwnd = this->m_hWnd;
 	g_hwnd_now = m_custom_digital_range_dlg_hwnd;
