@@ -46,6 +46,7 @@
 #define ID_VIEW_APPLOOK_OFF_2007_BLACK  216
 #define ID_VIEW_APPLOOK_OFF_2007_SILVER 217
 #define ID_VIEW_APPLOOK_OFF_2007_AQUA   218
+#define ID_VIEW_APPLOOK_WINDOWS_7       219
 #define IDS_EDIT_MENU                   306
 #define ID_TAB_CTRL                     309
 #define IDR_MYTOOLBAR                   310
