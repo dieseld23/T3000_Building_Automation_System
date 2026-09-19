@@ -132,11 +132,11 @@ void CPowerMeterList::Initial_List()
     m_powermeter_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
     //m_powermeter_list.SetExtendedStyle(m_powermeter_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
     m_powermeter_list.SetExtendedStyle(m_powermeter_list.GetExtendedStyle() | LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-    m_powermeter_list.InsertColumn(0, _T("Power Meter"), 150, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-    m_powermeter_list.InsertColumn(1, _T("Phase U"), 150, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    m_powermeter_list.InsertColumn(2, _T("Phase V"), 150, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    m_powermeter_list.InsertColumn(3, _T("Phase W"), 150, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    m_powermeter_list.InsertColumn(4, _T("Unit"), 100, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_powermeter_list.InsertColumn(0, _T("Power Meter"), 172, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+    m_powermeter_list.InsertColumn(1, _T("Phase U"), 172, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_powermeter_list.InsertColumn(2, _T("Phase V"), 172, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_powermeter_list.InsertColumn(3, _T("Phase W"), 172, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    m_powermeter_list.InsertColumn(4, _T("Unit"), 115, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
    
     m_powermeter_list.SetListHwnd(this->m_hWnd);
     CRect list_rect, win_rect;

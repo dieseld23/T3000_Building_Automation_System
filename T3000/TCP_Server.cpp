@@ -421,11 +421,11 @@ void CTCP_Server::Initial_List()
 	m_tcp_server_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
 	//m_tcp_server_list.SetExtendedStyle(m_tcp_server_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
 	m_tcp_server_list.SetExtendedStyle(m_tcp_server_list.GetExtendedStyle() | LVS_EX_GRIDLINES & (~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_tcp_server_list.InsertColumn(TCP_ITEM, _T("Item"), 40, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-	m_tcp_server_list.InsertColumn(TCP_IP_ADDRESS, _T("IP Address"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_tcp_server_list.InsertColumn(TCP_IP_PORT, _T("Port"), 60, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_tcp_server_list.InsertColumn(TCP_PRODUCT_NAME, _T("Product Name"), 140, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_tcp_server_list.InsertColumn(TCP_SERIALNUMBER, _T("Serial Number"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tcp_server_list.InsertColumn(TCP_ITEM, _T("Item"), 46, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+	m_tcp_server_list.InsertColumn(TCP_IP_ADDRESS, _T("IP Address"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tcp_server_list.InsertColumn(TCP_IP_PORT, _T("Port"), 69, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tcp_server_list.InsertColumn(TCP_PRODUCT_NAME, _T("Product Name"), 161, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_tcp_server_list.InsertColumn(TCP_SERIALNUMBER, _T("Serial Number"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
 	m_tcp_server_hwnd = this->m_hWnd;
 	g_hwnd_now = m_tcp_server_hwnd;

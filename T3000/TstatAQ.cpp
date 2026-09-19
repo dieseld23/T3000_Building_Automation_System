@@ -1152,13 +1152,13 @@ void CTstatAQ::Initial_List()
 	m_airlab_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
 	//m_airlab_list.SetExtendedStyle(m_airlab_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
 	m_airlab_list.SetExtendedStyle(m_airlab_list.GetExtendedStyle() | LVS_EX_GRIDLINES & (~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_airlab_list.InsertColumn(AIRLAB_TYPE, _T("Type"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_airlab_list.InsertColumn(AIRLAB_VALUE, _T("Value"), 60, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_airlab_list.InsertColumn(AIRLAB_UNIT, _T("Unit"), 75, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_airlab_list.InsertColumn(AIRLAB_TRIGGER, _T("Trigger Value"), 75, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_airlab_list.InsertColumn(AIRLAB_TIME, _T("Trigger Time(m)"), 90, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_airlab_list.InsertColumn(AIRLAB_TIME_LEFT, _T("Time Left(s)"), 70, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_airlab_list.InsertColumn(AIRLAB_ALARM, _T("Alarm"), 60, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_airlab_list.InsertColumn(AIRLAB_TYPE, _T("Type"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_airlab_list.InsertColumn(AIRLAB_VALUE, _T("Value"), 69, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_airlab_list.InsertColumn(AIRLAB_UNIT, _T("Unit"), 86, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_airlab_list.InsertColumn(AIRLAB_TRIGGER, _T("Trigger Value"), 86, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_airlab_list.InsertColumn(AIRLAB_TIME, _T("Trigger Time(m)"), 103, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_airlab_list.InsertColumn(AIRLAB_TIME_LEFT, _T("Time Left(s)"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_airlab_list.InsertColumn(AIRLAB_ALARM, _T("Alarm"), 69, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
 
 	//m_pragram_dlg_hwnd = this->m_hWnd;
 	m_airlab_list.SetListHwnd(this->m_hWnd);

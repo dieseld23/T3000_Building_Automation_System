@@ -270,7 +270,7 @@ void CBacnetAnalogCusRang::Initial_List()
 	//m_analog_cus_range_list.SetExtendedStyle(m_analog_cus_range_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
 	m_analog_cus_range_list.SetExtendedStyle(m_analog_cus_range_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
 	m_analog_cus_range_list.InsertColumn(0, Unit_temp, 70, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_analog_cus_range_list.InsertColumn(1, _T("Value"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_analog_cus_range_list.InsertColumn(1, _T("Value"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 
 	temp_gloab_hwnd = g_hwnd_now;
 	//g_hwnd_now = this->m_hWnd;

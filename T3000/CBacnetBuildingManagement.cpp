@@ -82,12 +82,12 @@ void CBacnetBuildingManagement::Initial_List()
 	m_root_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
 	//m_root_list.SetExtendedStyle(m_root_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
 	m_root_list.SetExtendedStyle(m_root_list.GetExtendedStyle() | LVS_EX_GRIDLINES & (~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_root_list.InsertColumn(BM_ROOT_ITEM, _T("Item"), 80, ListCtrlEx::CheckBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_root_list.InsertColumn(BM_ROOT_GROUP_NAME, _T("Group Name"), 150, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	//m_root_list.InsertColumn(BM_ROOT_GROUP_COUNT, _T("Count"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_root_list.InsertColumn(BM_ROOT_TOTAL_INPUT, _T("Total Inputs"), 100, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_root_list.InsertColumn(BM_ROOT_TOTAL_OUTPUT, _T("Total Outputs"), 100, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_root_list.InsertColumn(BM_ROOT_TOTAL_VARIABLE, _T("Total Variable"), 100, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_root_list.InsertColumn(BM_ROOT_ITEM, _T("Item"), 92, ListCtrlEx::CheckBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_root_list.InsertColumn(BM_ROOT_GROUP_NAME, _T("Group Name"), 172, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	//m_root_list.InsertColumn(BM_ROOT_GROUP_COUNT, _T("Count"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_root_list.InsertColumn(BM_ROOT_TOTAL_INPUT, _T("Total Inputs"), 115, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_root_list.InsertColumn(BM_ROOT_TOTAL_OUTPUT, _T("Total Outputs"), 115, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_root_list.InsertColumn(BM_ROOT_TOTAL_VARIABLE, _T("Total Variable"), 115, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	m_pragram_dlg_hwnd = this->m_hWnd;
 	//g_hwnd_now = m_pragram_dlg_hwnd;
 	m_root_list.SetListHwnd(this->m_hWnd);

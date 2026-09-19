@@ -57,25 +57,25 @@ void CBacnetBuildingIOPoints::Initial_List()
 	m_io_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
 	//m_io_list.SetExtendedStyle(m_io_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
 	m_io_list.SetExtendedStyle(m_io_list.GetExtendedStyle() | LVS_EX_GRIDLINES & (~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_io_list.InsertColumn(BM_IO_ITEM, _T("Num"), 40, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_io_list.InsertColumn(BM_IO_GROUP_NAME, _T("Group"), 60, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_io_list.InsertColumn(BM_IO_CATEGORY_NAME, _T("Category"), 70, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_io_list.InsertColumn(BM_IO_HW_POINT, _T("Items"), 60, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_io_list.InsertColumn(BM_IO_POINT, _T("Points"), 60, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_io_list.InsertColumn(BM_IO_PANEL, _T("Panel"), 50, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_io_list.InsertColumn(BM_IO_FULLLABEL, _T("FullLabel"), 90, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_io_list.InsertColumn(BM_AUTO_MANUAL, _T("A/M"), 90, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_io_list.InsertColumn(BM_IO_VALUE, _T("Value"), 70, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_io_list.InsertColumn(BM_IO_UNITS, _T("Units"), 70, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_io_list.InsertColumn(BM_IO_RANGE, _T("Range"), 90, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_io_list.InsertColumn(BM_IO_LABEL, _T("Label"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_io_list.InsertColumn(BM_IO_ITEM, _T("Num"), 46, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_io_list.InsertColumn(BM_IO_GROUP_NAME, _T("Group"), 69, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_io_list.InsertColumn(BM_IO_CATEGORY_NAME, _T("Category"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_io_list.InsertColumn(BM_IO_HW_POINT, _T("Items"), 69, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_io_list.InsertColumn(BM_IO_POINT, _T("Points"), 69, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_io_list.InsertColumn(BM_IO_PANEL, _T("Panel"), 57, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_io_list.InsertColumn(BM_IO_FULLLABEL, _T("FullLabel"), 103, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_io_list.InsertColumn(BM_AUTO_MANUAL, _T("A/M"), 103, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_io_list.InsertColumn(BM_IO_VALUE, _T("Value"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_io_list.InsertColumn(BM_IO_UNITS, _T("Units"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_io_list.InsertColumn(BM_IO_RANGE, _T("Range"), 103, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_io_list.InsertColumn(BM_IO_LABEL, _T("Label"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 
 
-	//m_io_list.InsertColumn(BM_ID_PRODUCT, _T("Related Products"), 180, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	//m_io_list.InsertColumn(BM_ID_PRODUCT, _T("Related Products"), 207, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	
 
 
-	//m_io_list.InsertColumn(BM_IO_STATUS, _T("Status"), 100, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	//m_io_list.InsertColumn(BM_IO_STATUS, _T("Status"), 115, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	m_pragram_dlg_hwnd = this->m_hWnd;
 	//g_hwnd_now = m_pragram_dlg_hwnd;
 	m_io_list.SetListHwnd(this->m_hWnd);

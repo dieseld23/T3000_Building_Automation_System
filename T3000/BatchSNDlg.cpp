@@ -146,9 +146,9 @@ BOOL CBatchSNDlg::OnInitDialog()
     UpdateData(TRUE);
     m_products_list.ModifyStyle(0,LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
     m_products_list.SetExtendedStyle(m_products_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
-    m_products_list.InsertColumn(0, _T("Modbus ID"), 180, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-    m_products_list.InsertColumn(1, _T("Sensor SN"), 100, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-    m_products_list.InsertColumn(2, _T("Result"), 90, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_products_list.InsertColumn(0, _T("Modbus ID"), 207, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+    m_products_list.InsertColumn(1, _T("Sensor SN"), 115, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+    m_products_list.InsertColumn(2, _T("Result"), 103, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
     g_hwnd_now = this->m_hWnd;
     for (int i = m_intStart ; i<=m_intEnd ;i++)
     {   

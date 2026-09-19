@@ -157,16 +157,16 @@ void CBacnetBuildingRoomEditor::Initial_List()
 
 	m_bm_floor_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
 	m_bm_floor_list.SetExtendedStyle(m_bm_floor_list.GetExtendedStyle() | LVS_EX_GRIDLINES & (~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_bm_floor_list.InsertColumn(0, _T(" "), 30, ListCtrlEx::CheckBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_bm_floor_list.InsertColumn(1, _T("Floor Name"), 130, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_bm_floor_list.InsertColumn(0, _T(" "), 34, ListCtrlEx::CheckBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_bm_floor_list.InsertColumn(1, _T("Floor Name"), 150, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	m_bm_floor_list.SetListHwnd(this->m_hWnd);
 	m_bm_floor_list.SetWhetherShowBkCol(false);
 	while (m_bm_room_list.DeleteColumn(0));
 
 	m_bm_room_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
 	m_bm_room_list.SetExtendedStyle(m_bm_floor_list.GetExtendedStyle() | LVS_EX_GRIDLINES & (~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_bm_room_list.InsertColumn(0, _T(" "), 30, ListCtrlEx::CheckBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_bm_room_list.InsertColumn(1, _T("Room Name"), 130, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_bm_room_list.InsertColumn(0, _T(" "), 34, ListCtrlEx::CheckBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_bm_room_list.InsertColumn(1, _T("Room Name"), 150, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	m_bm_room_list.SetListHwnd(this->m_hWnd);
 	m_bm_room_list.SetWhetherShowBkCol(false);
 	Fresh_Floor_List(0, 0);

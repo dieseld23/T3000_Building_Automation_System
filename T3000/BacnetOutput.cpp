@@ -289,27 +289,27 @@ void CBacnetOutput::Initial_List()
 
 	m_output_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 	m_output_list.SetExtendedStyle(m_output_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_output_list.InsertColumn(OUTPUT_NUM, _T("Output"), 60, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_output_list.InsertColumn(OUTPUT_PANEL, _T("Panel"), 40, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_output_list.InsertColumn(OUTPUT_FULL_LABLE, _T("Full Label"), 140, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_output_list.InsertColumn(OUTPUT_AUTO_MANUAL, _T("Auto/Man"), 65, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_output_list.InsertColumn(OUTPUT_HW_SWITCH, _T("HOA Switch"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_output_list.InsertColumn(OUTPUT_VALUE, _T("Value"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-    //m_output_list.InsertColumn(OUTPUT_RELINQUISH_VALUE, _T("Relinquish"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_output_list.InsertColumn(OUTPUT_UNITE, _T("Units"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_output_list.InsertColumn(OUTPUT_RANGE, _T("Range"), 100, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_output_list.InsertColumn(OUTPUT_NUM, _T("Output"), 69, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_output_list.InsertColumn(OUTPUT_PANEL, _T("Panel"), 46, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_output_list.InsertColumn(OUTPUT_FULL_LABLE, _T("Full Label"), 161, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_output_list.InsertColumn(OUTPUT_AUTO_MANUAL, _T("Auto/Man"), 75, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_output_list.InsertColumn(OUTPUT_HW_SWITCH, _T("HOA Switch"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_output_list.InsertColumn(OUTPUT_VALUE, _T("Value"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+    //m_output_list.InsertColumn(OUTPUT_RELINQUISH_VALUE, _T("Relinquish"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_output_list.InsertColumn(OUTPUT_UNITE, _T("Units"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_output_list.InsertColumn(OUTPUT_RANGE, _T("Range"), 115, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	
-	m_output_list.InsertColumn(OUTPUT_LOW_VOLTAGE, _T("Low V"), 50, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_output_list.InsertColumn(OUTPUT_HIGH_VOLTAGE, _T("High V"), 50, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_output_list.InsertColumn(OUTPUT_LOW_VOLTAGE, _T("Low V"), 57, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_output_list.InsertColumn(OUTPUT_HIGH_VOLTAGE, _T("High V"), 57, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	
-	m_output_list.InsertColumn(OUTPUT_PWM_PERIOD, _T("PWM\r\n Period"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_output_list.InsertColumn(OUTPUT_PWM_PERIOD, _T("PWM\r\n Period"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	
 
 
-	m_output_list.InsertColumn(OUTPUT_DECOM, _T("Status"), 70, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_output_list.InsertColumn(OUTPUT_LABLE, _T("Label"), 70, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_output_list.InsertColumn(OUTPUT_DECOM, _T("Status"), 80, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_output_list.InsertColumn(OUTPUT_LABLE, _T("Label"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 
-	m_output_list.InsertColumn(OUTPUT_EXTERNAL, _T("Type"), 60, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_output_list.InsertColumn(OUTPUT_EXTERNAL, _T("Type"), 69, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	m_output_list.InsertColumn(OUTPUT_PRODUCT, _T("Product Name"), 0, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	m_output_list.InsertColumn(OUTPUT_EXT_NUMBER, _T("Product Output"), 0, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	m_output_list.Setlistcolcharlimit(OUTPUT_FULL_LABLE,STR_OUT_DESCRIPTION_LENGTH -1);

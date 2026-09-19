@@ -63,14 +63,14 @@ void CGroupScheduleDlg::Initial_datalist()
 
 	m_datalist.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
 	m_datalist.SetExtendedStyle(m_datalist.GetExtendedStyle() | LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
-	m_datalist.InsertColumn(0, _T("Item"), 50, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-	m_datalist.InsertColumn(1, _T("Device ID"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(2, _T("Online"), 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(3, _T("Zone Name"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(4, _T("Schedule"), 100, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(5, _T("Status"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(6, _T("A/M"), 90, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(7, _T("Value"), 60, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(0, _T("Item"), 57, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+	m_datalist.InsertColumn(1, _T("Device ID"), 92, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(2, _T("Online"), 92, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(3, _T("Zone Name"), 92, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(4, _T("Schedule"), 115, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(5, _T("Status"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(6, _T("A/M"), 103, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(7, _T("Value"), 69, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 
 	/*ListCtrlEx::CStrList Device_Strlist;
 	*/

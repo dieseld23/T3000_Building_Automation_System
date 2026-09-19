@@ -154,13 +154,13 @@ void CBacnetAlarmLog::Initial_List()
 
 	m_alarmlog_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 	m_alarmlog_list.SetExtendedStyle(m_alarmlog_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_alarmlog_list.InsertColumn(ALARMLOG_NUM, _T("NUM"), 40, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_alarmlog_list.InsertColumn(ALARMLOG_PANEL, _T("Panel"), 50, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_alarmlog_list.InsertColumn(ALARMLOG_MESSAGE, _T("Message"), 300, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_alarmlog_list.InsertColumn(ALARMLOG_TIME, _T("Time"), 180, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_alarmlog_list.InsertColumn(ALARMLOG_ACK, _T("Acknowlege"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_alarmlog_list.InsertColumn(ALARMLOG_RES, _T("Res"), 70, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_alarmlog_list.InsertColumn(ALARMLOG_DEL, _T("Delete"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_alarmlog_list.InsertColumn(ALARMLOG_NUM, _T("NUM"), 46, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_alarmlog_list.InsertColumn(ALARMLOG_PANEL, _T("Panel"), 57, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_alarmlog_list.InsertColumn(ALARMLOG_MESSAGE, _T("Message"), 345, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_alarmlog_list.InsertColumn(ALARMLOG_TIME, _T("Time"), 207, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_alarmlog_list.InsertColumn(ALARMLOG_ACK, _T("Acknowlege"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_alarmlog_list.InsertColumn(ALARMLOG_RES, _T("Res"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_alarmlog_list.InsertColumn(ALARMLOG_DEL, _T("Delete"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
 
 	m_alarmlog_dlg_hwnd = this->m_hWnd;
 	m_alarmlog_list.SetListHwnd(this->m_hWnd);

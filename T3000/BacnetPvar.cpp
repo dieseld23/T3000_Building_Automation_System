@@ -142,12 +142,12 @@ void CBacnetPvar::Initial_List()
 
 	m_pvar_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
 	m_pvar_list.SetExtendedStyle(m_pvar_list.GetExtendedStyle() | LVS_EX_GRIDLINES & (~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_pvar_list.InsertColumn(VARIABLE_NUM, _T("Pvar"), 70, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_pvar_list.InsertColumn(VARIABLE_FULL_LABLE, _T("Full Label"), 200, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_pvar_list.InsertColumn(VARIABLE_AUTO_MANUAL, _T("Auto/Manual"), 150, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_pvar_list.InsertColumn(VARIABLE_VALUE, _T("Value"), 120, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_pvar_list.InsertColumn(VARIABLE_NUM, _T("Pvar"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_pvar_list.InsertColumn(VARIABLE_FULL_LABLE, _T("Full Label"), 230, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_pvar_list.InsertColumn(VARIABLE_AUTO_MANUAL, _T("Auto/Manual"), 172, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_pvar_list.InsertColumn(VARIABLE_VALUE, _T("Value"), 138, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	m_pvar_list.InsertColumn(VARIABLE_UNITE, _T("Units"), 0, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_pvar_list.InsertColumn(VARIABLE_LABLE, _T("Label"), 130, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_pvar_list.InsertColumn(VARIABLE_LABLE, _T("Label"), 150, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	m_pvar_list.Setlistcolcharlimit(VARIABLE_FULL_LABLE, STR_VARIABLE_DESCRIPTION_LENGTH - 1);
 	m_pvar_list.Setlistcolcharlimit(VARIABLE_LABLE, STR_VARIABLE_LABEL - 1);
 

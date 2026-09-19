@@ -1022,7 +1022,7 @@ void CGraphicMode::Initial_UserList(){
 
 	m_user_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 	m_user_list.SetExtendedStyle(m_user_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));	
-	m_user_list.InsertColumn(0, _T("NUM"), 50, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+	m_user_list.InsertColumn(0, _T("NUM"), 57, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
 	m_user_list.InsertColumn(1, g_calibration_module_data.User_Fre.StrValue, 70, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
 	m_user_list.InsertColumn(2, g_calibration_module_data.User_Hum.StrValue, 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 	g_hwnd_now = this->m_hWnd;
@@ -1071,7 +1071,7 @@ void CGraphicMode::Initial_FactoryList(){
 
 	m_factory_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 	m_factory_list.SetExtendedStyle(m_factory_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));	
-	m_factory_list.InsertColumn(0, _T("NUM"), 50, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+	m_factory_list.InsertColumn(0, _T("NUM"), 57, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
 	m_factory_list.InsertColumn(1, g_calibration_module_data.Factory_Fre.StrValue, 70, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
 	m_factory_list.InsertColumn(2, g_calibration_module_data.Factory_Hum.StrValue, 80, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
 	g_hwnd_now = this->m_hWnd;

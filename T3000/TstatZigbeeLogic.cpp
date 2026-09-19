@@ -97,7 +97,7 @@ void CTstatZigbeeLogic::Initial_ID_List()
 	m_tstat_id_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 	//m_monitor_list.SetExtendedStyle(m_monitor_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
 	m_tstat_id_list.SetExtendedStyle(m_tstat_id_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_tstat_id_list.InsertColumn(0, _T("ID"), 100, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+	m_tstat_id_list.InsertColumn(0, _T("ID"), 115, ListCtrlEx::CheckBox, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
 }
 
 UINT   CTstatZigbeeLogic::GetZigbeeInfo(LPVOID lpVoid)

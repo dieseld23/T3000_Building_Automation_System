@@ -98,13 +98,13 @@ void CBacnetIOConfig::Initial_List()
 
 	m_ext_io_config_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
 	m_ext_io_config_list.SetExtendedStyle(m_ext_io_config_list.GetExtendedStyle() | LVS_EX_GRIDLINES & (~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_ext_io_config_list.InsertColumn(EXTIO_NUM, _T("Num"), 40, ListCtrlEx::CheckBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_ext_io_config_list.InsertColumn(EXTIO_HARDWARE, _T("Hardware"), 100, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_ext_io_config_list.InsertColumn(EXTIO_PORT, _T("Port"), 100, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_ext_io_config_list.InsertColumn(EXTIO_ID, _T("ID"), 60, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_ext_io_config_list.InsertColumn(EXTIO_LAST_CONTACT, _T("Last Contact"), 120, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_ext_io_config_list.InsertColumn(EXTIO_INPUTS_IO, _T("Inputs"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_ext_io_config_list.InsertColumn(EXTIO_OUTPUTS_IO, _T("Outputs"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_ext_io_config_list.InsertColumn(EXTIO_NUM, _T("Num"), 46, ListCtrlEx::CheckBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_ext_io_config_list.InsertColumn(EXTIO_HARDWARE, _T("Hardware"), 115, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_ext_io_config_list.InsertColumn(EXTIO_PORT, _T("Port"), 115, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_ext_io_config_list.InsertColumn(EXTIO_ID, _T("ID"), 69, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_ext_io_config_list.InsertColumn(EXTIO_LAST_CONTACT, _T("Last Contact"), 138, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_ext_io_config_list.InsertColumn(EXTIO_INPUTS_IO, _T("Inputs"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_ext_io_config_list.InsertColumn(EXTIO_OUTPUTS_IO, _T("Outputs"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	m_ext_io_config_list.SetWhetherShowBkCol(false);
 
 

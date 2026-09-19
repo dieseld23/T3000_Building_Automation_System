@@ -146,25 +146,25 @@ BOOL CModbusToBacnetRouterDlg::OnInitDialog()
 
 	m_datalist.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
 	m_datalist.SetExtendedStyle(m_datalist.GetExtendedStyle() | LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));
-	m_datalist.InsertColumn(0, _T("Item"), 50, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
-	m_datalist.InsertColumn(1, _T("Poll YES / NO"), 120, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(2, _T("Bacnet Object Name"), 200, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(3, _T("Modbus Variable Type"), 200, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(4, _T("1 to 65536"), 80, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(5, _T("Data Format	"), 200, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(6, _T("Bit #"), 80, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(7, _T("Low Actual"), 100, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(8, _T("High Actual"), 100, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(9, _T("Low Scale"), 100, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(10, _T("High Scale"), 100, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(11, _T("R/W"), 60, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(12, _T("Bacnet Type"), 120, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(13, _T("Bacnet Object Description"), 200, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(14, _T("COV Increment"), 100, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(15, _T("Unit Group"), 100, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(16, _T("Unit Value"), 100, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(17, _T("Grouping YES / NO"), 200, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_datalist.InsertColumn(18, _T("Update On Reconnect"), 200, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(0, _T("Item"), 57, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByDigit);
+	m_datalist.InsertColumn(1, _T("Poll YES / NO"), 138, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(2, _T("Bacnet Object Name"), 230, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(3, _T("Modbus Variable Type"), 230, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(4, _T("1 to 65536"), 92, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(5, _T("Data Format	"), 230, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(6, _T("Bit #"), 92, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(7, _T("Low Actual"), 115, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(8, _T("High Actual"), 115, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(9, _T("Low Scale"), 115, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(10, _T("High Scale"), 115, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(11, _T("R/W"), 69, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(12, _T("Bacnet Type"), 138, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(13, _T("Bacnet Object Description"), 230, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(14, _T("COV Increment"), 115, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(15, _T("Unit Group"), 115, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(16, _T("Unit Value"), 115, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(17, _T("Grouping YES / NO"), 230, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_datalist.InsertColumn(18, _T("Update On Reconnect"), 230, ListCtrlEx::ComboBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 			
 	for (int i = 0;i < m_vecMd2BT.size();i++)
 	{

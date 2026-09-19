@@ -250,11 +250,11 @@ void CBacnetMonitor::Initial_List()
 	//LVS_EX_FULLROWSELECT
 	m_monitor_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 	m_monitor_list.SetExtendedStyle(m_monitor_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_monitor_list.InsertColumn(MONITOR_NUM, _T("NUM"), 60, ListCtrlEx::CheckBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_monitor_list.InsertColumn(MONITOR_LABEL, _T("Label"), 160, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_monitor_list.InsertColumn(MONITOR_INTERVAL, _T("Interval"), 120, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_monitor_list.InsertColumn(MONITOR_STATUS, _T("Status"), 100, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_monitor_list.InsertColumn(MONITOR_DATA_SIZE, _T("Data Size (KB)"), 130, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_monitor_list.InsertColumn(MONITOR_NUM, _T("NUM"), 69, ListCtrlEx::CheckBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_monitor_list.InsertColumn(MONITOR_LABEL, _T("Label"), 184, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_monitor_list.InsertColumn(MONITOR_INTERVAL, _T("Interval"), 138, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_monitor_list.InsertColumn(MONITOR_STATUS, _T("Status"), 115, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_monitor_list.InsertColumn(MONITOR_DATA_SIZE, _T("Data Size (KB)"), 150, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	m_monitor_list.Setlistcolcharlimit(MONITOR_LABEL,STR_MONITOR_LABEL_LENGTH-1);
 
 	m_monitor_dlg_hwnd = this->m_hWnd;
@@ -284,8 +284,8 @@ void CBacnetMonitor::Initial_List()
 	m_monitor_input_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 	//m_monitor_list.SetExtendedStyle(m_monitor_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
 	m_monitor_input_list.SetExtendedStyle(m_monitor_input_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_monitor_input_list.InsertColumn(MONITOR_NUM, _T("Num"), 40, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
-	m_monitor_input_list.InsertColumn(1, _T("Input"), 90, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_monitor_input_list.InsertColumn(MONITOR_NUM, _T("Num"), 46, ListCtrlEx::Normal, LVCFMT_CENTER, ListCtrlEx::SortByString);
+	m_monitor_input_list.InsertColumn(1, _T("Input"), 103, ListCtrlEx::EditBox, LVCFMT_CENTER, ListCtrlEx::SortByString);
 	m_monitor_input_list.DeleteAllItems();
 
 	m_monitor_input_list.SetListHwnd(this->m_hWnd);

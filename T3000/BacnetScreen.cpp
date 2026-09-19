@@ -706,12 +706,12 @@ void BacnetScreen::Initial_List()
 
 	m_screen_list.ModifyStyle(0, LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 	m_screen_list.SetExtendedStyle(m_screen_list.GetExtendedStyle()  |LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_screen_list.InsertColumn(SCREEN_NUM, _T("Graphic"), 60, ListCtrlEx::CheckBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_screen_list.InsertColumn(SCREEN_DESCRIPTION, _T("Full Label"), 180, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_screen_list.InsertColumn(SCREEN_LABEL, _T("Label"), 120, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_screen_list.InsertColumn(SCREEN_PIC_FILE, _T("Picture File"), 140, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	//m_screen_list.InsertColumn(SCREEN_MODE, _T("Mode"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_screen_list.InsertColumn(SCREEN_ELEMENT_COUNT, _T("Element Count"), 110, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_screen_list.InsertColumn(SCREEN_NUM, _T("Graphic"), 69, ListCtrlEx::CheckBox, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_screen_list.InsertColumn(SCREEN_DESCRIPTION, _T("Full Label"), 207, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_screen_list.InsertColumn(SCREEN_LABEL, _T("Label"), 138, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_screen_list.InsertColumn(SCREEN_PIC_FILE, _T("Picture File"), 161, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	//m_screen_list.InsertColumn(SCREEN_MODE, _T("Mode"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_screen_list.InsertColumn(SCREEN_ELEMENT_COUNT, _T("Element Count"), 126, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	m_screen_list.Setlistcolcharlimit(SCREEN_DESCRIPTION,STR_SCREEN_DESCRIPTION_LENGTH -1);
 	m_screen_list.Setlistcolcharlimit(SCREEN_LABEL,STR_SCREEN_LABLE_LENGTH-1);
 

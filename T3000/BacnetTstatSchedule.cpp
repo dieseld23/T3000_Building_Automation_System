@@ -350,18 +350,18 @@ void CBacnetTstatSchedule::Initial_List()
 
 	m_bac_tstat_sch_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
 	m_bac_tstat_sch_list.SetExtendedStyle(m_bac_tstat_sch_list.GetExtendedStyle() | LVS_EX_GRIDLINES&(~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_NUM, _T("NUM"), 40, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_DEVICEID, _T("Device ID"), 60, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_DEVICENAME, _T("Thermostat Name"), 100, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_ONLINE_STATUS, _T("Online"), 60, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_SCHEDULES, _T("Schedule"), 90, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_SCHEDULES_AM, _T("Auto/Manual"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_SCHEDULES_VALUE, _T("Value"), 60, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_NUM, _T("NUM"), 46, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_DEVICEID, _T("Device ID"), 69, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_DEVICENAME, _T("Thermostat Name"), 115, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_ONLINE_STATUS, _T("Online"), 69, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_SCHEDULES, _T("Schedule"), 103, ListCtrlEx::ComboBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_SCHEDULES_AM, _T("Auto/Manual"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_SCHEDULES_VALUE, _T("Value"), 69, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
 
-	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_DSP_VALUE, _T("Day SP"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_NSP_VALUE, _T("Night SP"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_AWAKESP_VALUE, _T("Awake SP"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_SLEEPSP_VALUE, _T("Sleep SP"), 80, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_DSP_VALUE, _T("Day SP"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_NSP_VALUE, _T("Night SP"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_AWAKESP_VALUE, _T("Awake SP"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_bac_tstat_sch_list.InsertColumn(TSTAT_SCHEDULE_SLEEPSP_VALUE, _T("Sleep SP"), 92, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
 
 	m_tstat_schedule_dlg_hwnd = this->m_hWnd;
 	//g_hwnd_now = m_controller_dlg_hwnd;

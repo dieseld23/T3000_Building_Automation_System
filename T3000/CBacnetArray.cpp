@@ -66,10 +66,10 @@ void CBacnetArray::Initial_List()
 	m_array_list.ModifyStyle(0, LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
 	//m_array_list.SetExtendedStyle(m_array_list.GetExtendedStyle() |LVS_EX_FULLROWSELECT |LVS_EX_GRIDLINES);
 	m_array_list.SetExtendedStyle(m_array_list.GetExtendedStyle() | LVS_EX_GRIDLINES & (~LVS_EX_FULLROWSELECT));//Not allow full row select.
-	m_array_list.InsertColumn(0, _T("Item"), 80, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
-	m_array_list.InsertColumn(1, _T("Array Name"), 150, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_array_list.InsertColumn(2, _T("Length"), 100, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
-	m_array_list.InsertColumn(3, _T("Value"), 200, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_array_list.InsertColumn(0, _T("Item"), 92, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByDigit);
+	m_array_list.InsertColumn(1, _T("Array Name"), 172, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_array_list.InsertColumn(2, _T("Length"), 115, ListCtrlEx::EditBox, LVCFMT_LEFT, ListCtrlEx::SortByString);
+	m_array_list.InsertColumn(3, _T("Value"), 230, ListCtrlEx::Normal, LVCFMT_LEFT, ListCtrlEx::SortByString);
 	m_array_list.Setlistcolcharlimit(1, 9);
 	m_array_dlg_hwnd = this->m_hWnd;
 	m_array_list.SetListHwnd(this->m_hWnd);
