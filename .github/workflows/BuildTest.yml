@@ -12,6 +12,10 @@ on:
     branches: [ master ]
     paths-ignore:
       - '.github/**'
+  # Lets this workflow be run by hand against a branch. Without it a change to
+  # the workflow itself cannot be tested, because the paths-ignore above skips
+  # any pull request whose whole diff is under .github/.
+  workflow_dispatch:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -23,6 +27,88 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      # ---------------------------------------------------------------------
+      # The hosted image moved to Visual Studio 2026 in June 2026. It carries
+      # the v143 toolset (the build resolves MSBuild\Microsoft\VC\v170) but not
+      # the MFC libraries for it, and not the .NET Framework 4.5.2 reference
+      # assemblies. Without the two steps below the build stops at MSB8041 and
+      # MSB3644 in about 45 seconds, before compiling a single source file.
+      # ---------------------------------------------------------------------
+      - name: Install MFC for the v143 toolset
+        shell: pwsh
+        run: |
+          $root      = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+          $installer = Join-Path $root 'vs_installer.exe'
+          $vsPath    = & (Join-Path $root 'vswhere.exe') -latest -products * -property installationPath
+          Write-Host "Visual Studio: $vsPath"
+
+          # Deliberately scoped to the v143 toolset (MSVC 14.30-14.44). The image
+          # may already carry MFC for the newer v145 (14.5x); that does not help
+          # these projects and must not be mistaken for success.
+          $mfcGlob = 'C:\Program Files\Microsoft Visual Studio\*\*\VC\Tools\MSVC\14.[34]*\atlmfc\include\afxwin.h'
+          function Get-V143Mfc { Get-ChildItem $mfcGlob -ErrorAction SilentlyContinue }
+
+          # v143 is MSVC 14.44 (VS 17.14), so its MFC component is version-pinned.
+          # The ids are added one at a time: a single modify call naming an id
+          # this image does not offer would fail as a whole and tell us nothing.
+          foreach ($id in @(
+            'Microsoft.VisualStudio.Component.VC.14.44.17.14.MFC',
+            'Microsoft.VisualStudio.Component.VC.ATLMFC'
+          )) {
+            if (Get-V143Mfc) { break }
+            Write-Host "::group::Adding $id"
+            $p = Start-Process -FilePath $installer -Wait -PassThru -ArgumentList @(
+              'modify', '--installPath', "`"$vsPath`"", '--add', $id,
+              '--quiet', '--norestart', '--nocache'
+            )
+            Write-Host "vs_installer exit code: $($p.ExitCode)"
+            Write-Host "::endgroup::"
+          }
+
+          # vs_installer.exe is a launcher and can return before the install has
+          # settled, so confirm by looking for the header rather than trusting it.
+          $deadline = (Get-Date).AddMinutes(5)
+          while (-not (Get-V143Mfc) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 10 }
+
+          $found = Get-V143Mfc
+          if (-not $found) {
+            Write-Host "MSVC toolsets on this image, and whether each carries MFC:"
+            Get-ChildItem 'C:\Program Files\Microsoft Visual Studio\*\*\VC\Tools\MSVC\*' -Directory -ErrorAction SilentlyContinue |
+              ForEach-Object {
+                $hasMfc = Test-Path (Join-Path $_.FullName 'atlmfc\include\afxwin.h')
+                Write-Host ("  {0,-18} MFC={1}" -f $_.Name, $hasMfc)
+              }
+            Write-Error "MFC for v143 still missing after modify. The list above shows the toolset version this image actually has, which is what the component id must be pinned to."
+            exit 1
+          }
+          $found | ForEach-Object { Write-Host "MFC present: $($_.FullName)" }
+
+      - name: Supply .NET Framework 4.5.2 reference assemblies
+        shell: pwsh
+        run: |
+          # 4.5.2 is out of support and its Developer Pack is no longer on the
+          # image (and that installer is unreliable on current Windows). The
+          # reference assemblies are published as a NuGet package for exactly
+          # this case, which is the supported way to build an out-of-support target.
+          $dst = "${env:ProgramFiles(x86)}\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5.2"
+          if (Test-Path (Join-Path $dst 'mscorlib.dll')) {
+            Write-Host "Reference assemblies already present at $dst"
+            exit 0
+          }
+
+          $tmp = Join-Path $env:RUNNER_TEMP 'refasm'
+          nuget install Microsoft.NETFramework.ReferenceAssemblies.net452 -Version 1.0.3 -OutputDirectory $tmp -NonInteractive
+          if ($LASTEXITCODE -ne 0) { Write-Error "nuget install failed"; exit 1 }
+
+          $src = Get-ChildItem $tmp -Recurse -Directory |
+                 Where-Object { $_.Name -eq 'v4.5.2' -and $_.Parent.Name -eq '.NETFramework' } |
+                 Select-Object -First 1
+          if (-not $src) { Write-Error "v4.5.2 reference assemblies not found inside the package"; exit 1 }
+
+          New-Item -ItemType Directory -Force -Path $dst | Out-Null
+          Copy-Item (Join-Path $src.FullName '*') $dst -Recurse -Force
+          Write-Host "Installed $((Get-ChildItem $dst -Filter *.dll).Count) reference assemblies to $dst"
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
