@@ -839,8 +839,8 @@ LRESULT CBacnetInput::Fresh_Input_List(WPARAM wParam, LPARAM lParam)
 		if (temp_need_show_external)
 		{
 			//m_input_list.SetColumnWidth(INPUT_EXTERNAL,60);
-			SafeSetColumnWidth(INPUT_PRODUCT, 80);
-			SafeSetColumnWidth(INPUT_EXT_NUMBER, 80);
+			SafeSetColumnWidth(INPUT_PRODUCT, 92);
+			SafeSetColumnWidth(INPUT_EXT_NUMBER, 92);
 		}
 		else
 		{
@@ -849,7 +849,7 @@ LRESULT CBacnetInput::Fresh_Input_List(WPARAM wParam, LPARAM lParam)
 			SafeSetColumnWidth(INPUT_EXT_NUMBER, 0);
 		}
 	}
-	SafeSetColumnWidth(INPUT_EXTERNAL, 60);
+	SafeSetColumnWidth(INPUT_EXTERNAL, 69);
 
 	if (isFreshOne == (int)REFRESH_ON_ITEM)
 	{
@@ -908,12 +908,12 @@ LRESULT CBacnetInput::Fresh_Input_List(WPARAM wParam, LPARAM lParam)
 		m_input_list.GetColumn(INPUT_AUTO_MANUAL, &col);
 		col.pszText = _T("Auto/Man");
 		m_input_list.SetColumn(INPUT_AUTO_MANUAL, &col);
-		SafeSetColumnWidth(INPUT_RANGE, 100);
-		SafeSetColumnWidth(INPUT_CAL, 70);
-		SafeSetColumnWidth(INPUT_CAL_OPERATION, 50);
-		SafeSetColumnWidth(INPUT_FITLER, 60);
-		SafeSetColumnWidth(INPUT_DECOM, 60);
-		SafeSetColumnWidth(INPUT_JUMPER, 60);
+		SafeSetColumnWidth(INPUT_RANGE, 115);
+		SafeSetColumnWidth(INPUT_CAL, 80);
+		SafeSetColumnWidth(INPUT_CAL_OPERATION, 57);
+		SafeSetColumnWidth(INPUT_FITLER, 69);
+		SafeSetColumnWidth(INPUT_DECOM, 69);
+		SafeSetColumnWidth(INPUT_JUMPER, 69);
 	}
 #endif
 

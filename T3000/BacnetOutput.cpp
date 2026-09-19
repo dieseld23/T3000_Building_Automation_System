@@ -192,7 +192,7 @@ void CBacnetOutput::Reload_Unit_Type()
 			}
 		}
 		#endif
-		m_output_list.SetColumnWidth(OUTPUT_HW_SWITCH,80);
+		m_output_list.SetColumnWidth(OUTPUT_HW_SWITCH,92);
 	}
 	else if(bacnet_device_type == SMALL_MINIPANEL || bacnet_device_type == MINIPANELARM_LB)
 	{
@@ -223,7 +223,7 @@ void CBacnetOutput::Reload_Unit_Type()
 			}
 		}
 		#endif
-		m_output_list.SetColumnWidth(OUTPUT_HW_SWITCH,80);
+		m_output_list.SetColumnWidth(OUTPUT_HW_SWITCH,92);
 	}
 	else if((bacnet_device_type == TINY_MINIPANEL) 
 		   || ((bacnet_device_type == TINY_EX_MINIPANEL) || 
@@ -257,7 +257,7 @@ void CBacnetOutput::Reload_Unit_Type()
 			}
 		}
 #endif
-		m_output_list.SetColumnWidth(OUTPUT_HW_SWITCH,80);
+		m_output_list.SetColumnWidth(OUTPUT_HW_SWITCH,92);
 	}
 	else if(bacnet_device_type == PRODUCT_CM5)
 	{
@@ -575,8 +575,8 @@ LRESULT CBacnetOutput::Fresh_Output_List(WPARAM wParam, LPARAM lParam)
 		if (temp_need_show_external)
 		{
 			//m_output_list.SetColumnWidth(OUTPUT_EXTERNAL,60);
-			SafeSetColumnWidth(OUTPUT_PRODUCT, 80);
-			SafeSetColumnWidth(OUTPUT_EXT_NUMBER, 80);
+			SafeSetColumnWidth(OUTPUT_PRODUCT, 92);
+			SafeSetColumnWidth(OUTPUT_EXT_NUMBER, 92);
 		}
 		else
 		{
@@ -644,12 +644,12 @@ LRESULT CBacnetOutput::Fresh_Output_List(WPARAM wParam, LPARAM lParam)
 		m_output_list.GetColumn(OUTPUT_AUTO_MANUAL, &col);
 		col.pszText = _T("Auto/Man");
 		m_output_list.SetColumn(OUTPUT_AUTO_MANUAL, &col);
-		SafeSetColumnWidth(OUTPUT_HW_SWITCH, 80);
-		SafeSetColumnWidth(OUTPUT_RANGE, 100);
-		SafeSetColumnWidth(OUTPUT_LOW_VOLTAGE, 50);
-		SafeSetColumnWidth(OUTPUT_HIGH_VOLTAGE, 50);
-		SafeSetColumnWidth(OUTPUT_PWM_PERIOD, 80);
-		SafeSetColumnWidth(OUTPUT_DECOM, 70);
+		SafeSetColumnWidth(OUTPUT_HW_SWITCH, 92);
+		SafeSetColumnWidth(OUTPUT_RANGE, 115);
+		SafeSetColumnWidth(OUTPUT_LOW_VOLTAGE, 57);
+		SafeSetColumnWidth(OUTPUT_HIGH_VOLTAGE, 57);
+		SafeSetColumnWidth(OUTPUT_PWM_PERIOD, 92);
+		SafeSetColumnWidth(OUTPUT_DECOM, 80);
 	}
 #endif
 
