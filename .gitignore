@@ -88,6 +88,13 @@ T3000 - VS2015 -  Platform Version - 10.0.10240.0.VC.db
 /Archive
 /BacnetExplore/Yabe/bin
 /BacnetExplore/Yabe/obj
+
+# Build intermediates for T3000Controls. Its Release OutputPath points at
+# the already-ignored T3000 Output folder, so nothing under obj/ is needed
+# by a clone. The per-file entries further down cover only the v4.0
+# AssemblyAttributes file; the project targets v4.5.2 now, which is how a
+# generated file ended up tracked again.
+/T3000Controls/obj/
 BacnetExplore/CodeExamples/AnotherStorageImplementation/DataPersistence/Newtonsoft.Json.dll
 BacnetExplore/CodeExamples/LibBacnet/bin/Release/LibBacnet.dll
 BacnetExplore/CodeExamples/Xamarin/YabeStack/bin/Release/YabeStack.dll
