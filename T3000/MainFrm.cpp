@@ -12,6 +12,8 @@
 #include "T3000DefaultView.h"
 #include "global_variable_extern.h"
 #include "global_function.h"
+#include "WebUI/WebUICommands.h"
+#include "WebUI/InputsWebWnd.h"
 #include "AddBuilding.h"
 #include "StatusbarCtrl.h"
 CMyStatusbarCtrl * statusbar = NULL;
@@ -398,6 +400,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
         ON_COMMAND(ID_TOOLS_LOGINMYACCOUNT, &CMainFrame::OnToolsLoginmyaccount)
         ON_WM_SYSCOMMAND()
         ON_WM_ACTIVATEAPP()
+        ON_COMMAND(ID_WEBUI_INPUTS, &CMainFrame::OnWebUIInputs)
         ON_WM_CLOSE()
         END_MESSAGE_MAP()
 
@@ -812,6 +815,19 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
         return -1;      // fail to create
     }
     m_wndMenuBar.SetPaneStyle(m_wndMenuBar.GetPaneStyle() | CBRS_SIZE_DYNAMIC | CBRS_TOOLTIPS | CBRS_FLYBY);
+
+    // The preview menu is appended here rather than declared in T3000.rc. That
+    // file holds GBK-encoded text that scripted edits have corrupted before, and
+    // a single preview entry is not worth that risk.
+    HMENU hMenuBar = m_wndMenuBar.GetHMenu();
+    if (hMenuBar != NULL)
+    {
+        CMenu webUiMenu;
+        webUiMenu.CreatePopupMenu();
+        webUiMenu.AppendMenu(MF_STRING, ID_WEBUI_INPUTS, _T("Inputs (preview)"));
+        ::AppendMenu(hMenuBar, MF_POPUP | MF_STRING, (UINT_PTR)webUiMenu.Detach(), _T("Web UI"));
+        m_wndMenuBar.CreateFromMenu(hMenuBar, TRUE);
+    }
 
     // prevent the menu bar from taking the focus on activation
     SEND_COMMAND_DELAY_TIME = 100;
@@ -16737,4 +16753,11 @@ void CMainFrame::OnClose()
 {
     // TODO: 在此添加消息处理程序代码和/或调用默认值
     CFrameWndEx::OnClose();
+}
+
+void CMainFrame::OnWebUIInputs()
+{
+    // Modeless and self-owned, so it can sit beside the existing MFC Inputs
+    // dialog for a column-by-column comparison against the same device.
+    WebUI::CInputsWebWnd::CreateAndShow(this);
 }

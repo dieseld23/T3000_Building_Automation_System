@@ -629,6 +629,7 @@ public:
 		afx_msg void OnToolsLoginmyaccount();
 		afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
 		afx_msg void OnClose();
+		afx_msg void OnWebUIInputs();
 };
 //DWORD WINAPI  Bacnet_ReadWrite_Message(LPVOID lpVoid);
 //tree0412  2017 05 11 fance change
