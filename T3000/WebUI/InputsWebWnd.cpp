@@ -16,6 +16,7 @@ namespace WebUI
     BEGIN_MESSAGE_MAP(CInputsWebWnd, CFrameWnd)
         ON_WM_CREATE()
         ON_WM_SIZE()
+        ON_MESSAGE(MY_RESUME_DATA, &CInputsWebWnd::OnWriteComplete)
     END_MESSAGE_MAP()
 
     CInputsWebWnd::CInputsWebWnd()
@@ -78,13 +79,89 @@ namespace WebUI
         // exists, and the host has no way to know when script has finished parsing,
         // so the page says "ready" and the data follows.
         if (message == _T("ready") || message == _T("refresh"))
+        {
             SendInputs();
+            return;
+        }
+
+        // Anything else is a JSON command.
+        CT2A utf8Message(message, CP_UTF8);
+        const std::string body((const char*)utf8Message);
+
+        Json::CharReaderBuilder builder;
+        Json::Value command;
+        std::string errors;
+
+        std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
+        if (!reader->parse(body.c_str(), body.c_str() + body.size(), &command, &errors))
+            return;
+
+        if (command["action"].asString() != "updateFullLabel")
+            return;
+
+        const int index = command["index"].asInt();
+
+        // The page sends back the label it believes it is editing. If that no
+        // longer matches, the write is refused rather than applied to whatever is
+        // in that row now - see UpdateInputFullLabel.
+        const CString value(CA2T(command["value"].asCString(), CP_UTF8));
+        const CString expected(CA2T(command["expected"].asCString(), CP_UTF8));
+
+        UpdateResult result = UpdateInputFullLabel(index, value, expected, m_hWnd);
+
+        if (!result.queued)
+        {
+            SendResult(index, false, result.message);
+            return;
+        }
+
+        SendResult(index, true, _T("Writing to device..."));
+    }
+
+    LRESULT CInputsWebWnd::OnWriteComplete(WPARAM wParam, LPARAM lParam)
+    {
+        _MessageInvokeIDInfo* pInvoke = (_MessageInvokeIDInfo*)lParam;
+        if (pInvoke == NULL)
+            return 0;
+
+        const bool succeeded = MKBOOL(wParam) ? true : false;
+        const int row = pInvoke->mRow;
+
+        // Rolls the point back in memory when the device refused it.
+        ReportUpdateOutcome(row, succeeded);
+
+        // Order matters: the fresh list re-renders the grid and clears any
+        // per-row state, so it has to go first or it wipes the result styling
+        // that tells the user what just happened.
+        SendInputs();
+
+        SendResult(row, succeeded,
+                   succeeded ? _T("Saved to device.")
+                             : _T("The device rejected the change. Reverted."));
+
+        delete pInvoke;   // ownership transfers with the message
+        return 0;
+    }
+
+    void CInputsWebWnd::SendResult(int index, bool ok, const CString& message)
+    {
+        Json::Value payload(Json::objectValue);
+        payload["type"] = "result";
+        payload["index"] = index;
+        payload["ok"] = ok;
+        payload["message"] = ToUtf8(message);
+        PostToPage(payload);
     }
 
     void CInputsWebWnd::SendInputs()
     {
         Json::Value payload = BuildInputPointsJson();
+        payload["type"] = "inputs";
+        PostToPage(payload);
+    }
 
+    void CInputsWebWnd::PostToPage(const Json::Value& payload)
+    {
         Json::StreamWriterBuilder builder;
         builder["indentation"] = "";
         const std::string utf8 = Json::writeString(builder, payload);

@@ -9,6 +9,7 @@
 // resource entry is the safer shape for a first slice.
 
 #include "WebViewHost.h"
+#include <json/json.h>
 
 namespace WebUI
 {
@@ -27,12 +28,19 @@ namespace WebUI
     protected:
         afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
         afx_msg void OnSize(UINT nType, int cx, int cy);
+
+        // Device write completion. Post_Write_Message reports asynchronously, so
+        // this is where a write is confirmed or rolled back.
+        afx_msg LRESULT OnWriteComplete(WPARAM wParam, LPARAM lParam);
+
         virtual void PostNcDestroy();
         DECLARE_MESSAGE_MAP()
 
     private:
         void OnPageMessage(const CString& message);
         void SendInputs();
+        void SendResult(int index, bool ok, const CString& message);
+        void PostToPage(const Json::Value& payload);
 
         CWebViewHost m_host;
     };

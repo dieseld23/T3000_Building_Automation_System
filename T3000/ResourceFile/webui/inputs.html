@@ -103,6 +103,31 @@
   .pill-warn { background: var(--warn-bg); color: var(--warn); }
   .pill-man { background: var(--manual-bg); color: var(--manual); }
 
+  /* Editable cells look inert until hovered - a grid where every cell shouts
+     "input box" is harder to read, and reading is the common case. */
+  .edit {
+    display: block; width: 100%; font: inherit; color: inherit;
+    background: transparent; border: 1px solid transparent; border-radius: 4px;
+    padding: 1px 5px; margin: -2px 0;
+  }
+  /* An <input> reports no intrinsic content width, so the column collapses to
+     whatever the header needs and the value inside it gets clipped - the same
+     truncation this grid exists to avoid. Size it for the 20-character limit the
+     field actually allows. */
+  .col-label { min-width: 21ch; }
+  .edit:hover { border-color: var(--border); background: var(--bg); }
+  .edit:focus { border-color: var(--accent); background: var(--bg); outline: none; }
+  tr.pending .edit { opacity: .55; }
+  tr.failed  td { background: var(--warn-bg); }
+
+  footer {
+    flex: none; padding: 6px 16px; border-top: 1px solid var(--border);
+    background: var(--surface); font-size: 12px; color: var(--text-dim);
+    min-height: 28px;
+  }
+  footer.ok   { color: var(--ok); }
+  footer.err  { color: var(--warn); }
+
   .empty {
     display: flex; align-items: center; justify-content: center;
     height: 100%; color: var(--text-dim); text-align: center; padding: 32px;
@@ -133,7 +158,7 @@
   <table id="grid" hidden>
     <thead>
       <tr>
-        <th>Input</th><th>Panel</th><th>Full Label</th><th>Auto/Man</th>
+        <th>Input</th><th>Panel</th><th class="col-label">Full Label</th><th>Auto/Man</th>
         <th class="num">Value</th><th>Units</th><th class="num">Range</th>
         <th class="num">Calibration</th><th>Sign</th><th class="num">Filter</th>
         <th>Status</th><th>Signal</th><th>Label</th>
@@ -142,6 +167,8 @@
     <tbody id="rows"></tbody>
   </table>
 </div>
+
+<footer id="status">Full Label is editable. Press Enter to save, Escape to cancel.</footer>
 
 <script>
   const $ = id => document.getElementById(id);
@@ -160,7 +187,8 @@
       <tr>
         <td class="num">${esc(r.input)}</td>
         <td class="num dim">${esc(r.panel)}</td>
-        <td>${esc(r.fullLabel)}</td>
+        <td class="col-label"><input class="edit" data-index="${esc(r.index)}"
+                   value="${esc(r.fullLabel)}" maxlength="20"></td>
         <td>${r.autoManual === "Manual"
               ? '<span class="pill pill-man">Manual</span>'
               : '<span class="dim">Auto</span>'}</td>
@@ -185,10 +213,68 @@
   const bridge = (window.chrome && window.chrome.webview) || null;
   if (!bridge) console.info("No WebView2 host. Call render(payload) to preview.");
 
+  function status(text, kind) {
+    const el = $("status");
+    el.textContent = text;
+    el.className = kind || "";
+  }
+
+  // Full Label is the only writable column for now, deliberately: it cannot
+  // affect control behaviour, where Filter or Range change signal processing on
+  // live equipment.
+  //
+  // The original value travels with the edit. The host refuses the write if the
+  // row no longer holds it, so a stale page cannot rename the wrong point.
+  $("rows").addEventListener("focusin", e => {
+    if (e.target.classList.contains("edit")) e.target.dataset.original = e.target.value;
+  });
+
+  $("rows").addEventListener("keydown", e => {
+    if (!e.target.classList.contains("edit")) return;
+    if (e.key === "Enter") { e.preventDefault(); e.target.blur(); }
+    if (e.key === "Escape") {
+      e.target.value = e.target.dataset.original || "";
+      e.target.blur();
+    }
+  });
+
+  $("rows").addEventListener("focusout", e => {
+    const el = e.target;
+    if (!el.classList.contains("edit")) return;
+
+    const original = el.dataset.original || "";
+    if (el.value === original) return;          // nothing to save
+
+    if (!bridge) { status("No host connected - edit not sent.", "err"); return; }
+
+    el.closest("tr").classList.add("pending");
+    el.closest("tr").classList.remove("failed");
+    status("Writing to device...");
+
+    bridge.postMessage(JSON.stringify({
+      action: "updateFullLabel",
+      index: Number(el.dataset.index),
+      expected: original,
+      value: el.value
+    }));
+  });
+
+  function handle(msg) {
+    if (msg.type === "result") {
+      const row = document.querySelector(`.edit[data-index="${msg.index}"]`);
+      const tr = row && row.closest("tr");
+      if (tr && msg.message !== "Writing to device...") tr.classList.remove("pending");
+      if (tr) tr.classList.toggle("failed", !msg.ok);
+      status(msg.message, msg.ok ? "ok" : "err");
+      return;
+    }
+    render(msg);   // a fresh point list supersedes whatever was on screen
+  }
+
   if (bridge) {
-    // The host posts the point list as JSON; nothing is fetched over the network.
+    // The host posts JSON; nothing is fetched over the network.
     bridge.addEventListener("message", e => {
-      try { render(typeof e.data === "string" ? JSON.parse(e.data) : e.data); }
+      try { handle(typeof e.data === "string" ? JSON.parse(e.data) : e.data); }
       catch (err) { console.error("bad payload", err); }
     });
   }
