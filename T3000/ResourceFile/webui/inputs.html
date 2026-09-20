@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Inputs</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f7f8fa;
+    --border: #e3e6ea;
+    --text: #1a1d21;
+    --text-dim: #6b7280;
+    --accent: #0b6bcb;
+    --row-alt: #fafbfc;
+    --ok: #0f7b3f;
+    --ok-bg: #e6f4ec;
+    --warn: #8a5300;
+    --warn-bg: #fdf1dc;
+    --manual-bg: #e8f0fe;
+    --manual: #0b4ea2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16181c;
+      --surface: #1d2025;
+      --border: #2c3036;
+      --text: #e6e8ea;
+      --text-dim: #9aa1ab;
+      --accent: #4d9bf0;
+      --row-alt: #191c20;
+      --ok: #5bd18b;
+      --ok-bg: #16301f;
+      --warn: #e0b060;
+      --warn-bg: #33270f;
+      --manual-bg: #16283f;
+      --manual: #7fb4f0;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #16181c; --surface: #1d2025; --border: #2c3036; --text: #e6e8ea;
+    --text-dim: #9aa1ab; --accent: #4d9bf0; --row-alt: #191c20;
+    --ok: #5bd18b; --ok-bg: #16301f; --warn: #e0b060; --warn-bg: #33270f;
+    --manual-bg: #16283f; --manual: #7fb4f0;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+
+  /* The UA stylesheet gives [hidden] display:none, but any explicit display rule
+     outranks it - .empty below sets display:flex and would keep showing through
+     its own hidden attribute. */
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 13px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    display: flex; flex-direction: column;
+  }
+
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    background: var(--surface); flex: none;
+  }
+  h1 { font-size: 14px; font-weight: 600; margin: 0; }
+  .meta { color: var(--text-dim); font-size: 12px; }
+  .meta b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .spacer { flex: 1; }
+
+  button {
+    font: inherit; color: var(--text); background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 12px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button:active { transform: translateY(1px); }
+
+  .scroll { flex: 1; overflow: auto; }
+
+  table { border-collapse: separate; border-spacing: 0; width: 100%; }
+  thead th {
+    position: sticky; top: 0; z-index: 1;
+    background: var(--surface); color: var(--text-dim);
+    font-weight: 600; font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
+    text-align: left; white-space: nowrap;
+    padding: 8px 10px; border-bottom: 1px solid var(--border);
+  }
+  tbody td {
+    padding: 5px 10px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  tbody tr:nth-child(even) { background: var(--row-alt); }
+  tbody tr:hover { background: var(--manual-bg); }
+
+  /* Numeric columns line up only with tabular figures; proportional digits make
+     a column of readings impossible to scan. */
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .dim { color: var(--text-dim); }
+
+  .pill {
+    display: inline-block; padding: 1px 7px; border-radius: 10px;
+    font-size: 11px; font-weight: 600;
+  }
+  .pill-ok { background: var(--ok-bg); color: var(--ok); }
+  .pill-warn { background: var(--warn-bg); color: var(--warn); }
+  .pill-man { background: var(--manual-bg); color: var(--manual); }
+
+  /* Editable cells look inert until hovered - a grid where every cell shouts
+     "input box" is harder to read, and reading is the common case. */
+  .edit {
+    display: block; width: 100%; font: inherit; color: inherit;
+    background: transparent; border: 1px solid transparent; border-radius: 4px;
+    padding: 1px 5px; margin: -2px 0;
+  }
+  /* An <input> reports no intrinsic content width, so the column collapses to
+     whatever the header needs and the value inside it gets clipped - the same
+     truncation this grid exists to avoid. Size it for the 20-character limit the
+     field actually allows. */
+  .col-label { min-width: 21ch; }
+  .edit:hover { border-color: var(--border); background: var(--bg); }
+  .edit:focus { border-color: var(--accent); background: var(--bg); outline: none; }
+  tr.pending .edit { opacity: .55; }
+  tr.failed  td { background: var(--warn-bg); }
+
+  footer {
+    flex: none; padding: 6px 16px; border-top: 1px solid var(--border);
+    background: var(--surface); font-size: 12px; color: var(--text-dim);
+    min-height: 28px;
+  }
+  footer.ok   { color: var(--ok); }
+  footer.err  { color: var(--warn); }
+
+  .empty {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%; color: var(--text-dim); text-align: center; padding: 32px;
+  }
+  .empty div { max-width: 380px; }
+  .empty h2 { font-size: 14px; font-weight: 600; color: var(--text); margin: 0 0 6px; }
+  .empty p { margin: 0; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Inputs</h1>
+  <span class="meta">Device <b id="serial">&mdash;</b></span>
+  <span class="meta"><b id="count">0</b> points</span>
+  <span class="spacer"></span>
+  <button id="refresh">Refresh</button>
+</header>
+
+<div class="scroll" id="scroll">
+  <div class="empty" id="empty">
+    <div>
+      <h2>Waiting for device data</h2>
+      <p>Select a device in T3000 and read its inputs. This window shows whatever
+         is currently loaded, so it stays empty until a device has been read.</p>
+    </div>
+  </div>
+  <table id="grid" hidden>
+    <thead>
+      <tr>
+        <th>Input</th><th>Panel</th><th class="col-label">Full Label</th><th>Auto/Man</th>
+        <th class="num">Value</th><th>Units</th><th class="num">Range</th>
+        <th class="num">Calibration</th><th>Sign</th><th class="num">Filter</th>
+        <th>Status</th><th>Signal</th><th>Label</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div>
+
+<footer id="status">Full Label is editable. Press Enter to save, Escape to cancel.</footer>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g,
+    c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function render(data) {
+    $("serial").textContent = data.serialNumber || "—";
+    $("count").textContent = data.count || 0;
+
+    const rows = data.inputs || [];
+    $("grid").hidden = rows.length === 0;
+    $("empty").hidden = rows.length !== 0;
+
+    $("rows").innerHTML = rows.map(r => `
+      <tr>
+        <td class="num">${esc(r.input)}</td>
+        <td class="num dim">${esc(r.panel)}</td>
+        <td class="col-label"><input class="edit" data-index="${esc(r.index)}"
+                   value="${esc(r.fullLabel)}" maxlength="20"></td>
+        <td>${r.autoManual === "Manual"
+              ? '<span class="pill pill-man">Manual</span>'
+              : '<span class="dim">Auto</span>'}</td>
+        <td class="num">${esc(r.value)}</td>
+        <td class="dim">${esc(r.unit)}</td>
+        <td class="num dim">${esc(r.range)}</td>
+        <td class="num">${esc(r.calibration)}</td>
+        <td class="dim">${esc(r.calibrationSign)}</td>
+        <td class="num dim">${esc(r.filter)}</td>
+        <td>${r.status === "OK"
+              ? '<span class="pill pill-ok">OK</span>'
+              : '<span class="pill pill-warn">Decom</span>'}</td>
+        <td class="dim">${esc(r.digitalAnalog)}</td>
+        <td class="dim">${esc(r.label)}</td>
+      </tr>`).join("");
+  }
+
+  // Outside WebView2 there is no window.chrome.webview, and reaching through it
+  // unguarded throws before anything renders. Degrading to a no-op bridge keeps
+  // the page openable in an ordinary browser, which is how the layout and the
+  // empty state get worked on without launching T3000.
+  const bridge = (window.chrome && window.chrome.webview) || null;
+  if (!bridge) console.info("No WebView2 host. Call render(payload) to preview.");
+
+  function status(text, kind) {
+    const el = $("status");
+    el.textContent = text;
+    el.className = kind || "";
+  }
+
+  // Full Label is the only writable column for now, deliberately: it cannot
+  // affect control behaviour, where Filter or Range change signal processing on
+  // live equipment.
+  //
+  // The original value travels with the edit. The host refuses the write if the
+  // row no longer holds it, so a stale page cannot rename the wrong point.
+  $("rows").addEventListener("focusin", e => {
+    if (e.target.classList.contains("edit")) e.target.dataset.original = e.target.value;
+  });
+
+  $("rows").addEventListener("keydown", e => {
+    if (!e.target.classList.contains("edit")) return;
+    if (e.key === "Enter") { e.preventDefault(); e.target.blur(); }
+    if (e.key === "Escape") {
+      e.target.value = e.target.dataset.original || "";
+      e.target.blur();
+    }
+  });
+
+  $("rows").addEventListener("focusout", e => {
+    const el = e.target;
+    if (!el.classList.contains("edit")) return;
+
+    const original = el.dataset.original || "";
+    if (el.value === original) return;          // nothing to save
+
+    if (!bridge) { status("No host connected - edit not sent.", "err"); return; }
+
+    el.closest("tr").classList.add("pending");
+    el.closest("tr").classList.remove("failed");
+    status("Writing to device...");
+
+    bridge.postMessage(JSON.stringify({
+      action: "updateFullLabel",
+      index: Number(el.dataset.index),
+      expected: original,
+      value: el.value
+    }));
+  });
+
+  function handle(msg) {
+    if (msg.type === "result") {
+      const row = document.querySelector(`.edit[data-index="${msg.index}"]`);
+      const tr = row && row.closest("tr");
+      if (tr && msg.message !== "Writing to device...") tr.classList.remove("pending");
+      if (tr) tr.classList.toggle("failed", !msg.ok);
+      status(msg.message, msg.ok ? "ok" : "err");
+      return;
+    }
+    render(msg);   // a fresh point list supersedes whatever was on screen
+  }
+
+  if (bridge) {
+    // The host posts JSON; nothing is fetched over the network.
+    bridge.addEventListener("message", e => {
+      try { handle(typeof e.data === "string" ? JSON.parse(e.data) : e.data); }
+      catch (err) { console.error("bad payload", err); }
+    });
+  }
+
+  $("refresh").onclick = () => bridge && bridge.postMessage("refresh");
+
+  // The host cannot tell when script has finished parsing, so the page asks.
+  if (bridge) bridge.postMessage("ready");
+
+  window.render = render;   // preview hook, harmless in the host
+</script>
+</body>
+</html>
