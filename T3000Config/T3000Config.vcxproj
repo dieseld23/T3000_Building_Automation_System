@@ -1,0 +1,110 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    The new standalone configuration tool for Tstat/T3 units.
+
+    It does not talk to a device yet. What it currently contains is the wire
+    format, the logic for deciding how a device can be read, and proofs of both:
+
+      wire/points.h        the live point layout, vendored
+      wire/wire_guard.cpp  static_asserts the vendored layout still matches
+                           CM5/ud_str.h - drift fails the build
+      wire/decode.cpp      bytes off the wire into point structs
+      device/read_path.cpp which read path a device supports, and why
+      READ_PATH.md         the derivation behind read_path.cpp, with citations
+
+    A console application so the self-tests can actually be run - they execute
+    as a post-build event, so a failing check fails the build. It is not a usable
+    tool and does not pretend to be.
+  -->
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{7B3C1A62-5E48-4D91-B0F7-2C9E8A4D6135}</ProjectGuid>
+    <RootNamespace>T3000Config</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup>
+    <OutDir>..\T3000 Output\release\</OutDir>
+    <IntDir>..\T3000 Output\T3000Config object\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <!--
+        C++17 for the nested namespace in points.h, and /permissive- so the
+        static_asserts are evaluated under standard rules rather than the
+        Microsoft extensions the rest of this solution relies on. This project
+        has no MFC dependency and should not acquire one - wire_guard.cpp shims
+        the few Windows types CM5/ud_str.h needs precisely so it does not.
+      -->
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <ConformanceMode>true</ConformanceMode>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <PostBuildEvent>
+      <!--
+        Run the self-test as part of the build. Compiling it proves nothing -
+        main() would never execute in CI otherwise, and a decoder that builds but
+        decodes wrongly is exactly the failure this project exists to prevent.
+        A non-zero exit fails the build.
+      -->
+      <Command>"$(TargetPath)" --selftest</Command>
+      <Message>Running T3000Config self-tests</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="app\fixture.cpp" />
+    <ClCompile Include="app\points_json.cpp" />
+    <ClCompile Include="device\read_path.cpp" />
+    <ClCompile Include="device\read_path_selftest.cpp" />
+    <ClCompile Include="http\server.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="selftest_main.cpp" />
+    <ClCompile Include="wire\decode.cpp" />
+    <ClCompile Include="wire\decode_selftest.cpp" />
+    <ClCompile Include="wire\wire_guard.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="app\fixture.h" />
+    <ClInclude Include="app\points_json.h" />
+    <ClInclude Include="device\read_path.h" />
+    <ClInclude Include="http\server.h" />
+    <ClInclude Include="testing\check.h" />
+    <ClInclude Include="web\inputs_page.h" />
+    <ClInclude Include="wire\decode.h" />
+    <ClInclude Include="wire\points.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>
