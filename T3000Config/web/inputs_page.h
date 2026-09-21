@@ -109,6 +109,7 @@ namespace t3000::web
 </header>
 
 <div class="banner info" id="banner">Loading&hellip;</div>
+<div class="banner" id="path-banner" hidden></div>
 
 <div class="scroll">
   <div class="empty" id="empty" hidden>
@@ -140,22 +141,28 @@ namespace t3000::web
   let allRows = [];
 
   function showBanner(data) {
-    const b = $("banner");
     const rp = data.readPath || {};
-
-    if (data.device && data.device.isFixture) {
-      b.className = "banner warn";
-      b.innerHTML = "<b>Sample data.</b> No device is connected, so these are "
-                  + "fixture points for checking the layout. Nothing here came "
-                  + "from hardware.";
-      return;
-    }
+    const fixture = !!(data.device && data.device.isFixture);
 
     // Registers means the struct read was refused - usually firmware. Say which,
     // rather than leaving a technician to guess at an empty or partial grid.
     const degraded = rp.path === "modbus-registers";
-    b.className = "banner " + (degraded ? "warn" : "ok");
-    b.innerHTML = "<b>Read path: " + esc(rp.summary || "unknown") + ".</b> "
+
+    // Both bands, not one. An earlier version returned early on fixture data,
+    // which meant the read-path explanation - the thing this page exists to
+    // surface - was the one banner nobody ever saw while developing against the
+    // fixture. Provenance and read path answer different questions.
+    $("banner").className = "banner " + (fixture ? "warn" : "info");
+    $("banner").innerHTML = fixture
+      ? "<b>Sample data.</b> No device is connected, so these are fixture points "
+        + "for checking the layout. Nothing here came from hardware."
+      : "<b>Live device.</b> Points below were read from serial "
+        + esc((data.device && data.device.serialNumber) || "unknown") + ".";
+
+    const p = $("path-banner");
+    p.hidden = false;
+    p.className = "banner " + (degraded ? "warn" : "ok");
+    p.innerHTML = "<b>Read path: " + esc(rp.summary || "unknown") + ".</b> "
                 + esc(rp.detail || "");
   }
 
