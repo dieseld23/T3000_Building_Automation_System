@@ -4,18 +4,18 @@
     The new standalone configuration tool for Tstat/T3 units.
 
     It does not talk to a device yet. What it currently contains is the wire
-    format and its proof:
+    format, the logic for deciding how a device can be read, and proofs of both:
 
-      wire/points.h            the live point layout, vendored
-      wire/wire_guard.cpp      static_asserts that the vendored layout still
-                               matches CM5/ud_str.h - drift fails the build
-      wire/decode.cpp          bytes off the wire into point structs
-      wire/decode_selftest.cpp runs that decoder against a fixture whose every
-                               byte is known, and returns non-zero on failure
+      wire/points.h        the live point layout, vendored
+      wire/wire_guard.cpp  static_asserts the vendored layout still matches
+                           CM5/ud_str.h - drift fails the build
+      wire/decode.cpp      bytes off the wire into point structs
+      device/read_path.cpp which read path a device supports, and why
+      READ_PATH.md         the derivation behind read_path.cpp, with citations
 
-    A console application so the self-test can actually be run; it is not a
-    usable tool and does not pretend to be. It is in the solution so CI compiles
-    the guard on every build.
+    A console application so the self-tests can actually be run - they execute
+    as a post-build event, so a failing check fails the build. It is not a usable
+    tool and does not pretend to be.
   -->
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -81,15 +81,20 @@
         A non-zero exit fails the build.
       -->
       <Command>"$(TargetPath)"</Command>
-      <Message>Running wire decoder self-test</Message>
+      <Message>Running T3000Config self-tests</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="device\read_path.cpp" />
+    <ClCompile Include="device\read_path_selftest.cpp" />
+    <ClCompile Include="selftest_main.cpp" />
     <ClCompile Include="wire\decode.cpp" />
     <ClCompile Include="wire\decode_selftest.cpp" />
     <ClCompile Include="wire\wire_guard.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="device\read_path.h" />
+    <ClInclude Include="testing\check.h" />
     <ClInclude Include="wire\decode.h" />
     <ClInclude Include="wire\points.h" />
   </ItemGroup>

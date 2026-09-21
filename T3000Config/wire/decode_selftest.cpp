@@ -9,33 +9,14 @@
 // the right number of bytes in the wrong order still fails.
 
 #include "decode.h"
+#include "../testing/check.h"
 
-#include <stdio.h>
 #include <string.h>
 
 namespace
 {
     using namespace t3000::wire;
-
-    int g_failures = 0;
-
-    void check(bool condition, const char* what)
-    {
-        if (!condition)
-        {
-            printf("  FAIL  %s\n", what);
-            g_failures++;
-        }
-    }
-
-    void check_eq(long actual, long expected, const char* what)
-    {
-        if (actual != expected)
-        {
-            printf("  FAIL  %s: got %ld, expected %ld\n", what, actual, expected);
-            g_failures++;
-        }
-    }
+    using namespace t3000::testing;
 
     // A full 46-byte point. Values are deliberately all different and none are
     // 0 or 1, so an off-by-one walk through the trailing byte fields cannot
@@ -69,7 +50,7 @@ namespace
 
     void test_decodes_every_field()
     {
-        printf("decodes every field in wire order\n");
+        section("decodes every field in wire order");
 
         uint8_t buf[kInputPointWireSize];
         build_fixture(buf);
@@ -105,7 +86,7 @@ namespace
 
     void test_rejects_short_buffer()
     {
-        printf("refuses to read past a short buffer\n");
+        section("refuses to read past a short buffer");
 
         uint8_t buf[kInputPointWireSize];
         build_fixture(buf);
@@ -120,7 +101,7 @@ namespace
 
     void test_blanks_unterminated_text()
     {
-        printf("blanks text fields that do not fit\n");
+        section("blanks text fields that do not fit");
 
         uint8_t buf[kInputPointWireSize];
         build_fixture(buf);
@@ -144,14 +125,10 @@ namespace
     }
 }
 
-int main()
+int run_wire_tests()
 {
-    printf("T3000Config wire decoder self-test\n\n");
-
     test_decodes_every_field();
     test_rejects_short_buffer();
     test_blanks_unterminated_text();
-
-    printf("\n%s\n", g_failures == 0 ? "all checks passed" : "FAILURES PRESENT");
-    return g_failures == 0 ? 0 : 1;
+    return 0;
 }
