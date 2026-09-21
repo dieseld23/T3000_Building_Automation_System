@@ -73,6 +73,16 @@
     <Link>
       <SubSystem>Console</SubSystem>
     </Link>
+    <PostBuildEvent>
+      <!--
+        Run the self-test as part of the build. Compiling it proves nothing -
+        main() would never execute in CI otherwise, and a decoder that builds but
+        decodes wrongly is exactly the failure this project exists to prevent.
+        A non-zero exit fails the build.
+      -->
+      <Command>"$(TargetPath)"</Command>
+      <Message>Running wire decoder self-test</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="wire\decode.cpp" />
