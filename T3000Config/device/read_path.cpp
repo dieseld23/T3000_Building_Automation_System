@@ -1,6 +1,6 @@
 #include "read_path.h"
 
-#include <stdio.h>
+#include <string>
 
 // Both of these are standalone: ProductModel.h has no includes at all, and the
 // protocol constants live among plain `const int`s. Using the real headers
@@ -49,15 +49,15 @@ namespace t3000::device
 
     Decision choose_read_path(int product_id, int software_version, int protocol)
     {
-        Decision d{};
+        Decision d;
 
         if (!is_refused_by_private_data(protocol))
         {
             d.path    = ReadPath::PrivateData;
             d.summary = "private data";
-            snprintf(d.detail, sizeof(d.detail),
-                     "Transport %d is not one the private-data read refuses, so points "
-                     "are read directly as structs.", protocol);
+            d.detail  = "Transport " + std::to_string(protocol) +
+                        " is not one the private-data read refuses, so points are "
+                        "read directly as structs.";
             return d;
         }
 
@@ -65,32 +65,34 @@ namespace t3000::device
         {
             d.path    = ReadPath::PrivateDataOverPtp;
             d.summary = "private data over PTP";
-            snprintf(d.detail, sizeof(d.detail),
-                     "Modbus transport %d, but firmware %d supports the PTP tunnel, so "
-                     "points are read as structs through it.", protocol, software_version);
+            d.detail  = "Modbus transport " + std::to_string(protocol) +
+                        ", but firmware " + std::to_string(software_version) +
+                        " supports the PTP tunnel, so points are read as structs "
+                        "through it.";
             return d;
         }
 
         // Everything else falls back to raw registers. Say WHY, because this is
         // the branch where the previous tool would simply have shown nothing:
-        // the firmware being one revision short is not something a technician
+        // the firmware being a few revisions short is not something a technician
         // can be expected to infer from an empty grid.
         d.path    = ReadPath::ModbusRegisters;
         d.summary = "Modbus registers";
 
         if (is_private_data_device(product_id))
         {
-            snprintf(d.detail, sizeof(d.detail),
-                     "This device supports private-data reads, but its firmware is %d and "
-                     "the PTP tunnel needs %d or newer. Falling back to raw Modbus "
-                     "registers. Updating the firmware would enable the faster path.",
-                     software_version, kPtpMinimumFirmware);
+            d.detail = "This device supports private-data reads, but its firmware is " +
+                       std::to_string(software_version) +
+                       " and the PTP tunnel needs " +
+                       std::to_string(kPtpMinimumFirmware) +
+                       " or newer. Falling back to raw Modbus registers. Updating the "
+                       "firmware would enable the faster path.";
         }
         else
         {
-            snprintf(d.detail, sizeof(d.detail),
-                     "Product %d does not support private-data reads, so points are read "
-                     "from raw Modbus registers.", product_id);
+            d.detail = "Product " + std::to_string(product_id) +
+                       " does not support private-data reads, so points are read from "
+                       "raw Modbus registers.";
         }
         return d;
     }

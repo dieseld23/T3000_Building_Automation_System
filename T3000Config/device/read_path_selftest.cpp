@@ -73,9 +73,15 @@ namespace
 
         // The point of the detail string is that it names the cause. An empty
         // grid with no explanation is the failure this project exists to avoid.
-        check(strstr(d.detail, "525") != nullptr, "detail names the required firmware");
-        check(strstr(d.detail, "520") != nullptr, "detail names the device's firmware");
-        check(strlen(d.detail) > 0, "detail is not empty");
+        check(d.detail.find("525") != std::string::npos, "detail names the required firmware");
+        check(d.detail.find("520") != std::string::npos, "detail names the device's firmware");
+        check(!d.detail.empty(), "detail is not empty");
+
+        // Regression: detail was a char[192] and this exact message truncated to
+        // "...would enable the faster pat". The truncation lands at the END of
+        // the sentence, which is where the actionable part is, so it was invisible
+        // in a glance at the output and only showed up when the page rendered it.
+        check(d.detail.back() == '.', "detail ends in a full stop, not mid-word");
     }
 
     void test_tstat_at_cutoff_uses_ptp()
@@ -104,7 +110,7 @@ namespace
 
         Decision d = choose_read_path(9999, 600, kModbusRs485);
         check(d.path == ReadPath::ModbusRegisters, "falls back to registers");
-        check(strstr(d.detail, "does not support private-data") != nullptr,
+        check(d.detail.find("does not support private-data") != std::string::npos,
               "detail explains it is the product, not the firmware");
     }
 }

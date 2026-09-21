@@ -80,21 +80,29 @@
         decodes wrongly is exactly the failure this project exists to prevent.
         A non-zero exit fails the build.
       -->
-      <Command>"$(TargetPath)"</Command>
+      <Command>"$(TargetPath)" --selftest</Command>
       <Message>Running T3000Config self-tests</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="app\fixture.cpp" />
+    <ClCompile Include="app\points_json.cpp" />
     <ClCompile Include="device\read_path.cpp" />
     <ClCompile Include="device\read_path_selftest.cpp" />
+    <ClCompile Include="http\server.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="selftest_main.cpp" />
     <ClCompile Include="wire\decode.cpp" />
     <ClCompile Include="wire\decode_selftest.cpp" />
     <ClCompile Include="wire\wire_guard.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="app\fixture.h" />
+    <ClInclude Include="app\points_json.h" />
     <ClInclude Include="device\read_path.h" />
+    <ClInclude Include="http\server.h" />
     <ClInclude Include="testing\check.h" />
+    <ClInclude Include="web\inputs_page.h" />
     <ClInclude Include="wire\decode.h" />
     <ClInclude Include="wire\points.h" />
   </ItemGroup>

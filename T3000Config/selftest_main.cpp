@@ -1,14 +1,15 @@
 // Runs every self-test in the project and returns non-zero if any failed.
 //
-// This is wired as a post-build event, so the build fails when a check fails.
-// Compiling tests without running them proves only that they parse.
+// Reached via "T3000Config.exe --selftest", which the post-build event invokes,
+// so the build fails when a check fails. Compiling tests without running them
+// proves only that they parse.
 
 #include "testing/check.h"
 
 int run_wire_tests();
 int run_read_path_tests();
 
-int main()
+int run_selftests()
 {
     printf("T3000Config self-test\n\n");
 

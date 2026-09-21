@@ -13,6 +13,7 @@
 // the cutoff, say - are exactly the ones that are awkward to get hold of.
 
 #include <stdint.h>
+#include <string>
 
 namespace t3000::device
 {
@@ -31,9 +32,17 @@ namespace t3000::device
 
     struct Decision
     {
-        ReadPath    path;
-        const char* summary;   // short, for a status line
-        char        detail[192];   // why, in a sentence a technician can act on
+        ReadPath    path    = ReadPath::ModbusRegisters;
+        const char* summary = "";   // short, for a status line
+
+        // Why, in a sentence a technician can act on.
+        //
+        // A std::string rather than a fixed buffer because the first version of
+        // this used char[192] and silently truncated the longest message to
+        // "...would enable the faster pat". A reason that explains itself only
+        // when it happens to be short enough is worse than no reason, since the
+        // truncation lands at the end - exactly where the actionable part is.
+        std::string detail;
     };
 
     // The firmware cutoff for the PTP tunnel, from BacnetView.cpp:7736.
