@@ -3,15 +3,19 @@
   <!--
     The new standalone configuration tool for Tstat/T3 units.
 
-    Today this builds only wire/wire_guard.cpp, which contains no executable code
-    at all - it is a wall of static_asserts proving that the vendored point
-    layout in wire/points.h still matches the layout the shipping application
-    uses. It is in the solution so that CI fails the build if the two ever drift,
-    rather than a technician discovering it against a live controller.
+    It does not talk to a device yet. What it currently contains is the wire
+    format and its proof:
 
-    A static library rather than an executable on purpose: there is nothing to
-    run yet, and a library keeps the build honest without producing a binary that
-    looks like a working tool.
+      wire/points.h            the live point layout, vendored
+      wire/wire_guard.cpp      static_asserts that the vendored layout still
+                               matches CM5/ud_str.h - drift fails the build
+      wire/decode.cpp          bytes off the wire into point structs
+      wire/decode_selftest.cpp runs that decoder against a fixture whose every
+                               byte is known, and returns non-zero on failure
+
+    A console application so the self-test can actually be run; it is not a
+    usable tool and does not pretend to be. It is in the solution so CI compiles
+    the guard on every build.
   -->
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -31,13 +35,13 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>false</WholeProgramOptimization>
@@ -64,13 +68,19 @@
       <ConformanceMode>true</ConformanceMode>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+    </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="wire\decode.cpp" />
+    <ClCompile Include="wire\decode_selftest.cpp" />
     <ClCompile Include="wire\wire_guard.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="wire\decode.h" />
     <ClInclude Include="wire\points.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
