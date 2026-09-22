@@ -11,6 +11,7 @@ int run_read_path_tests();
 int run_bacnet_link_tests();
 int run_connection_tests();
 int run_product_tests();
+int run_registry_tests();
 
 int run_selftests()
 {
@@ -25,6 +26,8 @@ int run_selftests()
     run_connection_tests();
     printf("\n");
     run_product_tests();
+    printf("\n");
+    run_registry_tests();
 
     const int failures = t5000::testing::g_failures;
     const int checks   = t5000::testing::g_checks;

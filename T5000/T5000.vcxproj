@@ -102,6 +102,8 @@
     <ClCompile Include="device\connection_selftest.cpp" />
     <ClCompile Include="device\product.cpp" />
     <ClCompile Include="device\product_selftest.cpp" />
+    <ClCompile Include="device\registry.cpp" />
+    <ClCompile Include="device\registry_selftest.cpp" />
     <ClCompile Include="device\read_path.cpp" />
     <ClCompile Include="device\read_path_selftest.cpp" />
     <ClCompile Include="http\server.cpp" />
@@ -117,6 +119,7 @@
     <ClInclude Include="app\product_json.h" />
     <ClInclude Include="device\bacnet_link.h" />
     <ClInclude Include="device\connection.h" />
+    <ClInclude Include="device\registry.h" />
     <ClInclude Include="device\read_path.h" />
     <ClInclude Include="http\server.h" />
     <ClInclude Include="testing\check.h" />
