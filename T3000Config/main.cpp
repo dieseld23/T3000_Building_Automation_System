@@ -7,6 +7,9 @@
 // JSON contract get built and reviewed before any of it is pointed at live
 // equipment, and everything it serves is flagged as sample data.
 
+#include <windows.h>
+#include <shellapi.h>
+
 #include <stdio.h>
 #include <string.h>
 
@@ -23,6 +26,30 @@ namespace
     // Not 80 or 8080: this is a developer tool on a technician's machine and
     // should not squat on a port something else probably wants.
     constexpr unsigned short kPort = 8730;
+
+    // True when this process owns its console alone, which is what happens when
+    // it is double-clicked from Explorer rather than run from a shell. In that
+    // case the window closes the instant main returns, so an error message that
+    // is merely printed is an error message nobody reads.
+    //
+    // This was not hypothetical: the first version exited immediately when the
+    // port was already held by another instance, and the only symptom was a
+    // window that flashed and vanished. "It doesn't open" is exactly the kind of
+    // unexplained failure this tool exists to stop producing.
+    bool owns_console_alone()
+    {
+        DWORD pids[4] = {};
+        return GetConsoleProcessList(pids, 4) <= 1;
+    }
+
+    void wait_before_closing()
+    {
+        if (!owns_console_alone())
+            return;
+
+        printf("\nPress Enter to close.");
+        (void)getchar();
+    }
 
     t3000::app::DeviceInfo fixture_device()
     {
@@ -62,15 +89,40 @@ int main(int argc, char** argv)
             app::build_inputs_json(device, decision, app::fixture_points()));
     });
 
+    char url[64];
+    snprintf(url, sizeof(url), "http://127.0.0.1:%u/", (unsigned)kPort);
+
     printf("T3000Config\n");
-    printf("  serving   http://127.0.0.1:%u/\n", (unsigned)kPort);
+    printf("  serving   %s\n", url);
     printf("  data      FIXTURE - no device is connected\n");
     printf("  bind      loopback only\n\n");
     printf("Ctrl-C to stop.\n");
 
-    if (!server.serve_forever())
+    // The whole tool is a web page; making the operator find and paste the URL
+    // is a step with no purpose. Opened from the ready callback rather than
+    // here, so a failed bind does not launch a tab pointing at a URL this
+    // process is not serving. Failing to open a browser is not a reason to stop
+    // serving, so the result is ignored - the URL is on screen either way.
+    const auto open_browser = [&url]() {
+        ShellExecuteA(nullptr, "open", url, nullptr, nullptr, SW_SHOWNORMAL);
+    };
+
+    if (!server.serve_forever(open_browser))
     {
         fprintf(stderr, "\nCould not start: %s\n", server.last_error().c_str());
+
+        // Name the most likely cause rather than only the errno-level one. The
+        // usual reason this port is taken is another copy of this same tool.
+        if (server.last_error().find("bind") != std::string::npos)
+        {
+            fprintf(stderr,
+                    "\nAnother copy of T3000Config is probably already running and\n"
+                    "holding port %u. Close it, or check with:\n"
+                    "    Get-NetTCPConnection -LocalPort %u -State Listen\n",
+                    (unsigned)kPort, (unsigned)kPort);
+        }
+
+        wait_before_closing();
         return 1;
     }
     return 0;

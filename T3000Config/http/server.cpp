@@ -128,7 +128,7 @@ namespace t3000::http
         m_routes.emplace_back(path, std::move(handler));
     }
 
-    bool Server::serve_forever()
+    bool Server::serve_forever(const std::function<void()>& on_ready)
     {
         WSADATA wsa{};
         if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
@@ -169,6 +169,11 @@ namespace t3000::http
             m_error = "listen failed";
             return false;
         }
+
+        // Listening for real now, so anything conditional on a successful start
+        // can run. Before this point the bind may still fail.
+        if (on_ready)
+            on_ready();
 
         for (;;)
         {

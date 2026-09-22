@@ -54,7 +54,13 @@ namespace t3000::http
 
         // Blocks. Returns false if the listening socket could not be opened,
         // with the reason in last_error().
-        bool serve_forever();
+        //
+        // on_ready, if given, runs once - after the socket is listening and
+        // before the first accept. Anything that should happen only on a
+        // successful start belongs here rather than before the call: opening a
+        // browser beforehand means a failed bind still launches a tab, pointing
+        // at a URL this process is not serving.
+        bool serve_forever(const std::function<void()>& on_ready = nullptr);
 
         const std::string& last_error() const { return m_error; }
         unsigned short port() const { return m_port; }
