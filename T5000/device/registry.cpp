@@ -58,17 +58,30 @@ namespace t5000::device
                         existing.provenance = device.provenance;
                 }
 
-                // Repairs are replaced wholesale by a fresh scan's view,
-                // EXCEPT that an approval is never inherited by a repair
-                // that came from a later look at the device. Re-approving is
-                // a small cost; silently applying a write the operator
-                // approved against different information is not.
-                if (!device.repairs.empty())
-                {
+                // An approval NEVER survives a merge, whatever the incoming
+                // record contains. Consent was given against what was known
+                // at the time; re-approving costs a click, while silently
+                // holding a write the operator agreed to under different
+                // information does not have a bounded cost.
+                //
+                // This used to be inside the `if` below, which meant a
+                // rescan that found NO problems left an old approved repair
+                // sitting there - approved, and now describing a device
+                // state that no longer exists.
+                for (auto& r : existing.repairs)
+                    r.approved = false;
+
+                // Only a complete observation may replace the repair list,
+                // and it may replace it with nothing. A partial merge - a
+                // serial sweep that learned only an address - has not looked
+                // for problems and must not appear to have found none.
+                if (device.observation_complete)
                     existing.repairs = device.repairs;
-                    for (auto& r : existing.repairs)
-                        r.approved = false;
-                }
+                else if (!device.repairs.empty())
+                    existing.repairs = device.repairs;
+
+                existing.observation_complete =
+                    existing.observation_complete || device.observation_complete;
 
                 return (int)i;
             }

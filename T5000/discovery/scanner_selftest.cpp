@@ -117,7 +117,7 @@ namespace
         check_eq((int)result.devices.size(), 1, "one device");
 
         const auto& d = result.devices[0];
-        check_eq(d.serial_number, 500123, "serial");
+        check_eq((long)d.serial_number, 500123, "serial");
         check(d.product == ProductClassId::Esp32T3Series, "product id mapped");
         check_eq(d.firmware, 538, "firmware, which the PTP gate needs");
         check(d.provenance == Provenance::BacnetBroadcast, "provenance");

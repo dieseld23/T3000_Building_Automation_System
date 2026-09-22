@@ -138,7 +138,15 @@ namespace t5000::device
         // Serial number is the closest thing to a stable key, which is
         // exactly why a device reporting 0 is a problem worth surfacing
         // rather than papering over.
-        int serial_number = 0;
+        //
+        // UNSIGNED, deliberately. This was an int, and the all-FF
+        // uninitialised value 0xFFFFFFFF became -1 on the way in from the
+        // wire. -1 is not 0, so has_stable_identity() called it a real
+        // identity and two unidentified devices merged into one record - the
+        // exact collapse that unidentified_count() exists to prevent. A
+        // technician would have been told there was one nameless device on
+        // the subnet when there were two.
+        uint32_t serial_number = 0;
 
         ProductClassId product   = ProductClassId::Unknown;   // what it reports
         int            mini_type = 0;                         // raw; resolve via resolve_panel
@@ -158,10 +166,24 @@ namespace t5000::device
         // an unreached device as though its fields were read from hardware.
         bool reached = false;
 
+        // True when this record came from a complete look at the device - a
+        // scan response - rather than from a partial one, such as a serial
+        // sweep that learned only an address.
+        //
+        // It decides whether a merge may REPLACE the repair list. A complete
+        // observation that finds no problems means there are none, and the
+        // old ones must go; a partial one knows nothing about problems and
+        // must leave them alone.
+        bool observation_complete = false;
+
         // A device with no usable serial cannot be keyed on one. Reported
         // rather than worked around, because every alternative key (IP,
         // Modbus id) is something a person can change.
-        bool has_stable_identity() const { return serial_number != 0; }
+        //
+        // Both uninitialised values count as "no identity", not just zero -
+        // see is_uninitialised_serial above for why that distinction has
+        // teeth.
+        bool has_stable_identity() const { return !is_uninitialised_serial(serial_number); }
 
         // True when at least one repair is outstanding.
         bool needs_attention() const;

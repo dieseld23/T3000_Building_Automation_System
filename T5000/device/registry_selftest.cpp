@@ -13,7 +13,7 @@ namespace
     using namespace t5000::device;
     using namespace t5000::testing;
 
-    DeviceRecord a_device(int serial, ProductClassId product = ProductClassId::Tstat10)
+    DeviceRecord a_device(uint32_t serial, ProductClassId product = ProductClassId::Tstat10)
     {
         DeviceRecord d;
         d.serial_number = serial;
@@ -254,6 +254,89 @@ namespace
         check(!is_uninitialised_serial(299999u), "nor the top");
     }
 
+    void test_all_ff_devices_never_merge()
+    {
+        section("devices reporting an all-FF serial stay separate too");
+
+        // Regression. serial_number was an int, so 0xFFFFFFFF arrived as -1,
+        // and -1 != 0 meant has_stable_identity() called it a real identity.
+        // Two unidentified devices then merged into one record - the exact
+        // collapse unidentified_count() exists to prevent, and a technician
+        // would have been told there was one nameless device when there were
+        // two.
+        Registry reg;
+        reg.add_or_merge(a_device(0xFFFFFFFFu));
+        reg.add_or_merge(a_device(0xFFFFFFFFu));
+        reg.add_or_merge(a_device(0xFFFFFFFFu));
+
+        check_eq(reg.size(), 3, "three all-FF devices are three devices");
+        check_eq(reg.unidentified_count(), 3, "and all three are counted");
+        check(!reg.devices()[0].has_stable_identity(), "none has a stable identity");
+
+        // Mixed with plain zeros, still all separate.
+        reg.add_or_merge(a_device(0));
+        check_eq(reg.size(), 4, "a zero-serial device is a fourth device");
+        check_eq(reg.unidentified_count(), 4, "and is also unidentified");
+
+        // A real serial still merges normally.
+        reg.add_or_merge(a_device(9001));
+        reg.add_or_merge(a_device(9001));
+        check_eq(reg.size(), 5, "two sightings of a real device are one device");
+    }
+
+    void test_a_clean_rescan_withdraws_a_stale_approval()
+    {
+        section("a rescan that finds nothing wrong clears an approved repair");
+
+        // Regression. Clearing approvals used to sit inside the branch that
+        // replaced the repair list, so a rescan finding NO problems left the
+        // old repair in place AND still approved - approved, and describing a
+        // device state that no longer existed.
+        DeviceRecord broken = a_device(7777);
+        broken.observation_complete = true;
+        broken.repairs.push_back(a_repair());
+
+        Registry reg;
+        const int i = reg.add_or_merge(broken);
+        check(reg.approve_repair(i, 0), "approved while the problem existed");
+        check_eq((int)reg.pending_repairs().size(), 0, "nothing pending");
+
+        // The problem is fixed elsewhere; the next scan sees a healthy device.
+        DeviceRecord healthy = a_device(7777);
+        healthy.observation_complete = true;   // a full look, finding nothing
+        reg.add_or_merge(healthy);
+
+        check_eq(reg.size(), 1, "still one device");
+        check_eq((int)reg.devices()[0].repairs.size(), 0, "the stale repair is gone");
+        check(!reg.devices()[0].needs_attention(), "and the device is clean");
+    }
+
+    void test_a_partial_merge_does_not_erase_known_problems()
+    {
+        section("a partial sighting does not clear repairs it never looked for");
+
+        // The other side of the same rule. A serial sweep that learns only an
+        // address has not looked for problems, so it must not appear to have
+        // found none.
+        DeviceRecord scanned = a_device(8888);
+        scanned.observation_complete = true;
+        scanned.repairs.push_back(a_repair());
+
+        Registry reg;
+        reg.add_or_merge(scanned);
+        check_eq((int)reg.devices()[0].repairs.size(), 1, "a repair is known");
+
+        DeviceRecord glimpse;
+        glimpse.serial_number = 8888;
+        glimpse.provenance    = Provenance::SerialScan;
+        glimpse.observation_complete = false;
+        reg.add_or_merge(glimpse);
+
+        check_eq((int)reg.devices()[0].repairs.size(), 1, "the repair survives");
+        check(!reg.devices()[0].repairs[0].approved,
+              "but its approval does not - a merge always withdraws consent");
+    }
+
     void test_labels_exist_for_everything_shown()
     {
         section("provenance and repair kinds have labels");
@@ -286,6 +369,9 @@ int run_registry_tests()
     test_merge_keeps_what_the_new_view_did_not_see();
     test_reached_is_sticky_but_provenance_upgrades();
     test_selection_clears_rather_than_clamps();
+    test_all_ff_devices_never_merge();
+    test_a_clean_rescan_withdraws_a_stale_approval();
+    test_a_partial_merge_does_not_erase_known_problems();
     test_uninitialised_serial_detection();
     test_labels_exist_for_everything_shown();
     return 0;

@@ -61,7 +61,7 @@ namespace
             b[59] = 0;           // isp_mode: running application code
             b[60] = 0xC0; b[61] = 0xBA;   // bacnet_port 47808 (0xBAC0)
             b[62] = 0x02;        // hardware_info: wifi
-            b[63] = 0;           // subnet_protocol
+            b[63] = 12;          // subnet_protocol: PROTOCOL_BIP_TO_MSTP_TO_MODBUS
         }
     };
 
@@ -125,6 +125,10 @@ namespace
         check_eq((int)r.station_number, 9, "station_number");
         check_eq((int)r.object_instance, 0x04030201, "object_instance, reassembled");
         check_eq((int)r.hardware_info, 2, "hardware_info");
+        // Set to 12 rather than 0 deliberately: with 0 on the wire and 0 as
+        // the default initialiser, this assertion would pass even if the
+        // parser never read the field at all.
+        check_eq((int)r.subnet_protocol, 12, "subnet_protocol, the last field parsed");
         check(!r.in_bootloader, "not in bootloader");
         check(!r.parent_serial_was_suspect, "parent serial looks real");
     }

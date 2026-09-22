@@ -3,6 +3,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
+#include <chrono>
 #include <map>
 
 #pragma comment(lib, "ws2_32.lib")
@@ -23,10 +24,15 @@ namespace t5000::discovery
         using namespace t5000::device;
 
         DeviceRecord d;
-        d.serial_number = (int)r.serial_number;
+        d.serial_number = r.serial_number;
         d.product       = static_cast<ProductClassId>(r.product_id);
         d.firmware      = (int)r.software_version;
         d.provenance    = Provenance::BacnetBroadcast;
+
+        // A scan response is a complete look at the device, so a merge may
+        // replace its repair list - including with an empty one when the
+        // problem has been fixed since the last scan.
+        d.observation_complete = true;
 
         // It answered, so it is demonstrably there - even if it answered from
         // its bootloader.
@@ -132,16 +138,45 @@ namespace t5000::discovery
         std::vector<ScanResponse> responses;
 
         uint8_t buffer[1024];
-        int elapsed = 0;
 
+        // Measured against a real clock, not accumulated from the timeouts we
+        // asked for.
+        //
+        // The first version of this only advanced its counter when receive()
+        // TIMED OUT, so any datagram arriving before the deadline advanced it
+        // by nothing. On a subnet with continuous traffic - broadcast chatter
+        // from anything at all, not necessarily our devices - the loop would
+        // never reach its deadline and the scan would not end. The device cap
+        // does not save it, because ignored and malformed datagrams produce
+        // no device.
+        const auto started = std::chrono::steady_clock::now();
+        const auto elapsed_ms = [&started]() {
+            return (int)std::chrono::duration_cast<std::chrono::milliseconds>(
+                       std::chrono::steady_clock::now() - started).count();
+        };
+
+        // A second, independent bound. A flood of unparseable traffic would
+        // otherwise spin this loop as fast as the socket can deliver until
+        // the deadline, which is a hot loop rather than a wait.
+        const int max_datagrams = settings.max_devices * 8 + 1024;
+
+        int elapsed = 0;
         while (elapsed < settings.total_timeout_ms)
         {
+            if (result.stats.datagrams_received >= max_datagrams)
+            {
+                result.error = "stopped after " + std::to_string(max_datagrams) +
+                               " datagrams without finishing; the list is incomplete";
+                break;
+            }
+
             const int slice = settings.slice_timeout_ms < 1 ? 1 : settings.slice_timeout_ms;
-            const int wait  = (settings.total_timeout_ms - elapsed) < slice
-                                ? (settings.total_timeout_ms - elapsed) : slice;
+            const int left  = settings.total_timeout_ms - elapsed;
+            const int wait  = left < slice ? left : slice;
 
             std::string recv_error;
             const int n = transport.receive(buffer, sizeof(buffer), wait, recv_error);
+            elapsed = elapsed_ms();
 
             if (n < 0)
             {
@@ -152,10 +187,7 @@ namespace t5000::discovery
             }
 
             if (n == 0)
-            {
-                elapsed += wait;
-                continue;
-            }
+                continue;   // timed out with nothing waiting; elapsed is already current
 
             result.stats.datagrams_received++;
 
