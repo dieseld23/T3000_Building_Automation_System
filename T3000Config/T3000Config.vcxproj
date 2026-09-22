@@ -72,6 +72,15 @@
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
+      <!--
+        The BACnet stack ships as a DLL, so linking its import library is all
+        this needs. The UseOfMfc=Static on that project applies inside
+        BACnet_Stack_Library.dll and does not reach this process - which is why
+        no MFC decoupling was required after all. bacnet_link.cpp makes that
+        fail at build time if it ever stops being true.
+      -->
+      <AdditionalDependencies>BACnet_Stack_Library.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(OutDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <!--
@@ -87,6 +96,7 @@
   <ItemGroup>
     <ClCompile Include="app\fixture.cpp" />
     <ClCompile Include="app\points_json.cpp" />
+    <ClCompile Include="device\bacnet_link.cpp" />
     <ClCompile Include="device\read_path.cpp" />
     <ClCompile Include="device\read_path_selftest.cpp" />
     <ClCompile Include="http\server.cpp" />
@@ -99,6 +109,7 @@
   <ItemGroup>
     <ClInclude Include="app\fixture.h" />
     <ClInclude Include="app\points_json.h" />
+    <ClInclude Include="device\bacnet_link.h" />
     <ClInclude Include="device\read_path.h" />
     <ClInclude Include="http\server.h" />
     <ClInclude Include="testing\check.h" />
