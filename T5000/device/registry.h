@@ -47,19 +47,58 @@ namespace t5000::device
 
     // What is wrong with a device, expressed as something that could be done
     // about it. Never applied automatically.
+    // The registers each repair would touch were read out of
+    // TStatScanner.cpp, where T3000 writes them during a scan with no
+    // confirmation of any kind. They are named here so an operator can see
+    // exactly what approving one would send.
     enum class RepairKind
     {
-        // The device reports serial 0, so it cannot be told apart from any
-        // other device reporting serial 0. T3000 writes a random one.
+        // The device has no serial, so it cannot be told apart from any other
+        // device in the same state. T3000 does this automatically at
+        // TStatScanner.cpp:1463-1485 and it is FOUR writes, not one:
+        //
+        //     register 16 <- 142           an init code, then Sleep(1000)
+        //     register 0  <- serial low    rand() % 100000 + 200000
+        //     register 2  <- serial high
+        //     register 8  <- 6             hardware version, PM_TSTAT8 only,
+        //                                  and only when it also reads 0 or FF
+        //
+        // The serial is RANDOM, from srand(time(NULL)). Two devices scanned
+        // within the same second can therefore be given the same "unique"
+        // number - which is worth telling the operator before they agree.
         AssignSerialNumber,
 
         // Two devices on one line answer to the same Modbus id, so neither
-        // can be addressed reliably. T3000 renumbers one of them.
+        // can be addressed reliably. T3000 does this automatically at
+        // TStatScanner.cpp:1657, walking j from 254 downwards for a free id
+        // and writing register 10.
+        //
+        // Note the duplicate-id DIALOG path (DuplicateIdDetected.cpp) is
+        // already properly user-gated in T3000 - it is the scanner that is
+        // not. Only the scanner's behaviour is being changed here.
         ResolveDuplicateModbusId,
 
-        // A gateway's sub-port is not configured for the devices behind it.
+        // A gateway's sub-port and sub-baudrate are not set for the devices
+        // behind it. T3000 writes registers 96 and 97 automatically during a
+        // subnet scan (TStatScanner.cpp:485-486), addressed to 255 - the
+        // broadcast id - so this one is not even aimed at a single device.
         ConfigureGatewaySubPort,
     };
+
+    // A serial number that means "this device was never given one".
+    //
+    // Both 0 and 0xFFFFFFFF are uninitialised-flash values. T3000 tests for
+    // them at TStatScanner.cpp:1460 as:
+    //
+    //     if ((nSerialNumber == 0) || (nSerialNumber == 255 * 255 * 255 * 255))
+    //
+    // ...and that second constant is wrong. 255*255*255*255 is 4,228,250,625;
+    // the all-bits-set value it is reaching for is 0xFFFFFFFF = 4,294,967,295.
+    // So T3000 never detects an all-FF serial, and a device in that state
+    // keeps reporting it. Fixed here rather than reproduced, because the
+    // consequence of the bug is a device that cannot be told apart from
+    // another one - which is the exact problem the check exists to catch.
+    bool is_uninitialised_serial(unsigned int serial);
 
     struct Repair
     {

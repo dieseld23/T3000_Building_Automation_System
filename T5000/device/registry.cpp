@@ -2,6 +2,13 @@
 
 namespace t5000::device
 {
+    bool is_uninitialised_serial(unsigned int serial)
+    {
+        // 0xFFFFFFFFu, spelled as itself. T3000 writes 255*255*255*255 here,
+        // which is a different number, so its all-FF branch is dead code.
+        return serial == 0u || serial == 0xFFFFFFFFu;
+    }
+
     bool DeviceRecord::needs_attention() const
     {
         for (const auto& r : repairs)

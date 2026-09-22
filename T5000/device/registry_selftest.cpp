@@ -231,6 +231,29 @@ namespace
         check(reg.selected() == nullptr, "clearing the registry clears the selection");
     }
 
+    void test_uninitialised_serial_detection()
+    {
+        section("both uninitialised serial values are detected");
+
+        check(is_uninitialised_serial(0u), "0 is uninitialised");
+        check(is_uninitialised_serial(0xFFFFFFFFu), "0xFFFFFFFF is uninitialised");
+
+        // T3000 tests the second case as 255*255*255*255, which is
+        // 4,228,250,625 - NOT 0xFFFFFFFF (4,294,967,295). Asserting the two
+        // differ documents why this function exists rather than reusing the
+        // original expression, and would fail loudly if anyone "simplified"
+        // it back.
+        check(255u * 255u * 255u * 255u != 0xFFFFFFFFu,
+              "T3000's constant is not the all-bits-set value it reaches for");
+        check(!is_uninitialised_serial(255u * 255u * 255u * 255u),
+              "and that constant is just an ordinary serial, correctly ignored");
+
+        // Real serials, including the range T3000 randomly assigns.
+        check(!is_uninitialised_serial(500123u), "a real serial is not flagged");
+        check(!is_uninitialised_serial(200000u), "nor the bottom of the assigned range");
+        check(!is_uninitialised_serial(299999u), "nor the top");
+    }
+
     void test_labels_exist_for_everything_shown()
     {
         section("provenance and repair kinds have labels");
@@ -263,6 +286,7 @@ int run_registry_tests()
     test_merge_keeps_what_the_new_view_did_not_see();
     test_reached_is_sticky_but_provenance_upgrades();
     test_selection_clears_rather_than_clamps();
+    test_uninitialised_serial_detection();
     test_labels_exist_for_everything_shown();
     return 0;
 }
