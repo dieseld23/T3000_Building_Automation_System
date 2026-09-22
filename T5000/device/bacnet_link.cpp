@@ -30,7 +30,7 @@ extern "C"
     int  Get_transfer_length(void);
 }
 
-namespace t3000::device
+namespace t5000::device
 {
     bool bacnet_stack_is_linked()
     {
@@ -49,14 +49,14 @@ namespace t3000::device
 
 int run_bacnet_link_tests()
 {
-    using namespace t3000::testing;
+    using namespace t5000::testing;
 
     section("the BACnet stack links and responds");
 
     // If the import library were missing this would not build, so reaching here
     // already proves the link. What this checks is that the DLL is actually
     // loaded and holding state - that the call went somewhere real.
-    check(t3000::device::bacnet_stack_is_linked(),
+    check(t5000::device::bacnet_stack_is_linked(),
           "Set_transfer_length/Get_transfer_length round-trip through the DLL");
 
     return 0;

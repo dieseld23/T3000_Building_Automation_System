@@ -13,8 +13,8 @@
 
 namespace
 {
-    using namespace t3000::device;
-    using namespace t3000::testing;
+    using namespace t5000::device;
+    using namespace t5000::testing;
 
     // From T3000/global_define.h.
     constexpr int kModbusRs485      = 0;

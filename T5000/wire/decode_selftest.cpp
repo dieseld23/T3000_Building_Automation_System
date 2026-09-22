@@ -15,8 +15,8 @@
 
 namespace
 {
-    using namespace t3000::wire;
-    using namespace t3000::testing;
+    using namespace t5000::wire;
+    using namespace t5000::testing;
 
     // A full 46-byte point. Values are deliberately all different and none are
     // 0 or 1, so an off-by-one walk through the trailing byte fields cannot

@@ -24,7 +24,7 @@
 
 #include <stdint.h>
 
-namespace t3000::wire
+namespace t5000::wire
 {
     // Byte-packed to match the device. CM5/ud_str.h wraps these in
     // #pragma pack(1) and the structs are read straight off the wire, so any

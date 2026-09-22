@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
-namespace t3000::app
+namespace t5000::app
 {
     std::string acp_to_utf8(const uint8_t* text, size_t max_length)
     {

@@ -43,7 +43,7 @@ struct CString { void* opaque; };
 
 namespace
 {
-    using t3000::wire::InputPoint;
+    using t5000::wire::InputPoint;
 
     // Size first, for a readable error when the whole struct is wrong.
     static_assert(sizeof(InputPoint) == sizeof(::Str_in_point),
@@ -79,8 +79,8 @@ namespace
 #undef WIRE_FIELD_MATCHES
 
     // The description and label lengths are separately #defined in both headers.
-    static_assert(t3000::wire::kDescriptionLength == STR_IN_DESCRIPTION_LENGTH,
+    static_assert(t5000::wire::kDescriptionLength == STR_IN_DESCRIPTION_LENGTH,
         "kDescriptionLength no longer matches STR_IN_DESCRIPTION_LENGTH");
-    static_assert(t3000::wire::kLabelLength == STR_IN_LABEL,
+    static_assert(t5000::wire::kLabelLength == STR_IN_LABEL,
         "kLabelLength no longer matches STR_IN_LABEL");
 }

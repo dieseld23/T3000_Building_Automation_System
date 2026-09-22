@@ -15,7 +15,7 @@
 #include <stdint.h>
 #include <string>
 
-namespace t3000::device
+namespace t5000::device
 {
     enum class ReadPath
     {

@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-namespace t3000::wire
+namespace t5000::wire
 {
     void sanitize_label(uint8_t* label, size_t length)
     {

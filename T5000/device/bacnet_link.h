@@ -7,7 +7,7 @@
 // DLL. That is load-bearing enough to be checked by the build and by a test
 // rather than remembered.
 
-namespace t3000::device
+namespace t5000::device
 {
     // Calls into BACnet_Stack_Library and reads back what it set. False means
     // the stack is present but not behaving, which is a different and much more
