@@ -106,6 +106,8 @@
     <ClCompile Include="device\registry_selftest.cpp" />
     <ClCompile Include="device\read_path.cpp" />
     <ClCompile Include="device\read_path_selftest.cpp" />
+    <ClCompile Include="discovery\scan_response.cpp" />
+    <ClCompile Include="discovery\scan_response_selftest.cpp" />
     <ClCompile Include="http\server.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="selftest_main.cpp" />
@@ -121,6 +123,7 @@
     <ClInclude Include="device\connection.h" />
     <ClInclude Include="device\registry.h" />
     <ClInclude Include="device\read_path.h" />
+    <ClInclude Include="discovery\scan_response.h" />
     <ClInclude Include="http\server.h" />
     <ClInclude Include="testing\check.h" />
     <ClInclude Include="web\inputs_page.h" />
