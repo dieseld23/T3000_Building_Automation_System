@@ -62,12 +62,61 @@ namespace t5000::wire
         uint8_t  range;              // input_range_equate
     };
 
+    enum : int
+    {
+        // Not a typo, and not the same as the input lengths. CM5/ud_str.h
+        // declares this field as description[STR_OUT_DESCRIPTION_LENGTH-2]
+        // with the macro at 21, so the array is 19 - while the comment beside
+        // it in that same header says "(21 bytes; string)". The comment is
+        // wrong. wire_guard.cpp asserts the arithmetic rather than the prose.
+        kOutputDescriptionLength = 19,   // STR_OUT_DESCRIPTION_LENGTH - 2
+        kOutputLabelLength       = 9,    // STR_OUT_LABEL
+    };
+
+    struct OutputPoint
+    {
+        uint8_t  description[kOutputDescriptionLength];
+
+        // Inputs have no equivalent of these two. They sit between the
+        // description and the label, which is the kind of placement that makes
+        // a field-by-field guard worth having.
+        uint8_t  low_voltage;
+        uint8_t  high_voltage;
+
+        uint8_t  label[kOutputLabelLength];
+        int32_t  value;
+
+        uint8_t  auto_manual;        // 0 = auto, 1 = manual
+        uint8_t  digital_analog;     // 1 = analog, 0 = digital
+
+        // SW_OFF = 0, SW_AUTO = 1, SW_HAND = 2. The physical switch on the
+        // board, not a software setting - it reports where a human left it.
+        // The stale header has access_level in this slot instead.
+        uint8_t  hw_switch_status;
+
+        uint8_t  control;
+        uint8_t  digital_control;
+        uint8_t  decom;              // 0 = ok, 1 = decommissioned
+        uint8_t  range;              // output_range_equate
+
+        uint8_t  sub_id;
+        uint8_t  sub_product;
+        uint8_t  sub_number;
+        uint8_t  pwm_period;
+    };
+
 #pragma pack(pop)
 
     // 21 + 9 + 4 + 12 = 46. global_define.h:441 records the same number next to
     // BAC_INPUT_ITEM_COUNT. Size agreement is necessary but NOT sufficient - the
     // stale layout also totals 46 - so wire_guard.cpp checks every offset.
     static_assert(sizeof(InputPoint) == 46, "InputPoint must stay 46 bytes on the wire");
+
+    // 19 + 2 + 9 + 4 + 11 = 45. NOT 46, and not the 40 that CM5/ud_str.h's own
+    // trailing comment claims - that comment reads "21+9+4+2+2+2 = 40" and the
+    // identical wrong comment also sits in the stale header. Two wrong comments
+    // agreeing is not corroboration. This number came from the compiler.
+    static_assert(sizeof(OutputPoint) == 45, "OutputPoint must stay 45 bytes on the wire");
 
     inline int calibration(const InputPoint& p)
     {

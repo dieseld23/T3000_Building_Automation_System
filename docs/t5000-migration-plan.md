@@ -75,7 +75,8 @@ This affects the majority of read paths and is already encoded in
 ```
 Stage 0  discovery + selection + firmware detection + units tables
    │
-   ├─→ Points read (Input, Output, Variable)      ← Inputs already done
+   ├─→ Points read (Input, Output, Variable)   ← Inputs: decode done,
+   │                                             label helpers not
    │      └─→ Points write → Arrays → PVar
    │
    ├─→ Device settings (IP, time, NTP, login)
@@ -99,7 +100,7 @@ Each stage ships something usable on its own.
 | Stage | Delivers | Shape |
 |---|---|---|
 | **0** | Discovery, selection, firmware detection, units tables | New problem |
-| **1** | Outputs + Variables read | Mechanical — Inputs is the template |
+| **1** | Outputs + Variables read | Mechanical, *after* the label helpers and units tables are ported |
 | **2** | Write support for points, then Arrays, then PVar | New problem (first write path) |
 | **3** | Device settings: IP, time, NTP, user login | Mostly mechanical |
 | **4** | PID loops, then Tstat | Mechanical after Stage 2 |
@@ -108,12 +109,25 @@ Each stage ships something usable on its own.
 | **7** | Programs | Blocked on a decision |
 | **8** | Graphics metadata | Blocked on a decision |
 
-**Stage 1 is the cheap one.** Outputs and Variables are the same shape as
-Inputs: read a struct array, decode it, serve it as JSON. What they need
-beyond Inputs is the custom-units lookup tables
-(`Input_List_Analog_Units[]`, `OutPut_List_Analog_Units[]`,
+**Stage 1 is the cheap one, but "Inputs is done" needs qualifying.** What
+T5000 has is the decode path: the wire layout, the guard, and JSON over a
+fixture. What it does *not* have is the three source-side dependencies that
+`T3000/WebUI/InputsData.cpp` calls directly to render a row —
+`GetInputLabelEx` (`BacnetInput.cpp:2228`) and `GetInputFullLabelEx`
+(`:2273`), both called at `InputsData.cpp:62-63`, and the
+`Device_Basic_Setting` global read at `:87`. None of those is behind a DLL
+export, so all three must be ported as source, and every points screen needs
+them.
+
+Beyond that, Outputs and Variables really are the same shape — read a struct
+array, decode it, serve it as JSON. The extras are the custom-units lookup
+tables (`Input_List_Analog_Units[]`, `OutPut_List_Analog_Units[]`,
 `Digital_Units_Array[]` — `global_define.h:823-894`) and, for Outputs,
-`hw_switch_status` / `pwm_period` which Inputs has no equivalent of.
+`hw_switch_status` / `pwm_period`, which Inputs has no equivalent of.
+
+Note that the units tables and the label helpers are the *same* dependency
+class as Risk 3 below: source-side `CString`. Stage 1 is where that risk
+first has to be paid, not a later stage.
 
 **Stage 2 is where the tool stops being read-only,** and that is a genuine
 threshold: it is the first code that changes state on live building equipment.
@@ -130,7 +144,13 @@ Three findings did not survive checking, and matter enough to record.
 macro at 21, so the field is **19** bytes — while the inline comment beside it
 says "21 bytes" and the struct's trailing comment says "= 40". The real total
 is 45. Both comments are wrong in the live header, and the *identical* wrong
-comment appears in the stale one.
+comment appears in the stale one. Two wrong comments agreeing is not
+corroboration.
+
+This number is not arithmetic done in a document. `wire::OutputPoint` is now
+in `wire/points.h` with the full field-by-field guard, so the compiler asserts
+it on every build — and changing the 45 to 46 fails that build, which is how
+the guard was confirmed to be live rather than vacuous.
 
 The two headers also disagree on fields, not just size:
 
@@ -141,8 +161,9 @@ The two headers also disagree on fields, not just size:
 | `sub_id`, `sub_product` | `m_del_low`, `s_del_high` |
 | `sub_number`, `pwm_period` (2×u8) | `delay_timer` (u16) |
 
-A size check alone would not catch this. Outputs needs the same field-by-field
-`wire_guard.cpp` treatment Inputs got, and so does every struct after it.
+A size check alone would not catch this — several of those swaps preserve the
+total. Outputs now has the same field-by-field `wire_guard.cpp` treatment
+Inputs got, and every struct after it needs the same before it is trusted.
 
 **`Point_T3000` is not a risk — it already compiles.** The survey flagged its
 `public:` specifier and Windows `byte` type as a possible blocker for

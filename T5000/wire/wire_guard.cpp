@@ -27,9 +27,9 @@
 // the lower-risk option while this guard is the only thing that needs it.
 //
 // The shims below exist ONLY so the header parses in this one translation unit.
-// None of them appears in Str_in_point, which is all this file asserts about, so
-// getting a shim's size wrong cannot make a wrong layout pass - it would fail
-// the offsetof checks instead. This TU must never include real MFC.
+// None of them appears in Str_in_point or Str_out_point, which is what this file
+// asserts about, so getting a shim's size wrong cannot make a wrong layout pass -
+// it would fail the offsetof checks instead. This TU must never include real MFC.
 typedef unsigned char  byte;    // ud_str.h:419-422, 445-446, 456, 497-498
 typedef unsigned short WORD;    // ud_str.h:499, normally from windef.h
 
@@ -44,6 +44,7 @@ struct CString { void* opaque; };
 namespace
 {
     using t5000::wire::InputPoint;
+    using t5000::wire::OutputPoint;
 
     // Size first, for a readable error when the whole struct is wrong.
     static_assert(sizeof(InputPoint) == sizeof(::Str_in_point),
@@ -54,27 +55,53 @@ namespace
     // BacNetDllforVc/include/ud_str.h has the SAME total size while putting
     // sen_on/sen_off and a single calibration byte where the live layout has
     // sub_id/sub_product and calibration_h/calibration_l. Size alone would pass.
-#define WIRE_FIELD_MATCHES(field)                                              \
-    static_assert(offsetof(InputPoint, field) == offsetof(::Str_in_point, field), \
-        "InputPoint::" #field " is at a different offset than CM5 Str_in_point::" #field); \
-    static_assert(sizeof(InputPoint::field) == sizeof(::Str_in_point::field),  \
-        "InputPoint::" #field " is a different size than CM5 Str_in_point::" #field)
+#define WIRE_FIELD_MATCHES(Ours, Theirs, field)                                \
+    static_assert(offsetof(Ours, field) == offsetof(::Theirs, field),          \
+        #Ours "::" #field " is at a different offset than CM5 " #Theirs "::" #field); \
+    static_assert(sizeof(Ours::field) == sizeof(::Theirs::field),              \
+        #Ours "::" #field " is a different size than CM5 " #Theirs "::" #field)
 
-    WIRE_FIELD_MATCHES(description);
-    WIRE_FIELD_MATCHES(label);
-    WIRE_FIELD_MATCHES(value);
-    WIRE_FIELD_MATCHES(filter);
-    WIRE_FIELD_MATCHES(decom);
-    WIRE_FIELD_MATCHES(sub_id);
-    WIRE_FIELD_MATCHES(sub_product);
-    WIRE_FIELD_MATCHES(control);
-    WIRE_FIELD_MATCHES(auto_manual);
-    WIRE_FIELD_MATCHES(digital_analog);
-    WIRE_FIELD_MATCHES(calibration_sign);
-    WIRE_FIELD_MATCHES(sub_number);
-    WIRE_FIELD_MATCHES(calibration_h);
-    WIRE_FIELD_MATCHES(calibration_l);
-    WIRE_FIELD_MATCHES(range);
+    WIRE_FIELD_MATCHES(InputPoint, Str_in_point, description);
+    WIRE_FIELD_MATCHES(InputPoint, Str_in_point, label);
+    WIRE_FIELD_MATCHES(InputPoint, Str_in_point, value);
+    WIRE_FIELD_MATCHES(InputPoint, Str_in_point, filter);
+    WIRE_FIELD_MATCHES(InputPoint, Str_in_point, decom);
+    WIRE_FIELD_MATCHES(InputPoint, Str_in_point, sub_id);
+    WIRE_FIELD_MATCHES(InputPoint, Str_in_point, sub_product);
+    WIRE_FIELD_MATCHES(InputPoint, Str_in_point, control);
+    WIRE_FIELD_MATCHES(InputPoint, Str_in_point, auto_manual);
+    WIRE_FIELD_MATCHES(InputPoint, Str_in_point, digital_analog);
+    WIRE_FIELD_MATCHES(InputPoint, Str_in_point, calibration_sign);
+    WIRE_FIELD_MATCHES(InputPoint, Str_in_point, sub_number);
+    WIRE_FIELD_MATCHES(InputPoint, Str_in_point, calibration_h);
+    WIRE_FIELD_MATCHES(InputPoint, Str_in_point, calibration_l);
+    WIRE_FIELD_MATCHES(InputPoint, Str_in_point, range);
+
+    // Outputs. Same treatment, and it earns it: the stale header puts
+    // access_level where the device has hw_switch_status, m_del_low/s_del_high
+    // where it has sub_id/sub_product, and a uint16 delay_timer where it has
+    // sub_number + pwm_period. It also omits low_voltage/high_voltage
+    // entirely. Several of those swaps preserve the total size.
+    static_assert(sizeof(OutputPoint) == sizeof(::Str_out_point),
+        "points.h OutputPoint and CM5 Str_out_point disagree on size - the vendored "
+        "wire format has drifted from the application's.");
+
+    WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, description);
+    WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, low_voltage);
+    WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, high_voltage);
+    WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, label);
+    WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, value);
+    WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, auto_manual);
+    WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, digital_analog);
+    WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, hw_switch_status);
+    WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, control);
+    WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, digital_control);
+    WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, decom);
+    WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, range);
+    WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, sub_id);
+    WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, sub_product);
+    WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, sub_number);
+    WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, pwm_period);
 
 #undef WIRE_FIELD_MATCHES
 
@@ -83,4 +110,13 @@ namespace
         "kDescriptionLength no longer matches STR_IN_DESCRIPTION_LENGTH");
     static_assert(t5000::wire::kLabelLength == STR_IN_LABEL,
         "kLabelLength no longer matches STR_IN_LABEL");
+
+    // The output description is the trap. CM5/ud_str.h declares the field as
+    // description[STR_OUT_DESCRIPTION_LENGTH-2] while the comment beside it
+    // reads "(21 bytes; string)" - so reading the header casually gives 21 and
+    // the macro arithmetic gives 19. Assert the arithmetic, not the prose.
+    static_assert(t5000::wire::kOutputDescriptionLength == STR_OUT_DESCRIPTION_LENGTH - 2,
+        "kOutputDescriptionLength no longer matches STR_OUT_DESCRIPTION_LENGTH - 2");
+    static_assert(t5000::wire::kOutputLabelLength == STR_OUT_LABEL,
+        "kOutputLabelLength no longer matches STR_OUT_LABEL");
 }
