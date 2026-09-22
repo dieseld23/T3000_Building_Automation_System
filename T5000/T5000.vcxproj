@@ -96,6 +96,7 @@
   <ItemGroup>
     <ClCompile Include="app\fixture.cpp" />
     <ClCompile Include="app\points_json.cpp" />
+    <ClCompile Include="app\product_json.cpp" />
     <ClCompile Include="device\bacnet_link.cpp" />
     <ClCompile Include="device\connection.cpp" />
     <ClCompile Include="device\connection_selftest.cpp" />
@@ -113,6 +114,7 @@
   <ItemGroup>
     <ClInclude Include="app\fixture.h" />
     <ClInclude Include="app\points_json.h" />
+    <ClInclude Include="app\product_json.h" />
     <ClInclude Include="device\bacnet_link.h" />
     <ClInclude Include="device\connection.h" />
     <ClInclude Include="device\read_path.h" />

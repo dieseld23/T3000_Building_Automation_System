@@ -245,6 +245,28 @@ namespace t5000::device
         return { MiniTypeSupport::CountsFromInitChain, 0, 0, nullptr };
     }
 
+    PanelResolution resolve_panel(ProductClassId hardware, int raw_mini_type)
+    {
+        const auto type = static_cast<MiniType>(raw_mini_type & 0xFF);
+
+        if (raw_mini_type != 0)
+            return { type, true, point_counts(type), "panel type read from the device" };
+
+        // mini_type is 0. That is CM5's value AND the unset value.
+        if (hardware == ProductClassId::Cm5)
+        {
+            return { MiniType::Cm5, true, point_counts(MiniType::Cm5),
+                     "mini_type is 0, but the hardware reports CM5, for which 0 "
+                     "is the correct value" };
+        }
+
+        // Anything else with mini_type 0 has not been configured, and we must
+        // not borrow CM5's point counts for it.
+        return { MiniType::NotSet, false, PointCounts{ 0, 0, 0, 0, false },
+                 "mini_type is 0 and the hardware is not a CM5, so the panel "
+                 "type is unset - point counts are unknown, not zero" };
+    }
+
     CapabilityTable known_products()
     {
         return CapabilityTable{ kProducts, (int)(sizeof(kProducts) / sizeof(kProducts[0])) };

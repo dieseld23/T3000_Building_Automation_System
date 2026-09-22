@@ -297,4 +297,27 @@ namespace t5000::device
     };
 
     MiniTypeInfo mini_type_info(MiniType type);
+
+    // Resolving the mini_type == 0 ambiguity.
+    //
+    // PRODUCT_CM5 is 0 and so is "nobody configured this panel", so
+    // mini_type alone cannot tell them apart. T3000 resolves it by refusing
+    // to use mini_type at all when it is zero (BacnetInput.cpp:1305 tests
+    // `mini_type != 0` before assigning it) and falling back to what the
+    // hardware reports.
+    //
+    // This function exists because the obvious code is wrong in a way that
+    // looks right: calling point_counts(MiniType::Cm5) for an unconfigured
+    // panel returns CM5's 10/8/0/10 and the UI shows eighteen confident
+    // inputs for a device that never said it had any. That bug was written
+    // and shipped into /api/device before this function existed.
+    struct PanelResolution
+    {
+        MiniType    type;
+        bool        resolved;    // false when mini_type is 0 and the hardware is not a CM5
+        PointCounts counts;      // counts.known is false when unresolved
+        const char* reason;      // always set; explains an unresolved result
+    };
+
+    PanelResolution resolve_panel(ProductClassId hardware, int raw_mini_type);
 }

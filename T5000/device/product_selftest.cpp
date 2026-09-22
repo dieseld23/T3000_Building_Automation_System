@@ -273,6 +273,39 @@ namespace
               "earlier partial-range search missed");
     }
 
+    void test_unconfigured_panel_does_not_borrow_cm5_counts()
+    {
+        section("mini_type 0 on non-CM5 hardware yields unknown, not CM5's counts");
+
+        // This is a regression test for a bug that was written, built, and
+        // served from /api/device before being caught by actually running it:
+        // a TSTAT10 reporting mini_type 0 came back claiming CM5's 10/8/0/10,
+        // so the page showed eighteen confident inputs for a panel that had
+        // never said it had any. Compiling proved nothing here.
+        const auto unconfigured = resolve_panel(ProductClassId::Tstat10, 0);
+        check(!unconfigured.resolved, "a TSTAT10 with mini_type 0 is unresolved");
+        check(!unconfigured.counts.known, "and reports NO point counts");
+        check_eq(unconfigured.counts.inputs(), 0, "not CM5's 18");
+        check(unconfigured.reason != nullptr && unconfigured.reason[0] != '\0',
+              "and says why");
+
+        // But a real CM5 reporting 0 is correct - 0 IS its value - so it must
+        // still resolve. Refusing every zero would break the one product for
+        // which zero is the right answer.
+        const auto cm5 = resolve_panel(ProductClassId::Cm5, 0);
+        check(cm5.resolved, "a CM5 with mini_type 0 does resolve");
+        check(cm5.counts.known, "and has counts");
+        check_eq(cm5.counts.analog_inputs, 10, "CM5_MINIPANEL_IN_A");
+        check_eq(cm5.counts.digital_inputs, 8, "CM5_MINIPANEL_IN_D");
+
+        // A non-zero mini_type is taken at its word regardless of hardware:
+        // that is what T3000 does once the != 0 guard passes.
+        const auto configured = resolve_panel(ProductClassId::Tstat10,
+                                              static_cast<int>(MiniType::BigMiniPanel));
+        check(configured.resolved, "a set mini_type resolves");
+        check_eq(configured.counts.analog_inputs, 32, "and gives that panel's counts");
+    }
+
     void test_no_duplicate_entries()
     {
         section("no product appears twice");
@@ -300,6 +333,7 @@ int run_product_tests()
     test_tstat10_variants_are_masks_not_products();
     test_unimplemented_types_are_named_honestly();
     test_partial_types_say_which_half_works();
+    test_unconfigured_panel_does_not_borrow_cm5_counts();
     test_no_duplicate_entries();
     return 0;
 }
