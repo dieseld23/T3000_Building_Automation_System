@@ -54,24 +54,35 @@ namespace t5000::device
     enum class RepairKind
     {
         // The device has no serial, so it cannot be told apart from any other
-        // device in the same state. T3000 does this automatically at
-        // TStatScanner.cpp:1463-1485 and it is FOUR writes, not one:
+        // device in the same state. T3000 fixes this automatically, and does
+        // it in TWO different places that do not agree with each other.
         //
+        // TStatScanner.cpp:1463-1485, four writes, 16-bit words:
         //     register 16 <- 142           an init code, then Sleep(1000)
         //     register 0  <- serial low    rand() % 100000 + 200000
         //     register 2  <- serial high
         //     register 8  <- 6             hardware version, PM_TSTAT8 only,
         //                                  and only when it also reads 0 or FF
         //
-        // The serial is RANDOM, from srand(time(NULL)). Two devices scanned
-        // within the same second can therefore be given the same "unique"
-        // number - which is worth telling the operator before they agree.
+        // TStatScanner.cpp:3991-3994 (ScanOldNC), four writes, single bytes:
+        //     registers 0,1,2,3 <- rand() % 255 each
+        //
+        // The two paths differ in every respect that matters: the register
+        // layout (two 16-bit words vs four bytes), the value range
+        // (200000-300000 vs four independent bytes), and - see
+        // is_uninitialised_serial below - whether their "is it uninitialised"
+        // test is even correct. The byte-wise one at :3983 is right; the
+        // arithmetic one at :1460 is not.
+        //
+        // Both serials are RANDOM, from srand(time(NULL)). Two devices
+        // scanned within the same second can be handed the same "unique"
+        // number - worth telling an operator before they agree to it.
         AssignSerialNumber,
 
         // Two devices on one line answer to the same Modbus id, so neither
-        // can be addressed reliably. T3000 does this automatically at
-        // TStatScanner.cpp:1657, walking j from 254 downwards for a free id
-        // and writing register 10.
+        // can be addressed reliably. T3000 does this automatically in two
+        // places inside the binary search - TStatScanner.cpp:1215 and :1657 -
+        // both walking for a free id and writing register 10.
         //
         // Note the duplicate-id DIALOG path (DuplicateIdDetected.cpp) is
         // already properly user-gated in T3000 - it is the scanner that is
@@ -88,16 +99,22 @@ namespace t5000::device
     // A serial number that means "this device was never given one".
     //
     // Both 0 and 0xFFFFFFFF are uninitialised-flash values. T3000 tests for
-    // them at TStatScanner.cpp:1460 as:
+    // them in two places, and only one of the two is correct.
     //
+    // TStatScanner.cpp:1460 - WRONG:
     //     if ((nSerialNumber == 0) || (nSerialNumber == 255 * 255 * 255 * 255))
     //
-    // ...and that second constant is wrong. 255*255*255*255 is 4,228,250,625;
-    // the all-bits-set value it is reaching for is 0xFFFFFFFF = 4,294,967,295.
-    // So T3000 never detects an all-FF serial, and a device in that state
-    // keeps reporting it. Fixed here rather than reproduced, because the
-    // consequence of the bug is a device that cannot be told apart from
-    // another one - which is the exact problem the check exists to catch.
+    // 255*255*255*255 is 4,228,250,625. The all-bits-set value it is reaching
+    // for is 0xFFFFFFFF = 4,294,967,295. Different numbers, so that branch is
+    // dead and an all-FF serial is never detected on this path.
+    //
+    // TStatScanner.cpp:3983 - correct, by avoiding the arithmetic entirely:
+    //     if (SerialNum[0]==255 && SerialNum[1]==255 &&
+    //         SerialNum[2]==255 && SerialNum[3]==255)
+    //
+    // Fixed here rather than reproduced. The consequence of the bug is a
+    // device that cannot be told apart from another one, which is the exact
+    // problem the check exists to catch.
     bool is_uninitialised_serial(unsigned int serial);
 
     struct Repair
