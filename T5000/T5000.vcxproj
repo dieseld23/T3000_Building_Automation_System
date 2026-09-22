@@ -99,6 +99,8 @@
     <ClCompile Include="device\bacnet_link.cpp" />
     <ClCompile Include="device\connection.cpp" />
     <ClCompile Include="device\connection_selftest.cpp" />
+    <ClCompile Include="device\product.cpp" />
+    <ClCompile Include="device\product_selftest.cpp" />
     <ClCompile Include="device\read_path.cpp" />
     <ClCompile Include="device\read_path_selftest.cpp" />
     <ClCompile Include="http\server.cpp" />
