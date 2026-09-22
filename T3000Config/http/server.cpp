@@ -23,15 +23,36 @@ namespace t3000::http
             }
         }
 
-        // Reads until the end of the headers. The bodies this server accepts are
-        // small, and it does not accept uploads at all, so there is no need to
-        // stream or to handle chunked encoding.
+        size_t header_value_size(const std::string& head, const char* name)
+        {
+            // Header names are case-insensitive, and browsers do not agree on
+            // the casing of Content-Length, so compare lowercased.
+            std::string lowered;
+            lowered.reserve(head.size());
+            for (char c : head)
+                lowered += (char)tolower((unsigned char)c);
+
+            const size_t at = lowered.find(name);
+            if (at == std::string::npos)
+                return 0;
+
+            const size_t colon = lowered.find(':', at);
+            if (colon == std::string::npos)
+                return 0;
+
+            return (size_t)strtoul(head.c_str() + colon + 1, nullptr, 10);
+        }
+
+        // Reads the head, then whatever body Content-Length declares. Chunked
+        // encoding is not handled: nothing here asks for it, and fetch() with a
+        // string body always sends a length.
         bool read_request(SOCKET client, std::string& out)
         {
             char buffer[4096];
             out.clear();
 
-            while (out.find("\r\n\r\n") == std::string::npos)
+            size_t head_end = std::string::npos;
+            while ((head_end = out.find("\r\n\r\n")) == std::string::npos)
             {
                 const int n = recv(client, buffer, (int)sizeof(buffer), 0);
                 if (n <= 0)
@@ -42,6 +63,23 @@ namespace t3000::http
                 // A request head this large is not something a browser sends.
                 if (out.size() > 64 * 1024)
                     return false;
+            }
+
+            const size_t body_start = head_end + 4;
+            const size_t declared   = header_value_size(out.substr(0, head_end), "content-length");
+
+            // Bounded deliberately. This accepts a small JSON settings object
+            // and nothing else, so a large declared length is a reason to stop
+            // rather than something to allocate for.
+            if (declared > 256 * 1024)
+                return false;
+
+            while (out.size() - body_start < declared)
+            {
+                const int n = recv(client, buffer, (int)sizeof(buffer), 0);
+                if (n <= 0)
+                    return false;
+                out.append(buffer, (size_t)n);
             }
             return true;
         }
@@ -73,6 +111,11 @@ namespace t3000::http
                 req.path  = target.substr(0, q);
                 req.query = target.substr(q + 1);
             }
+
+            const size_t head_end = raw.find("\r\n\r\n");
+            if (head_end != std::string::npos)
+                req.body = raw.substr(head_end + 4);
+
             return true;
         }
 

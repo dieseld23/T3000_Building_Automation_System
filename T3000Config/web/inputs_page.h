@@ -80,6 +80,26 @@ namespace t3000::web
   footer{flex:none;padding:6px 16px;border-top:1px solid var(--border);
          background:var(--surface);font-size:12px;color:var(--dim);min-height:28px}
 
+  /* Connection settings, as an overlay rather than a second page - a
+     technician checking a setting has not finished looking at the grid. */
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;
+         align-items:flex-start;justify-content:center;padding:40px 16px;z-index:10}
+  .sheet{background:var(--bg);border:1px solid var(--border);border-radius:10px;
+         width:100%;max-width:520px;max-height:100%;overflow:auto;
+         box-shadow:0 12px 40px rgba(0,0,0,.35)}
+  .sheet h2{margin:0;padding:14px 18px;font-size:14px;border-bottom:1px solid var(--border)}
+  .sheet .rows{padding:14px 18px;display:grid;gap:12px}
+  .sheet label{display:grid;gap:4px;font-size:12px;color:var(--dim)}
+  .sheet input,.sheet select{font:inherit;color:var(--text);background:var(--bg);
+    border:1px solid var(--border);border-radius:6px;padding:6px 9px;width:100%}
+  .sheet input:focus,.sheet select:focus{border-color:var(--accent);outline:none}
+  .sheet .err{color:var(--warn);font-size:11px}
+  .sheet input.bad,.sheet select.bad{border-color:var(--warn)}
+  .sheet footer{position:static;display:flex;gap:8px;justify-content:flex-end;
+    padding:12px 18px;border-top:1px solid var(--border);background:var(--surface)}
+  .sheet .path{font-size:11px;color:var(--dim);word-break:break-all;padding:0 18px 10px}
+  .primary{border-color:var(--accent);color:var(--accent)}
+
   /* Tablet: the columns a technician needs in front of a unit stay; the rest
      fold away rather than shrinking the important ones into unreadability. */
   @media (max-width: 760px) {
@@ -105,6 +125,7 @@ namespace t3000::web
   <span class="meta"><b id="count">0</b> points</span>
   <span class="spacer"></span>
   <input type="search" id="filter" placeholder="Filter points" autocomplete="off">
+  <button id="settings">Connection</button>
   <button id="refresh">Refresh</button>
 </header>
 
@@ -129,6 +150,35 @@ namespace t3000::web
     </thead>
     <tbody id="rows"></tbody>
   </table>
+</div>
+
+<div class="scrim" id="scrim" hidden>
+  <div class="sheet">
+    <h2>Connection</h2>
+    <div class="rows">
+      <label>Transport
+        <select id="f-transport">
+          <option value="bacnet-ip">BACnet/IP</option>
+          <option value="bacnet-mstp">BACnet MSTP (serial)</option>
+          <option value="modbus-tcp">Modbus TCP</option>
+          <option value="modbus-rtu">Modbus RTU (serial)</option>
+        </select>
+      </label>
+      <label data-for="net">Host or IP<input id="f-host" autocomplete="off" placeholder="192.168.1.50"></label>
+      <label data-for="bacnet-ip">UDP port<input id="f-udpPort" type="number"></label>
+      <label data-for="modbus-tcp">TCP port<input id="f-tcpPort" type="number"></label>
+      <label data-for="serial">COM port<input id="f-comPort" type="number" min="1" max="255"></label>
+      <label data-for="serial">Baud rate<select id="f-baud"></select></label>
+      <label data-for="bacnet">BACnet device instance<input id="f-deviceInstance" type="number"></label>
+      <label data-for="bacnet-mstp">MSTP max master<input id="f-mstpMaxMaster" type="number" min="1" max="127"></label>
+      <label data-for="modbus">Modbus slave id<input id="f-modbusSlaveId" type="number" min="1" max="247"></label>
+    </div>
+    <div class="path" id="config-path"></div>
+    <footer>
+      <button id="cancel">Cancel</button>
+      <button id="save" class="primary">Save</button>
+    </footer>
+  </div>
 </div>
 
 <footer id="status">Read-only. Editing arrives once the write path is verified against hardware.</footer>
@@ -228,6 +278,102 @@ namespace t3000::web
       $("status").textContent = "Not connected.";
     }
   }
+
+
+  // ------------------------------------------------------------- connection
+
+  const FIELDS = ["transport","host","udpPort","tcpPort","comPort","baud",
+                  "deviceInstance","mstpMaxMaster","modbusSlaveId"];
+
+  // Which fields each transport actually uses. Showing a COM port for BACnet/IP
+  // invites someone to set it and wonder why nothing changed.
+  function applyVisibility() {
+    const t = $("f-transport").value;
+    const serial = t === "bacnet-mstp" || t === "modbus-rtu";
+    const groups = {
+      "net": !serial,
+      "serial": serial,
+      "bacnet": t.startsWith("bacnet"),
+      "bacnet-ip": t === "bacnet-ip",
+      "bacnet-mstp": t === "bacnet-mstp",
+      "modbus": t.startsWith("modbus"),
+      "modbus-tcp": t === "modbus-tcp"
+    };
+    document.querySelectorAll("[data-for]").forEach(el => {
+      el.hidden = !groups[el.dataset.for];
+    });
+  }
+
+  function showErrors(errors) {
+    document.querySelectorAll(".sheet .err").forEach(e => e.remove());
+    document.querySelectorAll(".sheet .bad").forEach(e => e.classList.remove("bad"));
+
+    let unattached = [];
+    (errors || []).forEach(e => {
+      const input = $("f-" + e.field);
+      if (!input) { unattached.push(e.message); return; }
+      input.classList.add("bad");
+      const note = document.createElement("span");
+      note.className = "err";
+      note.textContent = e.message;
+      input.parentElement.appendChild(note);
+    });
+
+    if (unattached.length) {
+      const note = document.createElement("div");
+      note.className = "err";
+      note.style.padding = "0 18px 8px";
+      note.textContent = unattached.join(" ");
+      $("config-path").parentElement.insertBefore(note, $("config-path"));
+    }
+  }
+
+  async function openSettings() {
+    const res = await fetch("/api/connection", { cache: "no-store" });
+    const data = await res.json();
+
+    const baud = $("f-baud");
+    baud.innerHTML = (data.baudRates || []).map(r =>
+      `<option value="${r}">${r}</option>`).join("");
+
+    FIELDS.forEach(f => { const el = $("f-" + f); if (el) el.value = data.connection[f]; });
+    $("config-path").textContent = "Saved to " + data.configPath;
+
+    applyVisibility();
+    showErrors(data.errors);   // surface existing problems before a submit
+    $("scrim").hidden = false;
+  }
+
+  async function saveSettings() {
+    const payload = {};
+    FIELDS.forEach(f => {
+      const el = $("f-" + f);
+      if (!el) return;
+      payload[f] = (el.type === "number") ? Number(el.value) : el.value;
+    });
+
+    const res = await fetch("/api/connection", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (!data.ok) { showErrors(data.errors); return; }
+
+    showErrors([]);
+    $("scrim").hidden = true;
+    $("status").textContent = "Connection settings saved to " + data.savedTo;
+  }
+
+  $("settings").onclick = openSettings;
+  $("cancel").onclick = () => { $("scrim").hidden = true; };
+  $("save").onclick = saveSettings;
+  $("f-transport").onchange = applyVisibility;
+  $("scrim").onclick = e => { if (e.target === $("scrim")) $("scrim").hidden = true; };
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !$("scrim").hidden) $("scrim").hidden = true;
+  });
 
   $("refresh").onclick = load;
   $("filter").oninput = render;

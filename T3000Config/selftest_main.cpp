@@ -9,6 +9,7 @@
 int run_wire_tests();
 int run_read_path_tests();
 int run_bacnet_link_tests();
+int run_connection_tests();
 
 int run_selftests()
 {
@@ -19,6 +20,8 @@ int run_selftests()
     run_read_path_tests();
     printf("\n");
     run_bacnet_link_tests();
+    printf("\n");
+    run_connection_tests();
 
     const int failures = t3000::testing::g_failures;
     const int checks   = t3000::testing::g_checks;

@@ -26,6 +26,7 @@ namespace t3000::http
         std::string method;
         std::string path;      // no query string; see `query`
         std::string query;     // raw, undecoded
+        std::string body;      // empty unless the request carried one
     };
 
     struct Response

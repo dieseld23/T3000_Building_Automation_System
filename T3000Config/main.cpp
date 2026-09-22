@@ -15,6 +15,7 @@
 
 #include "app/fixture.h"
 #include "app/points_json.h"
+#include "device/connection.h"
 #include "device/read_path.h"
 #include "http/server.h"
 #include "web/inputs_page.h"
@@ -74,6 +75,95 @@ int main(int argc, char** argv)
 
     server.route("/", [](const http::Request&) {
         return http::Response::html(web::kInputsPage);
+    });
+
+    // Loaded once at startup and held in memory. A tool driven by one person at
+    // one controller does not need more, and re-reading the file per request
+    // would make a hand-edited config take effect halfway through a session.
+    static device::Connection connection;
+    static const std::string config_path = device::default_config_path();
+    {
+        std::string load_error;
+        if (device::load(config_path, connection, load_error) )
+            printf("  config    %s\n", config_path.c_str());
+        else if (!load_error.empty())
+            printf("  config    %s could not be read: %s\n", config_path.c_str(), load_error.c_str());
+        else
+            printf("  config    none yet - using defaults\n");
+    }
+
+    server.route("/api/connection", [](const http::Request& req) {
+        if (req.method == "POST")
+        {
+            device::Connection incoming = connection;   // start from current, patch
+            std::string parse_error;
+
+            if (!device::from_json(req.body, incoming, parse_error))
+            {
+                http::Response r = http::Response::json(
+                    "{\"ok\":false,\"errors\":[{\"field\":\"\",\"message\":\"" +
+                    app::json_escape(parse_error) + "\"}]}");
+                r.status = 400;
+                return r;
+            }
+
+            // Refuse to persist something that cannot work. Saving first and
+            // failing at connect time is how a settings screen ends up blamed
+            // for a wiring problem.
+            const auto errors = device::validate(incoming);
+            if (!errors.empty())
+            {
+                std::string body = "{\"ok\":false,\"errors\":[";
+                for (size_t i = 0; i < errors.size(); i++)
+                {
+                    if (i) body += ',';
+                    body += "{\"field\":\"" + app::json_escape(errors[i].field) +
+                            "\",\"message\":\"" + app::json_escape(errors[i].message) + "\"}";
+                }
+                body += "]}";
+
+                http::Response r = http::Response::json(body);
+                r.status = 400;
+                return r;
+            }
+
+            std::string save_error;
+            if (!device::save(config_path, incoming, save_error))
+            {
+                http::Response r = http::Response::json(
+                    "{\"ok\":false,\"errors\":[{\"field\":\"\",\"message\":\"" +
+                    app::json_escape(save_error) + "\"}]}");
+                r.status = 500;
+                return r;
+            }
+
+            connection = incoming;
+            return http::Response::json(
+                "{\"ok\":true,\"savedTo\":\"" + app::json_escape(config_path) +
+                "\",\"connection\":" + device::to_json(connection) + "}");
+        }
+
+        // GET returns the settings and how they currently validate, so the form
+        // can show existing problems without waiting for a submit.
+        const auto errors = device::validate(connection);
+        std::string body = "{\"connection\":" + device::to_json(connection) +
+                           ",\"configPath\":\"" + app::json_escape(config_path) +
+                           "\",\"baudRates\":[";
+        const auto& rates = device::supported_baud_rates();
+        for (size_t i = 0; i < rates.size(); i++)
+        {
+            if (i) body += ',';
+            body += std::to_string(rates[i]);
+        }
+        body += "],\"errors\":[";
+        for (size_t i = 0; i < errors.size(); i++)
+        {
+            if (i) body += ',';
+            body += "{\"field\":\"" + app::json_escape(errors[i].field) +
+                    "\",\"message\":\"" + app::json_escape(errors[i].message) + "\"}";
+        }
+        body += "]}";
+        return http::Response::json(body);
     });
 
     server.route("/api/inputs", [](const http::Request&) {
