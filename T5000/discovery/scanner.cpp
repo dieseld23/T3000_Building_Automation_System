@@ -1,0 +1,351 @@
+#include "scanner.h"
+
+#include <winsock2.h>
+#include <ws2tcpip.h>
+
+#include <map>
+
+#pragma comment(lib, "ws2_32.lib")
+
+namespace t5000::discovery
+{
+    namespace
+    {
+        std::string socket_error(const std::string& what)
+        {
+            return std::string(what) + " failed (WSA error " +
+                   std::to_string(WSAGetLastError()) + ")";
+        }
+    }
+
+    device::DeviceRecord to_record(const ScanResponse& r)
+    {
+        using namespace t5000::device;
+
+        DeviceRecord d;
+        d.serial_number = (int)r.serial_number;
+        d.product       = static_cast<ProductClassId>(r.product_id);
+        d.firmware      = (int)r.software_version;
+        d.provenance    = Provenance::BacnetBroadcast;
+
+        // It answered, so it is demonstrably there - even if it answered from
+        // its bootloader.
+        d.reached = true;
+
+        d.address_note = r.ip_text();
+        if (!r.panel_name.empty())
+            d.address_note += " (" + r.panel_name + ")";
+
+        d.connection.transport = device::Transport::BacnetIp;
+        d.connection.host      = r.ip_text();
+        if (r.bacnet_port != 0)
+            d.connection.udp_port = r.bacnet_port;
+        if (r.modbus_id != 0)
+            d.connection.modbus_slave_id = r.modbus_id;
+
+        // A device with no usable serial cannot be told apart from any other
+        // in the same state. T3000 fixes this during the scan without asking;
+        // we describe what it would take and wait.
+        if (is_uninitialised_serial(r.serial_number))
+        {
+            Repair repair;
+            repair.kind    = RepairKind::AssignSerialNumber;
+            repair.problem = "This device reports no serial number (" +
+                             std::to_string(r.serial_number) +
+                             "), so it cannot be told apart from any other device "
+                             "in the same state.";
+            repair.action  = "Write a randomly chosen serial number in the range "
+                             "200000-300000 to registers 0 and 2, preceded by an "
+                             "init code of 142 to register 16.";
+            repair.consequence =
+                "The device gets a permanent identity. The number is RANDOM, so "
+                "two devices repaired within the same second can receive the "
+                "same one - repair them one at a time and re-scan between.";
+
+            // Writing a serial is not undoable from this tool: there is no
+            // record of what the device had before, because it had nothing.
+            repair.reversible = false;
+            d.repairs.push_back(repair);
+        }
+
+        return d;
+    }
+
+    int flag_duplicate_modbus_ids(std::vector<device::DeviceRecord>& devices,
+                                  const std::vector<ScanResponse>& responses)
+    {
+        using namespace t5000::device;
+
+        if (devices.size() != responses.size())
+            return 0;   // caller error; do nothing rather than mis-pair
+
+        // Modbus id 0 is not an address, so several devices reporting it are
+        // not in conflict with each other.
+        std::map<int, int> counts;
+        for (const auto& r : responses)
+            if (r.modbus_id != 0)
+                counts[r.modbus_id]++;
+
+        int flagged = 0;
+        for (size_t i = 0; i < devices.size(); i++)
+        {
+            const int id = responses[i].modbus_id;
+            if (id == 0 || counts[id] < 2)
+                continue;
+
+            Repair repair;
+            repair.kind    = RepairKind::ResolveDuplicateModbusId;
+            repair.problem = "Modbus id " + std::to_string(id) + " is claimed by " +
+                             std::to_string(counts[id]) +
+                             " devices, so none of them can be addressed reliably.";
+            repair.action  = "Write a free id to register 10 on this device, "
+                             "leaving the others on " + std::to_string(id) + ".";
+            repair.consequence =
+                "This device moves to a new address. Anything that refers to it "
+                "by the old id - other panels, schedules, third-party "
+                "integrations - will need updating to match.";
+
+            // Changing an id back is just another write, so this one is
+            // undoable in a way that assigning a serial is not.
+            repair.reversible = true;
+
+            devices[i].repairs.push_back(repair);
+            flagged++;
+        }
+
+        return flagged;
+    }
+
+    ScanResult scan(ScanTransport& transport, const ScanSettings& settings)
+    {
+        ScanResult result;
+
+        std::string error;
+        if (!transport.broadcast_query(error))
+        {
+            result.error = error.empty() ? "could not send the discovery query" : error;
+            return result;
+        }
+
+        // Responses are kept alongside the records so duplicate detection can
+        // look at Modbus ids afterwards, which needs the whole set.
+        std::vector<ScanResponse> responses;
+
+        uint8_t buffer[1024];
+        int elapsed = 0;
+
+        while (elapsed < settings.total_timeout_ms)
+        {
+            const int slice = settings.slice_timeout_ms < 1 ? 1 : settings.slice_timeout_ms;
+            const int wait  = (settings.total_timeout_ms - elapsed) < slice
+                                ? (settings.total_timeout_ms - elapsed) : slice;
+
+            std::string recv_error;
+            const int n = transport.receive(buffer, sizeof(buffer), wait, recv_error);
+
+            if (n < 0)
+            {
+                // A broken socket ends the scan, but whatever was already
+                // found is still real and is returned.
+                result.error = recv_error.empty() ? "the scan socket failed" : recv_error;
+                break;
+            }
+
+            if (n == 0)
+            {
+                elapsed += wait;
+                continue;
+            }
+
+            result.stats.datagrams_received++;
+
+            ScanResponse parsed;
+            std::string why_not;
+            if (!parse_response(buffer, n, parsed, why_not))
+            {
+                // Distinguish "not for us" from "for us but wrong". The first
+                // is ordinary traffic on a shared socket - including our own
+                // broadcast - and the second is a device worth asking about.
+                if (n > 0 && buffer[0] == kResponseMessage) result.stats.malformed++;
+                else                                        result.stats.ignored++;
+                continue;
+            }
+
+            result.stats.responses_parsed++;
+            if (parsed.in_bootloader) result.stats.in_bootloader++;
+            if (device::is_uninitialised_serial(parsed.serial_number)) result.stats.without_serial++;
+
+            if ((int)result.devices.size() >= settings.max_devices)
+            {
+                result.error = "stopped after " + std::to_string(settings.max_devices) +
+                               " devices; the list is incomplete";
+                break;
+            }
+
+            responses.push_back(parsed);
+            result.devices.push_back(to_record(parsed));
+        }
+
+        result.stats.duplicate_modbus_ids =
+            flag_duplicate_modbus_ids(result.devices, responses);
+
+        return result;
+    }
+
+    // ---------------------------------------------------------------------
+
+    UdpTransport::UdpTransport(const std::string& local_ip)
+        : m_local_ip(local_ip), m_socket((uintptr_t)INVALID_SOCKET)
+    {
+    }
+
+    UdpTransport::~UdpTransport()
+    {
+        close();
+        if (m_winsock_started)
+            WSACleanup();
+    }
+
+    bool UdpTransport::open(std::string& error)
+    {
+        WSADATA wsa;
+        if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
+        {
+            error = "WSAStartup failed";
+            return false;
+        }
+        m_winsock_started = true;
+
+        SOCKET s = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        if (s == INVALID_SOCKET)
+        {
+            error = socket_error("socket");
+            return false;
+        }
+
+        BOOL broadcast = TRUE;
+        if (::setsockopt(s, SOL_SOCKET, SO_BROADCAST,
+                         (const char*)&broadcast, sizeof(broadcast)) != 0)
+        {
+            error = socket_error("enabling broadcast");
+            ::closesocket(s);
+            return false;
+        }
+
+        // Bind the chosen interface explicitly. On a machine with more than
+        // one NIC the default choice is frequently not the one the
+        // controllers are on, and the symptom is a scan that finds nothing
+        // with no error to explain it.
+        sockaddr_in bind_addr = {};
+        bind_addr.sin_family = AF_INET;
+        bind_addr.sin_port   = htons(kLocalBindPort);
+
+        if (m_local_ip.empty())
+        {
+            bind_addr.sin_addr.s_addr = INADDR_ANY;
+        }
+        else if (::inet_pton(AF_INET, m_local_ip.c_str(), &bind_addr.sin_addr) != 1)
+        {
+            error = "'" + m_local_ip + "' is not an IPv4 address";
+            ::closesocket(s);
+            return false;
+        }
+
+        if (::bind(s, (sockaddr*)&bind_addr, sizeof(bind_addr)) != 0)
+        {
+            const int err = WSAGetLastError();
+            error = socket_error("binding " +
+                                 (m_local_ip.empty() ? std::string("all interfaces")
+                                                     : m_local_ip) +
+                                 " port " + std::to_string(kLocalBindPort));
+            if (err == WSAEADDRINUSE)
+                error += " - T3000 may already be running and holding that port";
+            ::closesocket(s);
+            return false;
+        }
+
+        m_socket = (uintptr_t)s;
+        return true;
+    }
+
+    void UdpTransport::close()
+    {
+        if ((SOCKET)m_socket != INVALID_SOCKET)
+        {
+            ::closesocket((SOCKET)m_socket);
+            m_socket = (uintptr_t)INVALID_SOCKET;
+        }
+    }
+
+    bool UdpTransport::broadcast_query(std::string& error)
+    {
+        if ((SOCKET)m_socket == INVALID_SOCKET)
+        {
+            error = "the scan socket is not open";
+            return false;
+        }
+
+        uint8_t query[16];
+        const int len = build_query(query, sizeof(query));
+
+        sockaddr_in to = {};
+        to.sin_family      = AF_INET;
+        to.sin_port        = htons(kBroadcastPort);
+        to.sin_addr.s_addr = INADDR_BROADCAST;
+
+        const int sent = ::sendto((SOCKET)m_socket, (const char*)query, len, 0,
+                                  (sockaddr*)&to, sizeof(to));
+        if (sent != len)
+        {
+            error = socket_error("broadcasting the discovery query");
+            return false;
+        }
+        return true;
+    }
+
+    int UdpTransport::receive(uint8_t* buffer, int capacity, int timeout_ms,
+                              std::string& error)
+    {
+        if ((SOCKET)m_socket == INVALID_SOCKET)
+        {
+            error = "the scan socket is not open";
+            return -1;
+        }
+
+        fd_set readable;
+        FD_ZERO(&readable);
+        FD_SET((SOCKET)m_socket, &readable);
+
+        timeval tv;
+        tv.tv_sec  = timeout_ms / 1000;
+        tv.tv_usec = (timeout_ms % 1000) * 1000;
+
+        const int ready = ::select(0, &readable, nullptr, nullptr, &tv);
+        if (ready == 0) return 0;
+        if (ready < 0)
+        {
+            error = socket_error("waiting for a response");
+            return -1;
+        }
+
+        sockaddr_in from = {};
+        int from_len = sizeof(from);
+        const int n = ::recvfrom((SOCKET)m_socket, (char*)buffer, capacity, 0,
+                                 (sockaddr*)&from, &from_len);
+        if (n == SOCKET_ERROR)
+        {
+            const int err = WSAGetLastError();
+
+            // A datagram larger than the buffer, or an ICMP rejection from a
+            // previous send, are both ordinary on a broadcast socket and must
+            // not end the scan.
+            if (err == WSAEMSGSIZE || err == WSAECONNRESET)
+                return 0;
+
+            error = socket_error("receiving a response");
+            return -1;
+        }
+
+        return n;
+    }
+}
