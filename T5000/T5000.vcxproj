@@ -30,7 +30,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <ProjectGuid>{7B3C1A62-5E48-4D91-B0F7-2C9E8A4D6135}</ProjectGuid>
-    <RootNamespace>T3000Config</RootNamespace>
+    <RootNamespace>T5000</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -53,7 +53,7 @@
   </ImportGroup>
   <PropertyGroup>
     <OutDir>..\T3000 Output\release\</OutDir>
-    <IntDir>..\T3000 Output\T3000Config object\$(Configuration)\</IntDir>
+    <IntDir>..\T3000 Output\T5000 object\$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
@@ -90,7 +90,7 @@
         A non-zero exit fails the build.
       -->
       <Command>"$(TargetPath)" --selftest</Command>
-      <Message>Running T3000Config self-tests</Message>
+      <Message>Running T5000 self-tests</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

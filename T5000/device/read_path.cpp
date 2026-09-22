@@ -8,7 +8,7 @@
 // desynchronise this file from the application.
 #include "../../T3000/ProductModel.h"
 
-namespace t3000::device
+namespace t5000::device
 {
     // Transcribed from T3000/global_define.h:251-267 rather than included,
     // because global_define.h itself is not standalone. These are the only

@@ -7,7 +7,7 @@
 // where a screen is blank because a ResourceFile folder did not travel with the
 // binary; there is no reason to inherit it.
 
-namespace t3000::web
+namespace t5000::web
 {
     inline constexpr const char* kInputsPage = R"PAGE(<!DOCTYPE html>
 <html lang="en">

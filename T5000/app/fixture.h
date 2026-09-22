@@ -11,7 +11,7 @@
 
 #include "../wire/points.h"
 
-namespace t3000::app
+namespace t5000::app
 {
     std::vector<wire::InputPoint> fixture_points();
 }

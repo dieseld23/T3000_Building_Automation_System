@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-namespace t3000::device
+namespace t5000::device
 {
     const char* transport_name(Transport t)
     {
@@ -236,14 +236,14 @@ namespace t3000::device
     {
         char exe[MAX_PATH] = {};
         if (GetModuleFileNameA(nullptr, exe, MAX_PATH) == 0)
-            return "T3000Config.connection.json";
+            return "T5000.connection.json";
 
         std::string path(exe);
         const size_t slash = path.find_last_of("\\/");
         if (slash != std::string::npos)
             path.resize(slash + 1);
 
-        return path + "T3000Config.connection.json";
+        return path + "T5000.connection.json";
     }
 
     bool load(const std::string& path, Connection& out, std::string& error)

@@ -1,7 +1,7 @@
-// T3000Config - a standalone configuration tool for Tstat/T3 units.
+// T5000 - a standalone configuration tool for Tstat/T3 units.
 //
-//   T3000Config.exe --selftest    run the self-tests, exit non-zero on failure
-//   T3000Config.exe               serve the UI on http://127.0.0.1:8730
+//   T5000.exe --selftest    run the self-tests, exit non-zero on failure
+//   T5000.exe               serve the UI on http://127.0.0.1:8730
 //
 // It does not talk to a device yet. Serving the fixture is how the page and the
 // JSON contract get built and reviewed before any of it is pointed at live
@@ -52,9 +52,9 @@ namespace
         (void)getchar();
     }
 
-    t3000::app::DeviceInfo fixture_device()
+    t5000::app::DeviceInfo fixture_device()
     {
-        t3000::app::DeviceInfo d;
+        t5000::app::DeviceInfo d;
         d.serial_number = 500123;
         d.product_id    = 10;    // PM_TSTAT10
         d.firmware      = 520;   // deliberately below the PTP cutoff
@@ -69,7 +69,7 @@ int main(int argc, char** argv)
     if (argc > 1 && strcmp(argv[1], "--selftest") == 0)
         return run_selftests();
 
-    using namespace t3000;
+    using namespace t5000;
 
     http::Server server(kPort);
 
@@ -182,7 +182,7 @@ int main(int argc, char** argv)
     char url[64];
     snprintf(url, sizeof(url), "http://127.0.0.1:%u/", (unsigned)kPort);
 
-    printf("T3000Config\n");
+    printf("T5000\n");
     printf("  serving   %s\n", url);
     printf("  data      FIXTURE - no device is connected\n");
     printf("  bind      loopback only\n\n");
@@ -206,7 +206,7 @@ int main(int argc, char** argv)
         if (server.last_error().find("bind") != std::string::npos)
         {
             fprintf(stderr,
-                    "\nAnother copy of T3000Config is probably already running and\n"
+                    "\nAnother copy of T5000 is probably already running and\n"
                     "holding port %u. Close it, or check with:\n"
                     "    Get-NetTCPConnection -LocalPort %u -State Listen\n",
                     (unsigned)kPort, (unsigned)kPort);

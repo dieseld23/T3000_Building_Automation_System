@@ -11,8 +11,8 @@
 
 namespace
 {
-    using namespace t3000::device;
-    using namespace t3000::testing;
+    using namespace t5000::device;
+    using namespace t5000::testing;
 
     Connection valid_ip()
     {

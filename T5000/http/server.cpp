@@ -7,7 +7,7 @@
 
 #pragma comment(lib, "Ws2_32.lib")
 
-namespace t3000::http
+namespace t5000::http
 {
     namespace
     {

@@ -19,7 +19,7 @@
 
 #include "points.h"
 
-namespace t3000::wire
+namespace t5000::wire
 {
     // What one input point occupies on the wire. Equal to sizeof(InputPoint)
     // because the struct is #pragma pack(1) and the fields are in wire order,

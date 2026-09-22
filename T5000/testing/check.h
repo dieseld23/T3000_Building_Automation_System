@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 
-namespace t3000::testing
+namespace t5000::testing
 {
     inline int g_failures = 0;
     inline int g_checks   = 0;

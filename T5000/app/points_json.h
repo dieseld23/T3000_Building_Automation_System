@@ -12,7 +12,7 @@
 #include "../device/read_path.h"
 #include "../wire/points.h"
 
-namespace t3000::app
+namespace t5000::app
 {
     // Device text arrives as CP_ACP bytes, which on these controllers means GBK.
     // JSON is UTF-8 by definition, so every string crossing this boundary has to

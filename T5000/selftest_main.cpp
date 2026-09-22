@@ -1,6 +1,6 @@
 // Runs every self-test in the project and returns non-zero if any failed.
 //
-// Reached via "T3000Config.exe --selftest", which the post-build event invokes,
+// Reached via "T5000.exe --selftest", which the post-build event invokes,
 // so the build fails when a check fails. Compiling tests without running them
 // proves only that they parse.
 
@@ -13,7 +13,7 @@ int run_connection_tests();
 
 int run_selftests()
 {
-    printf("T3000Config self-test\n\n");
+    printf("T5000 self-test\n\n");
 
     run_wire_tests();
     printf("\n");
@@ -23,8 +23,8 @@ int run_selftests()
     printf("\n");
     run_connection_tests();
 
-    const int failures = t3000::testing::g_failures;
-    const int checks   = t3000::testing::g_checks;
+    const int failures = t5000::testing::g_failures;
+    const int checks   = t5000::testing::g_checks;
 
     printf("\n%d checks, %d failures - %s\n",
            checks, failures,
