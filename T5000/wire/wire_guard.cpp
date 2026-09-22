@@ -27,9 +27,10 @@
 // the lower-risk option while this guard is the only thing that needs it.
 //
 // The shims below exist ONLY so the header parses in this one translation unit.
-// None of them appears in Str_in_point or Str_out_point, which is what this file
-// asserts about, so getting a shim's size wrong cannot make a wrong layout pass -
-// it would fail the offsetof checks instead. This TU must never include real MFC.
+// None of them appears in the structs this file asserts about (Str_in_point,
+// Str_out_point, Str_variable_point), so getting a shim's size wrong cannot make
+// a wrong layout pass - it would fail the offsetof checks instead. This TU must
+// never include real MFC.
 typedef unsigned char  byte;    // ud_str.h:419-422, 445-446, 456, 497-498
 typedef unsigned short WORD;    // ud_str.h:499, normally from windef.h
 
@@ -45,6 +46,7 @@ namespace
 {
     using t5000::wire::InputPoint;
     using t5000::wire::OutputPoint;
+    using t5000::wire::VariablePoint;
 
     // Size first, for a readable error when the whole struct is wrong.
     static_assert(sizeof(InputPoint) == sizeof(::Str_in_point),
@@ -102,6 +104,24 @@ namespace
     WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, sub_product);
     WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, sub_number);
     WIRE_FIELD_MATCHES(OutputPoint, Str_out_point, pwm_period);
+
+    // Variables. Note CM5/ud_str.h has TWO similarly-named structs -
+    // Str_variable_point (:407) is the one the Variables screen uses;
+    // Str_variable_uint_point (:286) is a different shape carrying the same
+    // wrong "= 40" comment the output struct has. This guard names the former
+    // explicitly so a later edit cannot quietly swap them.
+    static_assert(sizeof(VariablePoint) == sizeof(::Str_variable_point),
+        "points.h VariablePoint and CM5 Str_variable_point disagree on size - the "
+        "vendored wire format has drifted from the application's.");
+
+    WIRE_FIELD_MATCHES(VariablePoint, Str_variable_point, description);
+    WIRE_FIELD_MATCHES(VariablePoint, Str_variable_point, label);
+    WIRE_FIELD_MATCHES(VariablePoint, Str_variable_point, value);
+    WIRE_FIELD_MATCHES(VariablePoint, Str_variable_point, auto_manual);
+    WIRE_FIELD_MATCHES(VariablePoint, Str_variable_point, digital_analog);
+    WIRE_FIELD_MATCHES(VariablePoint, Str_variable_point, control);
+    WIRE_FIELD_MATCHES(VariablePoint, Str_variable_point, unused);
+    WIRE_FIELD_MATCHES(VariablePoint, Str_variable_point, range);
 
 #undef WIRE_FIELD_MATCHES
 
