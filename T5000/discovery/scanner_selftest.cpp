@@ -193,6 +193,56 @@ namespace
                  "three devices that reported nothing are not in conflict");
     }
 
+    void test_the_bacnet_instance_is_kept()
+    {
+        section("the BACnet device instance from the response reaches the record");
+
+        // It was parsed, then dropped: every scanned device carried instance
+        // 0, which nothing noticed because nothing read it yet.
+        ScanResponse r;
+        r.serial_number   = 900010;
+        r.object_instance = 123456;
+        check_eq(to_record(r).connection.device_instance, 123456, "instance carried through");
+
+        // And a rescan that does not report one does not erase it.
+        Registry reg;
+        reg.add_or_merge(to_record(r));
+        ScanResponse again = r;
+        again.object_instance = 0;
+        reg.add_or_merge(to_record(again));
+        check_eq(reg.devices()[0].connection.device_instance, 123456,
+                 "a later response without one keeps the earlier instance");
+    }
+
+    void test_a_device_behind_a_controller_is_marked()
+    {
+        section("a device a controller answered for is marked as behind it");
+
+        ScanResponse child;
+        child.serial_number        = 900020;
+        child.parent_serial_number = 500001;
+        check_eq((long)to_record(child).parent_serial, 500001, "the parent's serial is kept");
+
+        // Moved onto the network itself: a complete observation saying
+        // "no parent" must clear it, or the device stays refused forever.
+        Registry reg;
+        reg.add_or_merge(to_record(child));
+        ScanResponse moved = child;
+        moved.parent_serial_number = 0;
+        reg.add_or_merge(to_record(moved));
+        check_eq((long)reg.devices()[0].parent_serial, 0,
+                 "a later complete observation with no parent clears it");
+
+        // A partial observation knows nothing about parents and must not.
+        reg.add_or_merge(to_record(child));
+        DeviceRecord partial;
+        partial.serial_number        = 900020;
+        partial.observation_complete = false;
+        reg.add_or_merge(partial);
+        check_eq((long)reg.devices()[0].parent_serial, 500001,
+                 "a partial observation leaves it alone");
+    }
+
     void test_bootloader_devices_are_listed_and_counted()
     {
         section("a device in its bootloader still appears");
@@ -275,6 +325,8 @@ int run_scanner_tests()
     test_responses_become_devices();
     test_a_missing_serial_proposes_a_repair_and_nothing_else();
     test_a_reported_id_of_zero_stays_zero();
+    test_the_bacnet_instance_is_kept();
+    test_a_device_behind_a_controller_is_marked();
     test_bootloader_devices_are_listed_and_counted();
     test_foreign_traffic_and_malformed_responses_are_told_apart();
     test_a_dying_socket_keeps_what_was_found();

@@ -195,6 +195,18 @@ namespace t5000::device
         // one of them can be absent.
         int modbus_id_reported = 0;
 
+        // The serial of the controller whose RS485 bus this device is on, as
+        // its scan response reported it. 0 means it is on the network itself.
+        //
+        // A controller answers the discovery broadcast for the devices on its
+        // bus as well as for itself (TStatScanner.cpp:2091), so a sub-device's
+        // response comes from - and carries - the PARENT's address. Anything
+        // sent there reaches the parent. T3000 reads such a device through the
+        // parent instead (MainFrm.cpp:7580-7588); a read that ignored this
+        // field would show the parent's points under the sub-device's serial,
+        // passing every check on the way.
+        uint32_t parent_serial = 0;
+
         // --- Reachability. -----------------------------------------------
         Connection  connection;
         std::string address_note;   // human-readable: "192.168.1.50" or "COM3 id 12"

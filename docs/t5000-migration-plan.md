@@ -233,6 +233,12 @@ each one wrongly marked "finished" becomes a product that silently misreads.
 and `BacnetOutput.cpp` and record the line or its absence — an hour, no
 hardware, and it converts the whole list from hearsay to fact.*
 
+*Done.* `device/product.cpp` holds the result per `mini_type`, from whole-file
+greps, and a second independent pass agreed on every count. It also explains
+the survey's biggest miss: OEM, OEM-12I and TSTAT11 are absent from the init
+chains because they are row-mask variants of a TSTAT10 (`BacnetInput.cpp:1662-1683`),
+not because they are unfinished.
+
 **Still unclosed, and above all of these:** the firmware gate in
 `read_path.cpp` is a correct reading of a guard clause and nothing more until
 two devices — one BACnet, one Modbus below firmware 525 — say otherwise.

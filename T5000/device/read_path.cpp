@@ -51,13 +51,31 @@ namespace t5000::device
     {
         Decision d;
 
+        // The product decides first. T3000 opens the private-data view for
+        // exactly the five Bacnet_Private_Device products and nothing else
+        // (MainFrm.cpp:7375-7380), whatever the transport. This used to ask
+        // only whether the transport was refused, so a Tstat8 on BACnet/IP
+        // came back as "private data" - a read T3000 has never attempted, and
+        // one this tool is now able to send.
+        if (!is_private_data_device(product_id))
+        {
+            d.path    = ReadPath::ModbusRegisters;
+            d.summary = "Modbus registers";
+            d.detail  = "Product " + std::to_string(product_id) +
+                        " does not support private-data reads, so points are read from "
+                        "raw Modbus registers.";
+            return d;
+        }
+
         if (!is_refused_by_private_data(protocol))
         {
             d.path    = ReadPath::PrivateData;
             d.summary = "private data";
-            d.detail  = "Transport " + std::to_string(protocol) +
-                        " is not one the private-data read refuses, so points are "
-                        "read directly as structs.";
+            // Written for the technician reading the page, which is where this
+            // lands: the protocol number is kept for diagnosis, not led with.
+            d.detail  = "Read by BACnet private transfer, the way T3000 reads this "
+                        "product - each point arrives as the struct T3000 stores. "
+                        "(Protocol " + std::to_string(protocol) + ".)";
             return d;
         }
 
@@ -72,28 +90,19 @@ namespace t5000::device
             return d;
         }
 
-        // Everything else falls back to raw registers. Say WHY, because this is
-        // the branch where the previous tool would simply have shown nothing:
-        // the firmware being a few revisions short is not something a technician
-        // can be expected to infer from an empty grid.
+        // A private-data product on a refused transport, below the PTP cutoff.
+        // Say WHY, because this is the branch where the previous tool would
+        // simply have shown nothing: the firmware being a few revisions short
+        // is not something a technician can be expected to infer from an
+        // empty grid.
         d.path    = ReadPath::ModbusRegisters;
         d.summary = "Modbus registers";
-
-        if (is_private_data_device(product_id))
-        {
-            d.detail = "This device supports private-data reads, but its firmware is " +
-                       std::to_string(software_version) +
-                       " and the PTP tunnel needs " +
-                       std::to_string(kPtpMinimumFirmware) +
-                       " or newer. Falling back to raw Modbus registers. Updating the "
-                       "firmware would enable the faster path.";
-        }
-        else
-        {
-            d.detail = "Product " + std::to_string(product_id) +
-                       " does not support private-data reads, so points are read from "
-                       "raw Modbus registers.";
-        }
+        d.detail  = "This device supports private-data reads, but its firmware is " +
+                    std::to_string(software_version) +
+                    " and the PTP tunnel needs " +
+                    std::to_string(kPtpMinimumFirmware) +
+                    " or newer. Falling back to raw Modbus registers. Updating the "
+                    "firmware would enable the faster path.";
         return d;
     }
 }

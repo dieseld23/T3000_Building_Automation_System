@@ -14,32 +14,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// T3000/CM5/ud_str.h is the live layout, but it does not compile on its own:
-//
-//   - `byte` is used for several schedule fields and is only defined once the
-//     Windows headers are in scope. Defining it here is what lets the real
-//     header be included without dragging in windows.h and MFC.
-//   - Point_T3000 contains a `public:` access specifier, so the header has to be
-//     compiled as C++ regardless.
-//
-// Both are shallow, and fixing them upstream would mean editing a GBK-encoded
-// header that scripted edits have corrupted in this repo before. Shimming is
-// the lower-risk option while this guard is the only thing that needs it.
-//
-// The shims below exist ONLY so the header parses in this one translation unit.
-// None of them appears in the structs this file asserts about (Str_in_point,
-// Str_out_point, Str_variable_point), so getting a shim's size wrong cannot make
-// a wrong layout pass - it would fail the offsetof checks instead. This TU must
-// never include real MFC.
-typedef unsigned char  byte;    // ud_str.h:419-422, 445-446, 456, 497-498
-typedef unsigned short WORD;    // ud_str.h:499, normally from windef.h
-
-// ud_str.h:1224 puts an MFC CString inside register_point - a struct whose own
-// comment says "(size = 6 bytes)". It is not a wire struct despite reading like
-// one, and nothing here depends on it; the placeholder just lets the file parse.
-struct CString { void* opaque; };
-
-#include "../../T3000/CM5/ud_str.h"
+// T3000/CM5/ud_str.h is the live layout. It needs shims to compile outside MFC;
+// cm5_header.h has them and explains each.
+#include "cm5_header.h"
 #include "points.h"
 
 namespace

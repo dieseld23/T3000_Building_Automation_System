@@ -242,7 +242,7 @@ namespace
         check(has(json, "\"inputs\":[]"),
               "the array is named inputs, which is what the page reads");
         check(has(json, "\"readPath\""), "a read path band is always rendered");
-        check(has(json, "no verified read path"), "and says there is none");
+        check(has(json, "nothing was read"), "and says nothing was read");
         check(has(json, "\"count\":0"), "nothing was read");
         check(has(json, "The read path is not verified."), "the reason reaches the page");
         check(has(json, "700002"), "the device is named");
@@ -254,6 +254,52 @@ namespace
 
         // And the claim itself must not be constructible from this payload.
         check(!has(json, "\"isFixture\":true"), "it is not fixture data either");
+        check(has(json, "\"readFromWire\":false"),
+              "and it says, positively, that nothing came off the wire");
+    }
+
+    void test_the_parent_reaches_the_page()
+    {
+        section("a device's parent controller is in the device list");
+
+        Registry reg;
+        DeviceRecord child;
+        child.serial_number = 900030;
+        child.parent_serial = 500001;
+        reg.add_or_merge(child);
+        const std::string json = build_devices_json(reg, ScanSummary());
+        check(has(json, "\"parentSerial\":500001"), "parentSerial is emitted");
+    }
+
+    void test_only_a_wire_read_claims_one()
+    {
+        section("only a payload built from a wire read says it was read from the device");
+
+        // The page claims "read from serial NNN" on readFromWire and nothing
+        // else. Every builder states it, so no payload can make the claim by
+        // leaving a field out.
+        t5000::device::Decision decision;
+        decision.summary = "private data";
+
+        DeviceInfo fixture;
+        fixture.serial_number = 1;
+        fixture.is_fixture    = true;
+        const std::string f = build_inputs_json(fixture, decision, {});
+        check(has(f, "\"readFromWire\":false"), "fixture points: false");
+
+        DeviceInfo defaulted;
+        defaulted.serial_number = 2;
+        const std::string d = build_inputs_json(defaulted, decision, {});
+        check(has(d, "\"readFromWire\":false"),
+              "a DeviceInfo nobody set the flag on: false, not true by omission");
+
+        DeviceInfo live;
+        live.serial_number  = 700003;
+        live.read_from_wire = true;
+        live.address        = "192.168.1.52:47808";
+        const std::string l = build_inputs_json(live, decision, {});
+        check(has(l, "\"readFromWire\":true"), "a wire read: true");
+        check(has(l, "192.168.1.52:47808"), "with the address it was read from");
     }
 
     void test_interfaces_report_their_failure()
@@ -291,6 +337,8 @@ int run_scan_json_tests()
     test_selection_is_marked_on_exactly_one_device();
     test_text_from_a_device_is_escaped();
     test_the_unreadable_device_payload_keeps_the_page_contract();
+    test_only_a_wire_read_claims_one();
+    test_the_parent_reaches_the_page();
     test_interfaces_report_their_failure();
     return 0;
 }

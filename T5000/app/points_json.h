@@ -32,6 +32,15 @@ namespace t5000::app
         int firmware        = 0;
         int protocol        = 0;
         bool is_fixture     = false;   // not real device data
+
+        // True only when these points just came off the wire from the device.
+        //
+        // The page says "read from serial NNN" on THIS, and on nothing else.
+        // It used to say it whenever isFixture was false, which made the
+        // claim the default: any payload that forgot a flag asserted a
+        // reading. A positive statement cannot be produced by omission.
+        bool read_from_wire = false;
+        std::string address;           // where it was read from, when it was
     };
 
     // The whole payload: which device, how it was read (and why), and the points.

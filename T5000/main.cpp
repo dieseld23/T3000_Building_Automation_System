@@ -15,9 +15,11 @@
 #include <string.h>
 
 #include "app/fixture.h"
+#include "app/inputs_plan.h"
 #include "app/points_json.h"
 #include "app/product_json.h"
 #include "app/scan_json.h"
+#include "bacnet/point_read.h"
 #include "device/connection.h"
 #include "device/read_path.h"
 #include "device/registry.h"
@@ -87,12 +89,69 @@ namespace
     // than beside it.
     t5000::device::Registry g_registry;
     t5000::app::ScanSummary g_summary;
+
+    // Advanced by every request sent, across reads, so a late reply to one
+    // read cannot be taken for an answer to the next.
+    uint8_t g_next_invoke_id = 1;
+
+    // Reads the selected device's inputs off the wire, or says why not.
+    //
+    // Whether a request is sent at all is decided in app::plan_inputs_read,
+    // which is tested; this only carries it out. Synchronous, as the scan is:
+    // the server answers one request at a time. A silent device costs two
+    // attempts of three seconds before the page is told so.
+    std::string read_selected_inputs(const t5000::device::DeviceRecord& d)
+    {
+        using namespace t5000;
+
+        const app::InputsPlan plan = app::plan_inputs_read(d);
+        if (!plan.can_read)
+            return app::build_unavailable_inputs_json((int)d.serial_number, d.address_note, plan.reason);
+
+        bacnet::UdpReadTransport transport(plan.endpoint);
+        std::string error;
+        if (!transport.open(error))
+        {
+            return app::build_unavailable_inputs_json(
+                (int)d.serial_number, d.address_note, "Nothing was sent. " + error);
+        }
+
+        const bacnet::InputsRead read =
+            bacnet::read_inputs(transport, plan.endpoint, bacnet::ReadSettings(), g_next_invoke_id);
+        if (!read.ok)
+            return app::build_unavailable_inputs_json((int)d.serial_number, d.address_note, read.error);
+
+        app::DeviceInfo info;
+        info.serial_number  = (int)d.serial_number;
+        info.product_id     = (int)static_cast<uint8_t>(d.product);
+        info.firmware       = d.firmware;
+        info.protocol       = app::kProtocolBacnetIp;
+        info.read_from_wire = true;
+        info.address        = plan.endpoint.text();
+
+        device::Decision decision = plan.decision;
+        if (!plan.note.empty())
+            decision.detail += " " + plan.note;
+
+        return app::build_inputs_json(info, decision, read.points);
+    }
 }
 
 int main(int argc, char** argv)
 {
     if (argc > 1 && strcmp(argv[1], "--selftest") == 0)
         return run_selftests();
+
+    // For driving the tool from a script. Opening a browser on every start is
+    // right for a technician and wrong for a test run: the tab it opens is a
+    // live page, one click from a scan that broadcasts on whatever network the
+    // machine is on - which has happened during development.
+    bool open_a_browser = true;
+    for (int i = 1; i < argc; i++)
+    {
+        if (strcmp(argv[i], "--no-browser") == 0)
+            open_a_browser = false;
+    }
 
     using namespace t5000;
 
@@ -332,19 +391,11 @@ int main(int argc, char** argv)
     });
 
     server.route("/api/inputs", [](const http::Request&) {
-        // A real device is selected. There is no verified read path to it yet,
-        // and answering with the fixture would attach invented point data to a
-        // named controller on a named address - worse than an empty screen,
-        // because it looks like an answer.
+        // A real device is selected: read it, or say why not. Never the
+        // fixture - invented points under a named controller's serial look
+        // like an answer, which is worse than an empty screen.
         if (const device::DeviceRecord* selected = g_registry.selected())
-        {
-            return http::Response::json(app::build_unavailable_inputs_json(
-                (int)selected->serial_number,
-                selected->address_note,
-                "T5000 has found this device but cannot read its points yet. "
-                "The read path is not verified against hardware, and showing "
-                "sample data here would be indistinguishable from a real reading."));
-        }
+            return http::Response::json(read_selected_inputs(*selected));
 
         const app::DeviceInfo device = fixture_device();
 
@@ -364,7 +415,8 @@ int main(int argc, char** argv)
     printf("T5000\n");
     printf("  serving   %s\n", url);
     printf("  scanning  read-only - no device is written to\n");
-    printf("  points    FIXTURE - no device is connected\n");
+    printf("  points    read-only, from the selected device over BACnet/IP;\n");
+    printf("            sample data only when no device is selected\n");
     printf("  bind      loopback only\n\n");
     printf("Ctrl-C to stop.\n");
 
@@ -373,8 +425,9 @@ int main(int argc, char** argv)
     // here, so a failed bind does not launch a tab pointing at a URL this
     // process is not serving. Failing to open a browser is not a reason to stop
     // serving, so the result is ignored - the URL is on screen either way.
-    const auto open_browser = [&url]() {
-        ShellExecuteA(nullptr, "open", url, nullptr, nullptr, SW_SHOWNORMAL);
+    const auto open_browser = [&url, open_a_browser]() {
+        if (open_a_browser)
+            ShellExecuteA(nullptr, "open", url, nullptr, nullptr, SW_SHOWNORMAL);
     };
 
     if (!server.serve_forever(open_browser))
