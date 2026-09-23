@@ -3,9 +3,10 @@
 //   T5000.exe --selftest    run the self-tests, exit non-zero on failure
 //   T5000.exe               serve the UI on http://127.0.0.1:8730
 //
-// It does not talk to a device yet. Serving the fixture is how the page and the
-// JSON contract get built and reviewed before any of it is pointed at live
-// equipment, and everything it serves is flagged as sample data.
+// It can now FIND devices, and still cannot change one. The scan is read-only
+// by construction (see discovery/scanner.h), and problems it notices are
+// staged as proposals nobody has agreed to yet. Point data is still the
+// fixture, flagged as such everywhere it is served.
 
 #include <windows.h>
 #include <shellapi.h>
@@ -16,9 +17,15 @@
 #include "app/fixture.h"
 #include "app/points_json.h"
 #include "app/product_json.h"
+#include "app/scan_json.h"
 #include "device/connection.h"
 #include "device/read_path.h"
+#include "device/registry.h"
+#include "discovery/scanner.h"
 #include "http/server.h"
+#include "json/read.h"
+#include "net/interfaces.h"
+#include "web/devices_page.h"
 #include "web/inputs_page.h"
 
 int run_selftests();
@@ -63,6 +70,23 @@ namespace
         d.is_fixture    = true;
         return d;
     }
+
+    t5000::http::Response bad_request(const std::string& message)
+    {
+        t5000::http::Response r = t5000::http::Response::json(
+            "{\"ok\":false,\"message\":\"" + t5000::app::json_escape(message) + "\"}");
+        r.status = 400;
+        return r;
+    }
+
+    // Everything the tool has found, and why the list looks the way it does.
+    //
+    // One process, one technician, one building. A mutex would be protecting
+    // against a concurrency the server does not have - http::Server is
+    // single-threaded and blocking, and the scan runs inside a request rather
+    // than beside it.
+    t5000::device::Registry g_registry;
+    t5000::app::ScanSummary g_summary;
 }
 
 int main(int argc, char** argv)
@@ -74,7 +98,14 @@ int main(int argc, char** argv)
 
     http::Server server(kPort);
 
+    // The device list is the front door. Every other screen needs a selected
+    // device before it can mean anything, and landing on a grid of fixture
+    // points invites the reader to believe it came from somewhere.
     server.route("/", [](const http::Request&) {
+        return http::Response::html(web::kDevicesPage);
+    });
+
+    server.route("/inputs", [](const http::Request&) {
         return http::Response::html(web::kInputsPage);
     });
 
@@ -167,6 +198,114 @@ int main(int argc, char** argv)
         return http::Response::json(body);
     });
 
+    // Which interfaces a scan could go out of. Enumerated per request rather
+    // than cached: a technician plugging into the building network is the
+    // normal case, and a list captured at startup would be stale exactly when
+    // it matters.
+    server.route("/api/interfaces", [](const http::Request&) {
+        std::string error;
+        const auto interfaces = net::ipv4_interfaces(error);
+        return http::Response::json(app::build_interfaces_json(interfaces, error));
+    });
+
+    server.route("/api/devices", [](const http::Request&) {
+        return http::Response::json(app::build_devices_json(g_registry, g_summary));
+    });
+
+    // Runs one scan, synchronously. The request takes as long as the scan
+    // does - up to about nine seconds - and the page says so before it starts.
+    //
+    // Deliberately not on a worker thread. The scanner returns its whole
+    // result at the end, so a thread would publish nothing sooner; getting
+    // devices to appear as they answer means threading a progress callback
+    // through the receive loop, and that loop has already had three bugs in
+    // it. A spinner is not worth reopening it.
+    server.route("/api/scan", [](const http::Request& req) {
+        if (req.method != "POST")
+            return bad_request("A scan is started with POST.");
+
+        std::string interface_ip;
+        int wait_ms = discovery::ScanSettings().total_timeout_ms;
+
+        if (!req.body.empty())
+        {
+            if (!json::read_string(req.body, "interfaceIp", interface_ip))
+                return bad_request("interfaceIp must be a string.");
+            if (!json::read_int(req.body, "waitMs", wait_ms))
+                return bad_request("waitMs must be a number.");
+        }
+
+        // Clamped rather than rejected. These come from the page's own
+        // controls, so an out-of-range value is a bug here rather than
+        // something the operator did, and refusing the scan would be a dead
+        // end where a sane bound is not.
+        if (wait_ms < 1000)  wait_ms = 1000;
+        if (wait_ms > 60000) wait_ms = 60000;
+
+        g_summary = app::ScanSummary();
+        g_summary.has_scanned  = true;
+        g_summary.interface_ip = interface_ip;
+        g_summary.waited_ms    = wait_ms;
+
+        discovery::UdpTransport transport(interface_ip);
+
+        std::string open_error;
+        if (!transport.open(open_error))
+        {
+            g_summary.error = open_error;
+            return http::Response::json(app::build_devices_json(g_registry, g_summary));
+        }
+
+        discovery::ScanSettings settings;
+        settings.total_timeout_ms = wait_ms;
+
+        const discovery::ScanResult result = discovery::scan(transport, settings);
+
+        g_summary.stats = result.stats;
+        g_summary.error = result.error;
+
+        // Merged, not replaced. A controller that answered earlier and stayed
+        // quiet this time is information worth keeping on screen; dropping it
+        // would make a flaky device look like one that was never there.
+        for (const auto& d : result.devices)
+            g_registry.add_or_merge(d);
+
+        return http::Response::json(app::build_devices_json(g_registry, g_summary));
+    });
+
+    server.route("/api/devices/select", [](const http::Request& req) {
+        if (req.method != "POST")
+            return bad_request("A selection is made with POST.");
+
+        unsigned long long raw = 0;
+        if (!json::read_u64(req.body, "handle", raw))
+            return bad_request("handle must be a non-negative whole number.");
+
+        // A handle the page is holding for a device that has since gone
+        // resolves to nothing, and that is reported rather than smoothed over.
+        // The registry clears the selection on a miss, so the response below
+        // already shows "nothing selected" - the page does not have to infer
+        // it from an error code.
+        const bool found = g_registry.select_by_handle(device::to_handle(raw));
+
+        std::string body = "{\"ok\":";
+        body += found ? "true" : "false";
+        if (!found)
+            body += ",\"message\":\"That device is no longer in the list. "
+                    "Scan again to see what is there now.\"";
+        body += ",\"state\":" + app::build_devices_json(g_registry, g_summary) + "}";
+        return http::Response::json(body);
+    });
+
+    server.route("/api/devices/clear", [](const http::Request& req) {
+        if (req.method != "POST")
+            return bad_request("Clearing the list is done with POST.");
+
+        g_registry.clear();
+        g_summary = app::ScanSummary();
+        return http::Response::json(app::build_devices_json(g_registry, g_summary));
+    });
+
     // What the tool knows about products. Served so the capability table is
     // inspectable rather than implicit - "this device is not supported" is a
     // much more useful message when the reason is one request away.
@@ -174,22 +313,42 @@ int main(int argc, char** argv)
         return http::Response::json(app::build_products_json());
     });
 
-    // The fixture device, resolved through the product model. Shows both
-    // axes: what the hardware is, and what the panel is configured as.
+    // The selected device, resolved through the product model. Falls back to
+    // the fixture only when nothing real is selected.
     server.route("/api/device", [](const http::Request&) {
+        if (const device::DeviceRecord* d = g_registry.selected())
+            return http::Response::json(
+                app::build_product_json((int)static_cast<uint8_t>(d->product), d->mini_type));
+
         const app::DeviceInfo d = fixture_device();
-        return http::Response::json(
-            app::build_product_json(d.product_id, /*mini_type*/ 0));
+        return http::Response::json(app::build_product_json(d.product_id, /*mini_type*/ 0));
     });
 
     server.route("/api/inputs", [](const http::Request&) {
+        // A real device is selected. There is no verified read path to it yet,
+        // and answering with the fixture would attach invented point data to a
+        // named controller on a named address - worse than an empty screen,
+        // because it looks like an answer.
+        if (const device::DeviceRecord* selected = g_registry.selected())
+        {
+            std::string body =
+                "{\"unavailable\":true,\"device\":{\"serialNumber\":" +
+                std::to_string((long long)selected->serial_number) +
+                ",\"address\":\"" + app::json_escape(selected->address_note) + "\"}," +
+                "\"message\":\"T5000 has found this device but cannot read its points "
+                "yet. The read path is not verified against hardware, and showing "
+                "sample data here would be indistinguishable from a real reading.\","
+                "\"points\":[]}";
+            return http::Response::json(body);
+        }
+
         const app::DeviceInfo device = fixture_device();
 
         // The fixture is deliberately a Tstat below the PTP firmware cutoff, so
         // the degraded-path banner is exercised every time rather than only
         // being seen for the first time in the field.
-        const device::Decision decision =
-            device::choose_read_path(device.product_id, device.firmware, device.protocol);
+        const t5000::device::Decision decision =
+            t5000::device::choose_read_path(device.product_id, device.firmware, device.protocol);
 
         return http::Response::json(
             app::build_inputs_json(device, decision, app::fixture_points()));
@@ -200,7 +359,8 @@ int main(int argc, char** argv)
 
     printf("T5000\n");
     printf("  serving   %s\n", url);
-    printf("  data      FIXTURE - no device is connected\n");
+    printf("  scanning  read-only - no device is written to\n");
+    printf("  points    FIXTURE - no device is connected\n");
     printf("  bind      loopback only\n\n");
     printf("Ctrl-C to stop.\n");
 

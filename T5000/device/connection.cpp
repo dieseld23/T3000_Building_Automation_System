@@ -1,4 +1,5 @@
 #include "connection.h"
+#include "../json/read.h"
 
 #include <windows.h>
 
@@ -153,50 +154,15 @@ namespace t5000::device
 
     namespace
     {
-        // A flat-object reader, not a JSON parser. The config is one level deep
-        // with string and integer values, and a real parser would be the largest
-        // dependency in the project for no gain. It does not accept nesting,
-        // arrays or escapes, and says so rather than guessing.
-        bool find_value(const std::string& json, const std::string& key, std::string& out)
-        {
-            const std::string needle = "\"" + key + "\"";
-            const size_t at = json.find(needle);
-            if (at == std::string::npos)
-                return false;
-
-            size_t colon = json.find(':', at + needle.size());
-            if (colon == std::string::npos)
-                return false;
-
-            size_t i = colon + 1;
-            while (i < json.size() && isspace((unsigned char)json[i])) i++;
-            if (i >= json.size())
-                return false;
-
-            if (json[i] == '"')
-            {
-                const size_t start = ++i;
-                while (i < json.size() && json[i] != '"') i++;
-                if (i >= json.size())
-                    return false;
-                out = json.substr(start, i - start);
-                return true;
-            }
-
-            const size_t start = i;
-            while (i < json.size() && json[i] != ',' && json[i] != '}') i++;
-            out = json.substr(start, i - start);
-
-            while (!out.empty() && isspace((unsigned char)out.back()))
-                out.pop_back();
-            return !out.empty();
-        }
+        // The flat-object reader used to live here. It now lives in
+        // json/read.h, because a second copy was about to be written for
+        // the scan routes - two hand-rolled parsers with the same blind
+        // spots and separate bug fixes is worse than one.
+        using t5000::json::find_value;
 
         void read_int(const std::string& json, const char* key, int& target)
         {
-            std::string raw;
-            if (find_value(json, key, raw))
-                target = (int)strtol(raw.c_str(), nullptr, 10);
+            (void)t5000::json::read_int(json, key, target);
         }
     }
 

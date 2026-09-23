@@ -292,6 +292,12 @@ namespace t5000::discovery
                                  " port " + std::to_string(kLocalBindPort));
             if (err == WSAEADDRINUSE)
                 error += " - T3000 may already be running and holding that port";
+            else if (err == WSAEADDRNOTAVAIL)
+                error += " - no network interface on this machine has that address."
+                         " It may have been unplugged, or the address may have changed";
+            else if (err == WSAEACCES)
+                error += " - permission denied, which usually means a firewall or"
+                         " security policy is blocking the broadcast";
             ::closesocket(s);
             return false;
         }
