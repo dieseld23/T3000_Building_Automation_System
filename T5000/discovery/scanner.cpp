@@ -59,6 +59,10 @@ namespace t5000::discovery
         // g_bac_instance (MainFrm.cpp:7053). 0 is left as 0: the merge keeps
         // a previously learned instance when a response does not carry one.
         d.connection.device_instance = (int)r.object_instance;
+
+        // Which controller answered for it, if any. A suspect parent has
+        // already been zeroed by the parser, as T3000 zeroes it.
+        d.parent_serial = r.parent_serial_number;
         // Assigned unconditionally, so a device that reported nothing carries
         // 0 rather than Connection's struct default of 1. A defaulted 1 is a
         // value the device never reported, and it is indistinguishable from a

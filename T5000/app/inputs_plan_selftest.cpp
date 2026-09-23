@@ -60,6 +60,26 @@ namespace
         check(!badport.can_read, "nor is port 0");
     }
 
+    void test_a_device_behind_a_controller_is_not_read()
+    {
+        section("a device a controller answered for is never sent a read");
+
+        // A TSTAT10 on a T3-BB's RS485 bus: a private-data product, on
+        // BACnet/IP by every other test here - and at the T3-BB's address.
+        DeviceRecord child = scanned(ProductClassId::Tstat10);
+        child.parent_serial = 500001;
+
+        const InputsPlan p = plan_inputs_read(child);
+        check(!p.can_read, "not read");
+        check(p.reason.find("500001") != std::string::npos,
+              "  names the controller it is behind");
+        check(p.reason.find("controller's inputs") != std::string::npos,
+              "  and says what a read would actually return");
+
+        child.product = ProductClassId::Cm5;
+        check(!plan_inputs_read(child).can_read, "whatever the product");
+    }
+
     void test_an_esp32_read_states_its_limit()
     {
         section("an ESP32 T3 read says it may not be the whole list");
@@ -75,6 +95,7 @@ int run_inputs_plan_tests()
 {
     test_a_private_data_controller_is_read();
     test_everything_else_is_refused_with_a_reason();
+    test_a_device_behind_a_controller_is_not_read();
     test_an_esp32_read_states_its_limit();
     return 0;
 }

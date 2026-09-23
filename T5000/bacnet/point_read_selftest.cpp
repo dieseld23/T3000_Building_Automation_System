@@ -373,6 +373,21 @@ namespace
               "and says so, rather than 'no answer'");
     }
 
+    void test_only_one_device_can_be_a_target()
+    {
+        section("an address that is never one device is not a target");
+
+        Endpoint e;
+        check(!parse_endpoint("0.0.0.0", 47808, e), "0.0.0.0");
+        check(!parse_endpoint("255.255.255.255", 47808, e), "the limited broadcast");
+        check(!parse_endpoint("239.1.2.3", 47808, e), "multicast");
+        check(!parse_endpoint("192.168.1.50", 0, e), "port 0");
+        check(!parse_endpoint("192.168.1.50", 70000, e), "a port past 65535");
+        check(parse_endpoint("192.168.1.50", 47808, e) && e.ip == 0xC0A80132 && e.port == 47808,
+              "while a controller's address parses");
+        check(parse_endpoint("127.0.0.1", 47900, e), "and so does loopback, for the tests");
+    }
+
     void test_nonsense_requests_are_refused()
     {
         section("a read the protocol cannot express is refused before anything is sent");
@@ -486,6 +501,61 @@ namespace
 
         WSACleanup();
     }
+
+    // With T3000 running, a wildcard socket on 47808 binds successfully and
+    // then never sees its replies: Windows hands a datagram for a specific
+    // address to the socket bound to that address. So the read socket must
+    // bind the specific address itself, and move on when it is taken.
+    void test_the_read_socket_binds_the_address_that_routes_to_the_device()
+    {
+        section("the read socket binds the routed address, and moves off a taken port");
+
+        WSADATA wsa;
+        WSAStartup(MAKEWORD(2, 2), &wsa);
+
+        Endpoint device;
+        device.ip   = INADDR_LOOPBACK;
+        device.port = 47900;
+
+        {
+            UdpReadTransport t(device);
+            std::string error;
+            if (require(t.open(error), "open() succeeds for a loopback device"))
+            {
+                check(t.local().ip == INADDR_LOOPBACK,
+                      "bound to 127.0.0.1, the address that routes to it - not 0.0.0.0");
+                check(t.local().port >= 47808 && t.local().port <= 47811,
+                      "on a BACnet port, 47808-47811");
+            }
+            else
+            {
+                printf("        %s\n", error.c_str());
+            }
+        }
+
+        // Hold 127.0.0.1:47808 the way T3000 holds its address. If the hold
+        // itself fails, something else has the port - which is the same
+        // situation for the check that follows.
+        SOCKET t3000 = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        sockaddr_in a = {};
+        a.sin_family      = AF_INET;
+        a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        a.sin_port        = htons(47808);
+        ::bind(t3000, (sockaddr*)&a, sizeof(a));
+
+        {
+            UdpReadTransport t(device);
+            std::string error;
+            if (require(t.open(error), "open() still succeeds with 127.0.0.1:47808 taken"))
+            {
+                check(t.local().port != 47808,
+                      "and does not share the taken port, where its replies would go elsewhere");
+            }
+        }
+
+        ::closesocket(t3000);
+        WSACleanup();
+    }
 }
 
 int run_point_read_tests()
@@ -498,7 +568,9 @@ int run_point_read_tests()
     test_the_device_says_no();
     test_an_answer_that_does_not_fit();
     test_port_unreachable();
+    test_only_one_device_can_be_a_target();
     test_nonsense_requests_are_refused();
     test_over_loopback();
+    test_the_read_socket_binds_the_address_that_routes_to_the_device();
     return 0;
 }

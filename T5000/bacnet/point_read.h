@@ -121,12 +121,16 @@ namespace t5000::bacnet
         UdpReadTransport(const UdpReadTransport&) = delete;
         UdpReadTransport& operator=(const UdpReadTransport&) = delete;
 
-        // Binds UDP 47808 on all interfaces, falling back through 47809-47811
-        // when it is taken - T3000's own order (global_function.cpp:8121).
-        // 47808 first, because it is the port BACnet devices expect replies
-        // to come from, and some firmware answers the well-known port rather
-        // than the one the request came from; which kind these controllers
-        // are has not been checked against hardware.
+        // Binds UDP 47808 on the local address that routes to the device -
+        // not on all of them - falling back through 47809-47811 when it is
+        // taken, which is T3000's own order (global_function.cpp:8121).
+        //
+        // The specific address is what keeps T5000 and a running T3000 apart:
+        // see open() for what a wildcard bind did. 47808 first, because it is
+        // the port BACnet devices expect replies to come from, and some
+        // firmware answers the well-known port rather than the one the
+        // request came from; which kind these controllers are has not been
+        // checked against hardware.
         bool open(std::string& error);
 
         // For tests: bind exactly this address and port (0 for any port).

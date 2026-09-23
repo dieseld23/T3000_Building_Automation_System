@@ -258,6 +258,19 @@ namespace
               "and it says, positively, that nothing came off the wire");
     }
 
+    void test_the_parent_reaches_the_page()
+    {
+        section("a device's parent controller is in the device list");
+
+        Registry reg;
+        DeviceRecord child;
+        child.serial_number = 900030;
+        child.parent_serial = 500001;
+        reg.add_or_merge(child);
+        const std::string json = build_devices_json(reg, ScanSummary());
+        check(has(json, "\"parentSerial\":500001"), "parentSerial is emitted");
+    }
+
     void test_only_a_wire_read_claims_one()
     {
         section("only a payload built from a wire read says it was read from the device");
@@ -325,6 +338,7 @@ int run_scan_json_tests()
     test_text_from_a_device_is_escaped();
     test_the_unreadable_device_payload_keeps_the_page_contract();
     test_only_a_wire_read_claims_one();
+    test_the_parent_reaches_the_page();
     test_interfaces_report_their_failure();
     return 0;
 }

@@ -16,6 +16,22 @@ namespace t5000::app
             return plan;
         }
 
+        // Before anything else about the device: if another controller
+        // answered for it, the address is that controller's, and a read sent
+        // there comes back - correctly framed, the right size, passing every
+        // check - with the controller's own points.
+        if (d.parent_serial != 0)
+        {
+            plan.reason = "This device is on the RS485 bus of controller " +
+                          std::to_string(d.parent_serial) +
+                          ", which answered the scan for it, so the address in the scan is "
+                          "that controller's. T3000 reads a device like this through its "
+                          "controller, over Modbus; T5000 does not yet. A read sent to that "
+                          "address would come back with the controller's inputs under this "
+                          "device's serial, so none is sent.";
+            return plan;
+        }
+
         plan.decision = device::choose_read_path((int)d.product, d.firmware, kProtocolBacnetIp);
         if (plan.decision.path != device::ReadPath::PrivateData)
         {

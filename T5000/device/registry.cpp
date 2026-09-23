@@ -73,6 +73,14 @@ namespace t5000::device
                 if (device.connection.device_instance != 0)
                     existing.connection.device_instance = device.connection.device_instance;
 
+                // Unlike the fields above, 0 here is a statement - "on the
+                // network itself" - not silence, whenever the observation was
+                // complete. So a complete one always wins: a device moved off
+                // a controller's bus onto the network must stop being treated
+                // as reached through that controller.
+                if (device.observation_complete || device.parent_serial != 0)
+                    existing.parent_serial = device.parent_serial;
+
                 // Reached is sticky in the true direction only. Having once
                 // talked to a device is a fact about the past; failing to
                 // reach it now does not unmake it, and the UI shows liveness

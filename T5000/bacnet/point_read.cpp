@@ -226,6 +226,14 @@ namespace t5000::bacnet
         in_addr a = {};
         if (port <= 0 || port > 65535 || ::inet_pton(AF_INET, ip.c_str(), &a) != 1)
             return false;
+
+        // Addresses that are never one device: unspecified, the limited
+        // broadcast, and multicast. A read is a unicast to one controller; a
+        // scan response carrying one of these is malformed, not a target.
+        const uint32_t host = ntohl(a.s_addr);
+        if (host == 0 || host == 0xFFFFFFFFu || (host >> 28) == 0xE)
+            return false;
+
         out.ip   = ntohl(a.s_addr);
         out.port = (uint16_t)port;
         return true;
@@ -407,10 +415,50 @@ namespace t5000::bacnet
             m_winsock_started = true;
         }
 
+        // Bind the local address that routes to the device, not all of them.
+        //
+        // T3000 binds a specific address on 47808 (Open_bacnetSocket2,
+        // global_function.cpp:8654-8702). Windows lets a wildcard bind on the
+        // same port succeed alongside it, and then delivers a datagram
+        // addressed to that specific address to T3000's socket, not ours -
+        // tested, not assumed. So with T3000 running, a wildcard socket
+        // would see nothing while T3000's reply handler, which checks no
+        // invoke id, decoded our answers into its own Inputs table. Binding
+        // the same specific address instead makes the conflict a failed bind,
+        // which moves us on to 47809, as it moves T3000.
+        //
+        // A connected UDP socket is how to ask the routing table which local
+        // address it would use. connect() on UDP sends nothing.
+        uint32_t local_ip = INADDR_ANY;
+        {
+            SOCKET probe = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+            if (probe != INVALID_SOCKET)
+            {
+                sockaddr_in to = {};
+                to.sin_family      = AF_INET;
+                to.sin_addr.s_addr = htonl(m_device.ip);
+                to.sin_port        = htons(m_device.port);
+                if (::connect(probe, (sockaddr*)&to, sizeof(to)) == 0)
+                {
+                    sockaddr_in mine = {};
+                    int len = sizeof(mine);
+                    if (::getsockname(probe, (sockaddr*)&mine, &len) == 0)
+                        local_ip = ntohl(mine.sin_addr.s_addr);
+                }
+                ::closesocket(probe);
+            }
+        }
+        if (local_ip == INADDR_ANY)
+        {
+            error = "No network interface on this machine has a route to " + m_device.text() +
+                    ". It may be on a network this machine is not connected to.";
+            return false;
+        }
+
         int wsa_error = 0;
         for (int i = 0; i < kBacnetPortTries; i++)
         {
-            if (bind_to(INADDR_ANY, (uint16_t)(kBacnetPort + i), wsa_error))
+            if (bind_to(local_ip, (uint16_t)(kBacnetPort + i), wsa_error))
                 return true;
 
             // Taken is the expected failure, and the reason to try the next
@@ -423,7 +471,10 @@ namespace t5000::bacnet
             }
         }
 
-        error = "UDP ports 47808-47811 are all in use on this machine. T3000, or another "
+        Endpoint where;
+        where.ip = local_ip;
+        const std::string address = where.text().substr(0, where.text().find(':'));
+        error = "UDP ports 47808-47811 are all in use on " + address + ". T3000, or another "
                 "BACnet tool, is probably running - close it and try again.";
         return false;
     }

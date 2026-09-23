@@ -121,6 +121,41 @@ that the device at that address is still the one scanned; nothing in an Inputs
 reply identifies its sender, so a controller replaced since the scan would be
 read under the old one's serial until the next scan.
 
+**Devices a controller answered for are not read.** A Minipanel or T3 answers
+the scan for the Tstats on its RS485 bus, from its own address, with the
+sub-device's serial and a non-zero parent serial - T3000 deliberately stops
+treating a repeated IP as a duplicate for exactly this reason
+(`TStatScanner.cpp:2091-2092`). The IP and port in such a response are the
+controller's. T3000 reaches the sub-device through the controller, over
+Modbus TCP to RS485 (`MainFrm.cpp:7580-7588`). A private-transfer read sent to
+that address would be answered by the controller with its own inputs, and the
+page would show them under the sub-device's serial - so `plan_inputs_read`
+refuses any device with a parent, names the parent, and sends nothing. The
+scanner now keeps the parent serial (it was parsed and dropped before).
+
+**The rest are assumed to be BACnet/IP.** A scan response does not say which
+protocol the device speaks; T5000 records every scanned device as BACnet/IP,
+and the product gate above is what keeps the non-private products off this
+path. T3000 does the same in effect: without a parent, and not one of the
+MS/TP bridge protocols, a selected device gets `PROTOCOL_BACNET_IP`
+(`MainFrm.cpp:7601`).
+
+**Which address it sends from.** The read socket binds UDP 47808 (then
+47809-47811, T3000's order, `global_function.cpp:8121`) on the one local
+address that routes to the device - found by connecting a throwaway UDP socket
+to the device and asking which address it was given - not on 0.0.0.0. This
+matters when T3000 is running. T3000 binds its BACnet socket on the local
+address in the device's subnet, not the wildcard (`Open_bacnetSocket2`,
+`global_function.cpp:8654-8702`, `:8754`), and on Windows a wildcard bind on
+the same port coexists with that one, with a datagram to the specific address
+delivered to the specific bind. Tested: with one socket on 0.0.0.0:47808 and
+one on 127.0.0.1:47808, a datagram to 127.0.0.1:47808 reached only the
+second. So a T5000 on 0.0.0.0 would have sent its requests and never seen the
+replies - T3000 would have received them, and would have had to make sense of
+private-transfer ACKs for invoke ids it never used. Binding the specific
+address makes T5000 fail visibly ("ports 47808-47811 are all in use on ...")
+or move to 47809, instead.
+
 **Stricter than T3000 in four places**, each a case T3000 gets wrong:
 
 | T3000 | T5000 |
@@ -135,7 +170,15 @@ scales them by range and adds units (`GetInputLabelEx`, the units tables),
 which is Stage 1 work still to port. An ESP32 T3 on newer firmware can have
 more than 64 inputs; T3000 reads 64 first too, and only widens the count after
 reading the settings block, which T5000 does not read yet. Path 2 (Modbus
-registers) and the PTP tunnel are not implemented.
+registers) and the PTP tunnel are not implemented, and nor is reading a
+sub-device through its controller.
+
+The device's address comes from the IP written inside its scan response
+(bytes 16-22). T3000 records the address the response actually came from, as
+`recvfrom` reports it (`TStatScanner.cpp:2032`, `:2369`). The two agree for a
+device on the same subnet with one address; behind NAT, or on a controller
+with more than one interface, they may not, and T3000's is the one known to
+answer. Switching to the sender address is a follow-up.
 
 **None of this has touched hardware.** The synthetic devices used to test it
 answer in the format this same reading of the source says they should, so if
