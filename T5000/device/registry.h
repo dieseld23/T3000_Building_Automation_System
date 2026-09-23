@@ -211,6 +211,27 @@ namespace t5000::device
         Connection  connection;
         std::string address_note;   // human-readable: "192.168.1.50" or "COM3 id 12"
 
+        // The two addresses a scan response gives, as a pair from one
+        // response - merged together, never one without the other, so the
+        // comparison below is always between two facts from the same answer.
+        //
+        // answered_from: where the response came from, as recvfrom saw it.
+        // This is what connection.host is set to, as T3000 does
+        // (TStatScanner.cpp:2032, :2369). Empty when not known.
+        //
+        // reported_ip: what the device wrote into the response about itself
+        // (bytes 16-22). On an ordinary subnet the two agree. Behind NAT, or
+        // on a controller with two interfaces, they may not - and only the
+        // first has been shown to answer.
+        std::string answered_from;
+        std::string reported_ip;
+
+        // True when both are known and they differ. Not a fault: the device
+        // is contacted at answered_from either way. It is shown so that an
+        // operator who expected the reported address knows why it is not the
+        // one in use.
+        bool address_mismatch() const;
+
         // --- Provenance and state. ----------------------------------------
         Provenance          provenance = Provenance::ManuallyAdded;
         std::vector<Repair> repairs;

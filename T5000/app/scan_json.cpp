@@ -95,6 +95,9 @@ namespace t5000::app
             append_field(out, "modbusId", (long long)d.modbus_id_reported); out += ',';
             append_field(out, "parentSerial", (long long)d.parent_serial);    out += ',';
             append_field(out, "address", d.address_note);                     out += ',';
+            append_field(out, "answeredFrom", d.answered_from);               out += ',';
+            append_field(out, "reportedIp", d.reported_ip);                   out += ',';
+            append_field(out, "addressMismatch", d.address_mismatch());       out += ',';
             append_field(out, "provenance",
                          std::string(to_string(d.provenance)));               out += ',';
             append_field(out, "reached", d.reached);                          out += ',';
