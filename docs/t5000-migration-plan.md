@@ -1,264 +1,238 @@
 # Bringing T3000's functionality into T5000
 
-How the 16 screens of `T3000.exe` map onto the new standalone tool, what
-genuinely blocks what, and what is not worth bringing across.
+How T3000's screens map onto the new standalone tool, what genuinely blocks
+what, and what is not worth bringing across.
 
-Derived by reading the source — 9 parallel surveys over the screen clusters,
-each claim then checked by an adversarial pass that tried to refute it. 15 of
-the port-class claims were refuted and revised. Where this document states a
-byte count or a guard condition, it was read out of the file named, not
-inferred.
+**Scope, settled:** all 15 `WINDOW_*` screens except `WINDOW_SCREEN` (the
+graphics editor), across all product families.
+
+Derived by reading the source — two rounds of parallel surveys, each claim then
+put through an adversarial pass. 15 port-class claims and 5 product-scope
+claims were refuted and revised. Several findings below are corrections to
+those surveys, made by opening the files.
 
 **Nothing in T5000 has yet touched a live controller.** Every claim here is
-source-against-source. The hardware gate is entirely ahead of us, and several
-risks below can only be closed against real equipment.
+source-against-source, except the struct sizes, which the compiler asserts.
 
 ---
 
-## The screens
+## The headline: additive, not multiplicative
 
-`global_define.h:1281-1297` is authoritative — 16 tabs:
+The worry was that supporting every product multiplies the wire-format work.
+It does not.
 
-| # | Constant | # | Constant |
-|---|---|---|---|
-| 0 | `WINDOW_INPUT` | 8 | `WINDOW_MONITOR` |
-| 1 | `WINDOW_OUTPUT` | 9 | `WINDOW_ALARMLOG` |
-| 2 | `WINDOW_VARIABLE` | 10 | `WINDOW_TSTAT` |
-| 3 | `WINDOW_PROGRAM` | 11 | `WINDOW_SETTING` |
-| 4 | `WINDOW_CONTROLLER` | 12 | `WINDOW_USER_LOGIN` |
-| 5 | `WINDOW_SCREEN` | 13 | `WINDOW_REMOTE_POINT` |
-| 6 | `WINDOW_WEEKLY` | 14 | `WINDOW_ARRAY` |
-| 7 | `WINDOW_ANNUAL` | 15 | `WINDOW_PVAR` |
+**There is one point-struct layout.** Every product that uses the struct path
+uses the same `Str_in_point` / `Str_out_point` / `Str_variable_point`. All
+three are now guarded field-by-field in `T5000/wire/`, compiler-enforced:
 
-Behind them: 171 dialog classes, 329,875 lines.
+| Struct | Size | Guarded |
+|---|---|---|
+| `InputPoint` | 46 | ✓ every field |
+| `OutputPoint` | 45 | ✓ every field |
+| `VariablePoint` | 39 | ✓ every field |
+
+**There are three data paths, not thirty.**
+
+1. **BACnet private-data** — `GetPrivateData_Blocking`. The struct read.
+2. **Modbus register maps** — same structs, different register offsets.
+   Resolved by name through `_P()` (`T3000RegAddress.cpp:42`), which is
+   **data-driven, not a per-product switch**.
+3. **Tstat registers** — `CTStatInputView` reads `product_register_value[]`
+   directly and never touches the point structs at all. This is a genuinely
+   separate data model and the only place the scope really widens.
+
+So what all-products adds over a Tstat/T3-only build is: a capability table, a
+point-count table, three register maps, and one second data model. That is one
+implementation pass, not thirty.
 
 ---
 
-## What actually blocks what
+## Corrections to the surveys
 
-The ordering below is derived from the dependency graph, not from guessed
-difficulty. Nothing here is ranked by how hard it felt to read.
+Four things did not survive checking. Recording them because three of the four
+would have sized the project wrongly.
 
-### The real prerequisite: device selection
+**`_P()` has three register maps, not six.** The plan claimed six, listing the
+three real ones plus "product-specific variants" and "two additional industrial
+variants". `T3000RegAddress.cpp:42-85` has exactly three branches —
+`T3000_5ABCDFG_LED_ADDRESS`, `T3000_5EH_LCD_ADDRESS`, `T3000_6_ADDRESS` — and
+returns `-1` for anything else. All three are legacy thermostat maps.
 
-Every screen is blocked on the same thing, and it is not a screen. Until a
-device has been found and selected, the globals that every read path reads —
-`g_bac_instance`, `g_tstat_id`, `g_protocol`, `g_mstp_deviceid`, `g_nComPort` —
-are unset. T5000 currently has connection *settings* but no discovery and no
-selected device.
+**CM5 outputs are not unfinished.** A verifier reported `PRODUCT_CM5` missing
+from the output initialisation and concluded CM5 outputs were stub code. It is
+at `BacnetOutput.cpp:262`; the verifier searched lines 421-550 and concluded
+absence from a partial read. Claim withdrawn.
 
-This is Stage 0, and it is the only thing that can start immediately.
+**`PM_*` and `T3_*` are two different axes, and I had been conflating them.**
 
-### The firmware gate, which binds late
+| | `PM_*` | `T3_*` |
+|---|---|---|
+| Where | `ProductModel.h` | `global_define.h:1305-1338` |
+| Count | ~90 | 30 |
+| Meaning | what the **hardware reports** as `product_class_id` | what the **panel is configured as** (`Device_Basic_Setting.reg.mini_type`) |
+| Drives | protocol and data path | point counts |
 
-`GetPrivateData_Blocking` (`global_function.cpp:2331`) opens with a guard, not
-a route:
+`BacnetInput.cpp:1305-1306` is where they meet:
 
-```c
-if (g_protocol_support_ptp != PROTOCOL_MB_PTP_TRANSFER) {
-    if ((g_protocol == MODBUS_RS485) ||
-        (g_protocol == PROTOCOL_MB_TCPIP_TO_MB_RS485) ||
-         g_protocol == PROTOCOL_THIRD_PARTY_BAC_BIP) return -1; }
+```cpp
+if ((Bacnet_Private_Device(selected_product_Node.product_class_id)) && Device_Basic_Setting.reg.mini_type != 0)
+    bacnet_device_type = Device_Basic_Setting.reg.mini_type;
 ```
 
-`g_protocol_support_ptp` is only set after a successful firmware read
-(`BacnetView.cpp:7736-7747`), requiring `software_version >= 525` — which
-happens *after* device selection. So a Modbus device on firmware 500 returns
-−1 from most read paths, and the honest answer is "this firmware cannot do
-this", not "device not responding".
+This matters for the scope question below: "all product families" means
+something different depending on which list is meant.
 
-This affects the majority of read paths and is already encoded in
-`T5000/device/read_path.cpp`.
+**The two numbering schemes overlap, and share a variable.** This is new — no
+survey found it. `bacnet_device_type` is assigned from `mini_type`, a `T3_*`
+value (`BacnetOutput.cpp:1101`), and then compared in a single if-chain against
+constants from *both* schemes (`BacnetOutput.cpp:421-550` tests `BIG_MINIPANEL`
+and `T3_ESP_LW` alongside `PM_T38AI8AO6DO`, `PM_T322AI`, `STM32_CO2_NET`).
 
-### Dependency chain
+The high `T3_*` values deliberately mirror `PM_*` — which is why the enum has
+gaps at 43, 44, 46, 53, 95:
 
 ```
-Stage 0  discovery + selection + firmware detection + units tables
-   │
-   ├─→ Points read (Input, Output, Variable)   ← Inputs: decode done,
-   │                                             label helpers not
-   │      └─→ Points write → Arrays → PVar
-   │
-   ├─→ Device settings (IP, time, NTP, login)
-   │
-   ├─→ Controller (PID) ─→ Tstat
-   │
-   ├─→ Schedules (weekly, annual, time editor)
-   │
-   └─→ Monitoring ─→ Alarms
+MIRROR   43  PID_T322AI    == PM_T322AI          COLLIDE   9  T3_TSTAT10  vs PM_TSTAT8
+MIRROR   44  T38AI8AO6DO   == PM_T38AI8AO6DO     COLLIDE  10  T3_BMS      vs PM_TSTAT10
+MIRROR   46  PID_T3PT12    == PM_T3PT12          COLLIDE  21  T3_ESP_LW   vs PM_T3IOA
+MIRROR   53  PID_T332AI    == PM_T332AI_ARM      COLLIDE  22  T3_NG3      vs PM_T332AI
+MIRROR   95  PID_T36CTA    == PM_T36CTA          COLLIDE  26  T3_3IIC     vs PM_T3PT10
+                                                 COLLIDE  27  T3_TSTAT11  vs PM_T3PERFORMANCE
+                                                 COLLIDE  29  T3_RMC1232  vs PM_T36CT
 ```
 
-Programs and Graphics hang off Stage 0 too, but both need a decision before
-they can be planned at all — see the questions below.
+It works today only because the colliding cases are unreachable in practice — a
+private-data panel's `mini_type` is never a Tstat model. That is an invariant
+held by convention, not by the compiler.
+
+**T5000 must not inherit this.** Two distinct types, not one `int`. This is
+cheap to get right now and expensive to unpick later, and a misrouted product
+id means reading the wrong registers on live equipment.
+
+---
+
+## A large fraction of "all products" was never finished
+
+This is the finding that most affects your scope answer. Several products exist
+as enum entries that the shipping app does not fully implement. Supporting them
+is **new product development, not porting** — there is no behaviour to copy.
+
+**Never started** — enum entry only, marked "TBD" in the source:
+`T3_ESP_TRANSDUCER`, `T3_ESP_TSTAT9`, `T3_ESP_SAUTER`.
+
+**Zero I/O by design** — `T3_BMS`. Verified: `global_define.h:1402-1405` sets
+all four counts to 0. A BMS is comms-only, so this is correct, not broken.
+
+**Reported incomplete** by the surveys, each needing confirmation before being
+either built or dropped: `T3_TSTAT11` (no count constants anywhere),
+`T3_3IIC` (inputs only), `T3_OEM` / `T3_OEM_12I` (no init code),
+`T3_TB_11I` (outputs only), `MINIPANELARM_NB` (zero points).
+
+I have verified `T3_BMS` and refuted the `PRODUCT_CM5` claim directly. The rest
+come from the surveys, and given that one of the six was wrong on inspection, I
+would check each before acting on it.
+
+---
+
+## Screens by product: the rule and its exceptions
+
+- **Every product** has Inputs and Outputs.
+- **Full controllers** get all 14 in-scope screens.
+- **Tstats** get the Tstat screen and use the separate register path — no
+  Programs, no Controller.
+- **Sensor and meter modules** get Inputs, Outputs, Settings, Remote Points.
+- **Stubs** get nothing until someone decides they are real.
 
 ---
 
 ## Stages
 
-Each stage ships something usable on its own.
+Each ships on its own. Ordered by dependency, not by difficulty.
 
-| Stage | Delivers | Shape |
+| Stage | Delivers | Changed by all-products? |
 |---|---|---|
-| **0** | Discovery, selection, firmware detection, units tables | New problem |
-| **1** | Outputs + Variables read | Mechanical, *after* the label helpers and units tables are ported |
-| **2** | Write support for points, then Arrays, then PVar | New problem (first write path) |
-| **3** | Device settings: IP, time, NTP, user login | Mostly mechanical |
-| **4** | PID loops, then Tstat | Mechanical after Stage 2 |
-| **5** | Weekly + annual schedules | New problem (three write paths) |
-| **6** | Trend logs + alarms | New problem (async + storage) |
-| **7** | Programs | Blocked on a decision |
-| **8** | Graphics metadata | Blocked on a decision |
+| **0** | Discovery, selection, firmware detection, **product-identity model** | **Larger** — two id axes, capability table |
+| **1** | Inputs + Outputs + Variables read | Unchanged — one shared layout |
+| **2** | Write support for points, then Arrays, PVar | Unchanged |
+| **3** | Device settings, user login | Slightly larger — per-product field ranges |
+| **4** | PID loops, then Tstat | **Larger** — Tstat is a second data model |
+| **5** | Weekly + annual schedules | Larger — Tstats encode schedules differently |
+| **6** | Trend logs + alarms | Unchanged |
+| **7** | Programs | Blocked on a decision; controllers only |
 
-**Stage 1 is the cheap one, but "Inputs is done" needs qualifying.** What
-T5000 has is the decode path: the wire layout, the guard, and JSON over a
-fixture. What it does *not* have is the three source-side dependencies that
-`T3000/WebUI/InputsData.cpp` calls directly to render a row —
-`GetInputLabelEx` (`BacnetInput.cpp:2228`) and `GetInputFullLabelEx`
-(`:2273`), both called at `InputsData.cpp:62-63`, and the
-`Device_Basic_Setting` global read at `:87`. None of those is behind a DLL
-export, so all three must be ported as source, and every points screen needs
-them.
+Stage 0 absorbs nearly all the widened scope. Stages 1, 2 and 6 are unaffected
+because the struct layout is shared.
 
-Beyond that, Outputs and Variables really are the same shape — read a struct
-array, decode it, serve it as JSON. The extras are the custom-units lookup
-tables (`Input_List_Analog_Units[]`, `OutPut_List_Analog_Units[]`,
-`Digital_Units_Array[]` — `global_define.h:823-894`) and, for Outputs,
-`hw_switch_status` / `pwm_period`, which Inputs has no equivalent of.
+**Stage 0 now includes the product-identity model** — the typed distinction
+between `product_class_id` and `mini_type`, plus the capability table. Getting
+this right is what keeps every later stage from growing per-product branches.
 
-Note that the units tables and the label helpers are the *same* dependency
-class as Risk 3 below: source-side `CString`. Stage 1 is where that risk
-first has to be paid, not a later stage.
+**Stage 1 needs three source-side dependencies** that are not behind a DLL
+export and must be ported as source: `GetInputLabelEx`
+(`BacnetInput.cpp:2228`), `GetInputFullLabelEx` (`:2273`), and the
+`Device_Basic_Setting` global — all called from `InputsData.cpp:62-63, 87`.
+Plus the units tables (`global_define.h:823-894`), which are `CString` arrays.
+That is the source-side `CString` cost, and it lands here, not later.
 
-**Stage 2 is where the tool stops being read-only,** and that is a genuine
-threshold: it is the first code that changes state on live building equipment.
-It deserves its own review and its own hardware gate.
-
----
-
-## Corrections to the survey
-
-Three findings did not survive checking, and matter enough to record.
-
-**Outputs are 45 bytes, not 46, and the header's comments lie.**
-`Str_out_point` declares `description[STR_OUT_DESCRIPTION_LENGTH-2]` with the
-macro at 21, so the field is **19** bytes — while the inline comment beside it
-says "21 bytes" and the struct's trailing comment says "= 40". The real total
-is 45. Both comments are wrong in the live header, and the *identical* wrong
-comment appears in the stale one. Two wrong comments agreeing is not
-corroboration.
-
-This number is not arithmetic done in a document. `wire::OutputPoint` is now
-in `wire/points.h` with the full field-by-field guard, so the compiler asserts
-it on every build — and changing the 45 to 46 fails that build, which is how
-the guard was confirmed to be live rather than vacuous.
-
-The two headers also disagree on fields, not just size:
-
-| Live `T3000/CM5/ud_str.h` | Stale `BacNetDllforVc/include/ud_str.h` |
-|---|---|
-| `low_voltage`, `high_voltage` | *absent* |
-| `hw_switch_status` | `access_level` |
-| `sub_id`, `sub_product` | `m_del_low`, `s_del_high` |
-| `sub_number`, `pwm_period` (2×u8) | `delay_timer` (u16) |
-
-A size check alone would not catch this — several of those swaps preserve the
-total. Outputs now has the same field-by-field `wire_guard.cpp` treatment
-Inputs got, and every struct after it needs the same before it is trusted.
-
-**`Point_T3000` is not a risk — it already compiles.** The survey flagged its
-`public:` specifier and Windows `byte` type as a possible blocker for
-schedules, with a proposed `gcc -std=c99` experiment. That experiment tests a
-constraint that does not exist: T5000 is C++17 under MSVC, and
-`wire_guard.cpp:33-41` already includes the *entire* live header — schedules
-structs included — behind two shims (`typedef unsigned char byte`,
-`struct CString { void* opaque; }`). `public:` inside a struct is a no-op for
-layout and cannot move an offset. No experiment needed.
-
-**The DLL boundary does not cover everything, and this is the real risk.**
-Both protocol stacks are DLLs with C-decorated exports, so MFC inside them
-costs nothing — that finding holds. But `CString` also appears *source-side*,
-notably in the units tables (`Input_List_Analog_Units[]` is a `CString` array
-consumed directly by `GetInputValueEx`). Those must be ported as source, and
-every points screen depends on them. This is the one risk the survey raised
-that got stronger under checking, not weaker.
+**Stage 2 is the cliff** — the first code that writes to live equipment.
 
 ---
 
 ## Not worth porting
 
-- **MFC itself** — dialogs, message maps, `PostThreadMessage`. Replacing it is
-  the entire reason this tool exists.
-- **Excel COM automation** (`excel9.cpp`, 5,591 lines) — requires Office
-  installed. CSV export covers the real need.
+Unchanged from the first plan, minus graphics, which is now out by decision:
+
+- **MFC itself** — the reason this tool exists.
+- **Excel COM automation** (`excel9.cpp`, 5,591 lines) — needs Office installed.
 - **The five legacy `.txt` config formats** (`fileRW.cpp`, 8,043 lines) — no
-  specification exists in the codebase. An import path is worth more than
-  format parity, and is optional.
-- **The Access/MDB + BADO layer** — Windows ADO/OLEDB with an unknown schema.
-  If trend storage is wanted, SQLite.
-- **`BacnetScreenEdit.cpp`** — a 2,000-line MFC drawing canvas. A config tool
-  needs screen *metadata*, not a canvas.
-- **`DFTrace` / `g_Print` debug plumbing** — replace with ordinary logging.
+  spec exists. An import path beats format parity.
+- **The Access/MDB + BADO layer** — unknown schema. Use SQLite if trends are
+  wanted.
+- **`BacnetScreenEdit.cpp`** — the drawing canvas. Out of scope by decision.
+- **`DFTrace` / `g_Print`** — replace with ordinary logging.
 
 ---
 
-## Two questions that change the size of this
+## One question left, and it is smaller than the last two
 
-Everything above assumes answers to these. They are worth settling before
-Stage 0 rather than during it.
+**Which list did "all the product families" mean?**
 
-**1. Does T5000 cover the graphics screens (`WINDOW_SCREEN`)?**
-This is the drawing editor, and it is what T3000Webview already is — which you
-have said three times is not this tool. Excluding it drops
-`BacnetScreenEdit.cpp` plus most of `BacnetScreen.cpp` (8,293 lines between
-them) and removes Stage 8 entirely. Including it makes T5000 a drawing
-application as well as a configuration tool.
+- **~90 `PM_*` hardware models** — includes CO2 sensors, humidity sensors,
+  pressure transducers, water sensors, BTU meters, power meters, Zigbee
+  repeaters, a boat monitor and a tester jig. Most are not controllers and have
+  no configuration screens beyond Inputs/Outputs/Settings.
+- **30 `T3_*` panel configurations** — the controller shapes. This is the list
+  I had been planning against.
 
-*Recommendation: exclude. Serve screen metadata read-only if anything.*
+*Recommendation: build the capability table so it is keyed by `PM_*` and can
+describe any of the ~90, but populate it first for the controllers and Tstats.
+A sensor then costs a table row, not a code path. That gets you "all products"
+without paying for ninety of them up front.*
 
-**2. Which product families?**
-`global_define.h:1305-1338` lists roughly 28 models — CM5, three MINIPANEL
-variants, the ARM variants, T3_BMS, T3_OEM, T3_AIRLAB, the ESP32 series,
-TSTAT10/11, T322AI, T38AI8AO6DO, T3PT12, T332AI, T36CTA and more. The stated
-goal has been Tstat/T3 units. Narrowing to those drops a large fraction of the
-171 dialogs and most of the product-specific register maps; covering all 28
-multiplies the wire-format work by roughly the number of distinct layouts.
-
-*Recommendation: Tstat/T3 only, and make the tool say plainly when it meets a
-product it does not handle.*
-
-Three smaller decisions can wait for their stage: whether Programs gets the
-~320-line compiler or stays view-only (Stage 7); whether discovery writes
-device-identity repairs immediately or stages them for approval (Stage 0 —
-note T3000 writes immediately, including random serials to zero-serial
-devices); and whether firmware update (ISP) is in scope at all.
+If you want it stated as a default: I will take that route unless you say
+otherwise, since it does not foreclose anything.
 
 ---
 
-## Risks that need hardware
+## Risks specific to the widened scope
 
-**The firmware gate cannot be validated without two devices.** One BACnet unit
-and one Modbus unit below firmware 525. Read `READ_MISC` from each and confirm
-the Modbus one returns −1 before the PTP tunnel is enabled and data after.
-Until that runs, `read_path.cpp` is a correct reading of the source and
-nothing more.
+**The two id schemes will be conflated again.** They already share a variable
+in the old code and the collisions are live numbers. *Cheapest guard: make them
+distinct types in T5000 so a mix-up fails to compile — the same trick that
+makes the wire guard work. No hardware needed.*
 
-**Discovery mutates devices.** `TStatScanner.cpp` writes random serials to
-devices reporting serial 0 and reassigns Modbus IDs on conflict. Porting it
-faithfully means porting code that changes equipment during a scan. That
-behaviour should be a deliberate choice, not inherited.
+**The Tstat register model is a second wire format with no guard.** The point
+structs are protected by `wire_guard.cpp`; `product_register_value[]` has
+nothing equivalent, and it is hundreds of named indices. *Cheapest experiment:
+pick the ten registers the Tstat screen actually reads and assert their indices
+against the header the same way, before building on them.*
 
-**Write paths are firmware-dependent in ways reading cannot settle.**
-Schedules alone have three different write paths gated on firmware ≥ 492
-(`BacnetScheduleTime.cpp:121, 388-438`). Which one a given controller accepts
-is a question for a controller.
+**The stub list is unreliable.** One of six claims was wrong on inspection, and
+each one wrongly marked "finished" becomes a product that silently misreads.
+*Cheapest experiment: for each, grep the init switch in both `BacnetInput.cpp`
+and `BacnetOutput.cpp` and record the line or its absence — an hour, no
+hardware, and it converts the whole list from hearsay to fact.*
 
----
-
-## Where this leaves us
-
-Stage 0 is the only thing not blocked, and it is also the largest piece of new
-work. Stage 1 is nearly free once Stage 0 lands. The cliff is Stage 2, where
-the tool first writes to live equipment.
-
-Answering the two questions above changes the total size of this materially —
-they are worth settling first.
+**Still unclosed, and above all of these:** the firmware gate in
+`read_path.cpp` is a correct reading of a guard clause and nothing more until
+two devices — one BACnet, one Modbus below firmware 525 — say otherwise.

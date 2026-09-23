@@ -96,11 +96,20 @@
   <ItemGroup>
     <ClCompile Include="app\fixture.cpp" />
     <ClCompile Include="app\points_json.cpp" />
+    <ClCompile Include="app\product_json.cpp" />
     <ClCompile Include="device\bacnet_link.cpp" />
     <ClCompile Include="device\connection.cpp" />
     <ClCompile Include="device\connection_selftest.cpp" />
+    <ClCompile Include="device\product.cpp" />
+    <ClCompile Include="device\product_selftest.cpp" />
+    <ClCompile Include="device\registry.cpp" />
+    <ClCompile Include="device\registry_selftest.cpp" />
     <ClCompile Include="device\read_path.cpp" />
     <ClCompile Include="device\read_path_selftest.cpp" />
+    <ClCompile Include="discovery\scan_response.cpp" />
+    <ClCompile Include="discovery\scan_response_selftest.cpp" />
+    <ClCompile Include="discovery\scanner.cpp" />
+    <ClCompile Include="discovery\scanner_selftest.cpp" />
     <ClCompile Include="http\server.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="selftest_main.cpp" />
@@ -111,9 +120,13 @@
   <ItemGroup>
     <ClInclude Include="app\fixture.h" />
     <ClInclude Include="app\points_json.h" />
+    <ClInclude Include="app\product_json.h" />
     <ClInclude Include="device\bacnet_link.h" />
     <ClInclude Include="device\connection.h" />
+    <ClInclude Include="device\registry.h" />
     <ClInclude Include="device\read_path.h" />
+    <ClInclude Include="discovery\scan_response.h" />
+    <ClInclude Include="discovery\scanner.h" />
     <ClInclude Include="http\server.h" />
     <ClInclude Include="testing\check.h" />
     <ClInclude Include="web\inputs_page.h" />

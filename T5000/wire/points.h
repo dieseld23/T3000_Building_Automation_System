@@ -105,6 +105,22 @@ namespace t5000::wire
         uint8_t  pwm_period;
     };
 
+    struct VariablePoint
+    {
+        // Plain [21] here, declared literally rather than through a macro -
+        // so this one does NOT have the STR_OUT_DESCRIPTION_LENGTH-2 trap that
+        // makes the output description 19. Checked, not assumed.
+        uint8_t  description[21];       // STR_VARIABLE_DESCRIPTION_LENGTH
+        uint8_t  label[9];              // STR_VARIABLE_LABEL
+        int32_t  value;
+
+        uint8_t  auto_manual;           // 0 = auto, 1 = manual
+        uint8_t  digital_analog;        // 1 = analog, 0 = digital
+        uint8_t  control;
+        uint8_t  unused;                // present on the wire; keep the hole
+        uint8_t  range;                 // variable_range_equate
+    };
+
 #pragma pack(pop)
 
     // 21 + 9 + 4 + 12 = 46. global_define.h:441 records the same number next to
@@ -117,6 +133,11 @@ namespace t5000::wire
     // identical wrong comment also sits in the stale header. Two wrong comments
     // agreeing is not corroboration. This number came from the compiler.
     static_assert(sizeof(OutputPoint) == 45, "OutputPoint must stay 45 bytes on the wire");
+
+    // 21 + 9 + 4 + 5 = 39. CM5/ud_str.h:407 says "39 char" and is right this
+    // time - but note Str_variable_uint_point at :286 carries the same bogus
+    // "21+9+4+2+2+2 = 40" comment the output struct has. Do not confuse them.
+    static_assert(sizeof(VariablePoint) == 39, "VariablePoint must stay 39 bytes on the wire");
 
     inline int calibration(const InputPoint& p)
     {

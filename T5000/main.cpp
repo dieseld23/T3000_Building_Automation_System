@@ -15,6 +15,7 @@
 
 #include "app/fixture.h"
 #include "app/points_json.h"
+#include "app/product_json.h"
 #include "device/connection.h"
 #include "device/read_path.h"
 #include "http/server.h"
@@ -164,6 +165,21 @@ int main(int argc, char** argv)
         }
         body += "]}";
         return http::Response::json(body);
+    });
+
+    // What the tool knows about products. Served so the capability table is
+    // inspectable rather than implicit - "this device is not supported" is a
+    // much more useful message when the reason is one request away.
+    server.route("/api/products", [](const http::Request&) {
+        return http::Response::json(app::build_products_json());
+    });
+
+    // The fixture device, resolved through the product model. Shows both
+    // axes: what the hardware is, and what the panel is configured as.
+    server.route("/api/device", [](const http::Request&) {
+        const app::DeviceInfo d = fixture_device();
+        return http::Response::json(
+            app::build_product_json(d.product_id, /*mini_type*/ 0));
     });
 
     server.route("/api/inputs", [](const http::Request&) {
