@@ -51,8 +51,13 @@ namespace t5000::discovery
         d.connection.host      = r.ip_text();
         if (r.bacnet_port != 0)
             d.connection.udp_port = r.bacnet_port;
-        if (r.modbus_id != 0)
-            d.connection.modbus_slave_id = r.modbus_id;
+        // Assigned unconditionally, so a device that reported nothing carries
+        // 0 rather than Connection's struct default of 1. A defaulted 1 is a
+        // value the device never reported, and it is indistinguishable from a
+        // device genuinely on id 1 - which is what made duplicate detection
+        // unusable when it read this field. 0 here means "not known", and
+        // anything addressing by Modbus has to check.
+        d.connection.modbus_slave_id = r.modbus_id;
 
         // A device with no usable serial cannot be told apart from any other
         // in the same state. T3000 fixes this during the scan without asking;

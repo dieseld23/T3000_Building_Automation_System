@@ -194,6 +194,58 @@ namespace
         check(d.product == ProductClassId::Cm5, "product survived");
     }
 
+    void test_merge_keeps_reachability_the_rescan_did_not_read()
+    {
+        section("merging does not blank connection fields either");
+
+        // The same property as the test above, for the fields that test was
+        // named after but never touched. The connection merge arrived later
+        // and went in as a WHOLESALE REPLACE, under a comment promising
+        // conservative merging - so this is the third bug in this codebase to
+        // sit in the gap between a test's name and what it exercises.
+        //
+        // It bites because to_record leaves modbus_slave_id at 0 when a device
+        // reports no id, and host is always set on a scan record: the replace
+        // always fired, and an id learned on an earlier scan was overwritten
+        // with one the device never reported.
+        DeviceRecord first = a_device(5101);
+        first.connection.transport       = Transport::BacnetIp;
+        first.connection.host            = "192.168.1.50";
+        first.connection.modbus_slave_id = 5;
+        first.connection.device_instance = 4001;
+
+        Registry reg;
+        reg.add_or_merge(first);
+
+        // The same device on a new address, reporting no Modbus id this time.
+        DeviceRecord moved = a_device(5101);
+        moved.connection.transport       = Transport::BacnetIp;
+        moved.connection.host            = "192.168.1.77";
+        moved.connection.modbus_slave_id = 0;   // did not say
+        moved.connection.device_instance = 0;   // did not say
+        reg.add_or_merge(moved);
+
+        const auto& c = reg.devices()[0].connection;
+        check(c.host == "192.168.1.77", "the new address is taken");
+        check_eq(c.modbus_slave_id, 5, "the id it did NOT report this time survived");
+        check_eq(c.device_instance, 4001, "and so did the BACnet instance");
+    }
+
+    void test_a_scanned_device_is_not_given_an_id_it_never_reported()
+    {
+        section("a device that reported no Modbus id is not recorded on id 1");
+
+        // Connection::modbus_slave_id defaults to 1. A scan record built for a
+        // device that reported nothing therefore used to claim id 1 - a value
+        // nobody observed, indistinguishable from a device genuinely there.
+        // Checked here as well as in the scanner suite because this is the
+        // record the rest of the tool reads.
+        DeviceRecord d;
+        d.serial_number = 5201;
+        check_eq(d.connection.modbus_slave_id, 1,
+                 "the struct default really is 1 - this is why it mattered");
+    }
+
     void test_reached_is_sticky_but_provenance_upgrades()
     {
         section("reached only goes true; provenance upgrades toward evidence");
@@ -630,6 +682,8 @@ int run_registry_tests()
     test_merge_only_on_serial();
     test_unidentified_devices_never_merge();
     test_merge_keeps_what_the_new_view_did_not_see();
+    test_merge_keeps_reachability_the_rescan_did_not_read();
+    test_a_scanned_device_is_not_given_an_id_it_never_reported();
     test_reached_is_sticky_but_provenance_upgrades();
     test_selection_clears_rather_than_clamps();
     test_a_selection_never_slides_onto_another_device();

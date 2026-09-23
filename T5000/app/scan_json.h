@@ -46,8 +46,13 @@ namespace t5000::app
     std::string build_devices_json(const device::Registry& registry,
                                    const ScanSummary& summary);
 
-    // One device in full, for a detail pane. Returns a JSON null when the
-    // handle does not resolve - a page can be holding a handle for a device
+    // One device in full, for a detail pane.
+    //
+    // NOT YET SERVED BY ANY ROUTE. Groundwork, with tests, so that its passing
+    // tests are not mistaken for a working endpoint: /api/device currently
+    // answers with build_product_json instead.
+    //
+    // Returns a JSON null when the handle does not resolve - a page can be holding a handle for a device
     // that has since gone, and that is worth saying rather than guessing.
     std::string build_device_json(const device::Registry& registry,
                                   device::Handle handle);

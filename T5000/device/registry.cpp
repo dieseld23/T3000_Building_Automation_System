@@ -51,11 +51,27 @@ namespace t5000::device
                 if (device.modbus_id_reported != 0)
                     existing.modbus_id_reported = device.modbus_id_reported;
 
-                // Likewise reachability: address_note already follows a device
-                // that moved, so leaving the connection pointing at the old
-                // address would make the two disagree.
+                // Likewise reachability, field by field like everything else
+                // here. This was a wholesale replace, which quietly broke the
+                // rule stated three comments up.
+                //
+                // to_record leaves modbus_slave_id at 0 when the device
+                // reported no id, and host is always set on a scan record - so
+                // the replace always fired and overwrote a slave id learned
+                // earlier with one the device never reported.
                 if (!device.connection.host.empty())
-                    existing.connection = device.connection;
+                {
+                    existing.connection.host      = device.connection.host;
+                    existing.connection.transport = device.connection.transport;
+                }
+                if (device.connection.udp_port != 0)
+                    existing.connection.udp_port = device.connection.udp_port;
+                if (device.connection.tcp_port != 0)
+                    existing.connection.tcp_port = device.connection.tcp_port;
+                if (device.connection.modbus_slave_id != 0)
+                    existing.connection.modbus_slave_id = device.connection.modbus_slave_id;
+                if (device.connection.device_instance != 0)
+                    existing.connection.device_instance = device.connection.device_instance;
 
                 // Reached is sticky in the true direction only. Having once
                 // talked to a device is a fact about the past; failing to
