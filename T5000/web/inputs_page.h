@@ -194,6 +194,24 @@ namespace t5000::web
     const rp = data.readPath || {};
     const fixture = !!(data.device && data.device.isFixture);
 
+    // A device that was FOUND but cannot be read is its own state, and the
+    // most important one to get right. Without this branch the page fell
+    // through to "Live device - points below were read from serial NNN" over
+    // an empty grid, because the payload had no isFixture and a missing flag
+    // reads as false. It claimed a reading that never happened.
+    if (data.unavailable) {
+      $("banner").className = "banner warn";
+      $("banner").innerHTML = "<b>Nothing was read from this device.</b> "
+        + esc(data.message || "T5000 cannot read it yet.");
+
+      const pb = $("path-banner");
+      pb.hidden = false;
+      pb.className = "banner warn";
+      pb.innerHTML = "<b>Read path: " + esc(rp.summary || "none") + ".</b> "
+                   + esc((data.device && data.device.address) || "");
+      return;
+    }
+
     // Registers means the struct read was refused - usually firmware. Say which,
     // rather than leaving a technician to guess at an empty or partial grid.
     const degraded = rp.path === "modbus-registers";
@@ -246,7 +264,8 @@ namespace t5000::web
         <td class="num dim opt">${esc(r.range)}</td>
         <td class="num opt">${esc(r.calibration)}</td>
         <td class="num dim opt">${esc(r.filter)}</td>
-        <td class="num dim opt">${esc(r.panel)}</td>
+)PAGE"
+        R"PAGE(        <td class="num dim opt">${esc(r.panel)}</td>
         <td class="dim opt">${esc(r.label)}</td>
       </tr>`).join("");
   }
@@ -265,8 +284,11 @@ namespace t5000::web
       showBanner(data);
 
       if (allRows.length === 0) {
-        $("empty-title").textContent = "No points returned";
-        $("empty-detail").textContent = (data.readPath && data.readPath.detail) || "";
+        $("empty-title").textContent = data.unavailable
+          ? "This device has not been read"
+          : "No points returned";
+        $("empty-detail").textContent =
+          data.message || (data.readPath && data.readPath.detail) || "";
       }
 
       render();

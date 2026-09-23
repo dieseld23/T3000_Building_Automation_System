@@ -26,6 +26,25 @@ namespace t5000::testing
         }
     }
 
+    // A check whose result the caller can act on, for when continuing past a
+    // failure would crash rather than report.
+    //
+    // check() deliberately does not abort - one failing assertion should not
+    // cost the other seven hundred. But that means
+    //
+    //     check(reg.selected() != nullptr, "selected");
+    //     check_eq(reg.selected()->serial_number, 8002, "the right one");
+    //
+    // dereferences null on the very next line when the first check fails, and
+    // the run dies with an access violation instead of a list of failures.
+    // That happened: a mutation test killed its target by crashing the suite,
+    // which proved the mutation was caught but hid everything else.
+    inline bool require(bool condition, const char* what)
+    {
+        check(condition, what);
+        return condition;
+    }
+
     inline void check_eq(long actual, long expected, const char* what)
     {
         g_checks++;

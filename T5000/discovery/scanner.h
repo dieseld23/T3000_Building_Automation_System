@@ -100,11 +100,11 @@ namespace t5000::discovery
     // its contents imply. Exposed because it is the part worth testing.
     device::DeviceRecord to_record(const ScanResponse& response);
 
-    // Finds devices sharing a Modbus id and records a repair on each. Done
-    // across the whole result rather than per device, because a duplicate is
-    // a property of a pair, not of one device.
-    int flag_duplicate_modbus_ids(std::vector<device::DeviceRecord>& devices,
-                                  const std::vector<ScanResponse>& responses);
+    // Duplicate Modbus ids used to be detected here, over one scan's results.
+    // They are now found by device::Registry::refresh_duplicate_modbus_ids
+    // over the whole known list, because two devices sharing an id can answer
+    // on different scans and never appear in the same result. See that
+    // function for what the per-scan version missed.
 
     // The real thing: a broadcast UDP socket. Binds the given local address
     // on kLocalBindPort and broadcasts to kBroadcastPort.

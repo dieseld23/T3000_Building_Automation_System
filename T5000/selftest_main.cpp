@@ -14,11 +14,15 @@ int run_product_tests();
 int run_registry_tests();
 int run_scan_response_tests();
 int run_scanner_tests();
+int run_json_read_tests();
+int run_scan_json_tests();
 
 int run_selftests()
 {
     printf("T5000 self-test\n\n");
 
+    run_json_read_tests();
+    printf("\n");
     run_wire_tests();
     printf("\n");
     run_read_path_tests();
@@ -34,6 +38,8 @@ int run_selftests()
     run_scan_response_tests();
     printf("\n");
     run_scanner_tests();
+    printf("\n");
+    run_scan_json_tests();
 
     const int failures = t5000::testing::g_failures;
     const int checks   = t5000::testing::g_checks;

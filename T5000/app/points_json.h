@@ -42,4 +42,19 @@ namespace t5000::app
     std::string build_inputs_json(const DeviceInfo& device,
                                   const device::Decision& decision,
                                   const std::vector<wire::InputPoint>& points);
+
+    // The payload for a device the tool has FOUND but cannot read.
+    //
+    // It must carry every field build_inputs_json carries, because the page
+    // reads them unconditionally and its defaults are not safe. A missing
+    // isFixture reads as false, and the page renders false as "Live device.
+    // Points below were read from serial NNN" - over an empty grid, asserting
+    // a reading that never happened. That is the exact failure this project
+    // exists to stop, and it shipped in the commit that removed the other one.
+    //
+    // Hence a builder rather than a string literal at the call site: the shape
+    // is a contract with the page, and contracts belong somewhere testable.
+    std::string build_unavailable_inputs_json(int serial_number,
+                                              const std::string& address,
+                                              const std::string& reason);
 }

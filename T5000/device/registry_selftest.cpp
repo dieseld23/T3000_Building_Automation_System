@@ -23,6 +23,15 @@ namespace
         return d;
     }
 
+    // The handle the registry gave the device now sitting at `index`. Tests
+    // that want to act on "the device I just added" go through this rather
+    // than passing the index, because the API no longer accepts an index and
+    // deliberately will not compile if one is passed.
+    Handle handle_at(const Registry& reg, int index)
+    {
+        return reg.devices()[index].handle;
+    }
+
     Repair a_repair(RepairKind kind = RepairKind::AssignSerialNumber)
     {
         Repair r;
@@ -69,7 +78,8 @@ namespace
 
         check_eq((int)reg.pending_repairs().size(), 3, "three repairs pending");
 
-        check(reg.approve_repair(ia, 0), "approve the first repair on the first device");
+        check(reg.approve_repair(handle_at(reg, ia), 0),
+              "approve the first repair on the first device");
 
         // The other repair on the SAME device must still be pending, and so
         // must the same KIND of repair on a different device. Blanket
@@ -92,7 +102,7 @@ namespace
 
         Registry reg;
         const int i = reg.add_or_merge(d);
-        check(reg.approve_repair(i, 0), "approved");
+        check(reg.approve_repair(handle_at(reg, i), 0), "approved");
         check_eq((int)reg.pending_repairs().size(), 0, "nothing pending");
 
         // The same device seen again, with a fresh view of its problems. The
@@ -106,20 +116,27 @@ namespace
         check_eq((int)reg.pending_repairs().size(), 1, "approval was withdrawn");
     }
 
-    void test_stale_indices_are_refused_not_clamped()
+    void test_stale_keys_are_refused_not_clamped()
     {
-        section("out-of-range approvals are refused");
+        section("approvals for a device that is not here are refused");
 
-        // A page held open across a rescan will send indices that no longer
-        // mean what they did. Clamping would approve a write on whichever
-        // device happens to be last.
+        // A page held open across a rescan sends keys that no longer mean
+        // what they did. Clamping would approve a WRITE on whichever device
+        // happened to be last in the list.
         Registry reg;
         reg.add_or_merge(a_device(3001));
+        const Handle real = handle_at(reg, 0);
 
-        check(!reg.approve_repair(0, 0), "no such repair");
-        check(!reg.approve_repair(5, 0), "no such device");
-        check(!reg.approve_repair(-1, 0), "negative device index");
-        check(!reg.approve_repair(0, -1), "negative repair index");
+        check(!reg.approve_repair(real, 0), "no such repair on a real device");
+        check(!reg.approve_repair(to_handle(9999), 0), "no such device");
+        check(!reg.approve_repair(kNoHandle, 0), "the null handle");
+        check(!reg.approve_repair(real, -1), "negative repair index");
+
+        // Handle 1 is a real handle here, and an index of 1 would be out of
+        // range on a one-device list. The two key spaces are not
+        // interchangeable, which is why Handle is its own type - passing an
+        // index to any of these calls is a compile error, not a wrong write.
+        check_eq((int)to_number(real), 1, "the first handle issued is 1");
     }
 
     void test_merge_only_on_serial()
@@ -177,6 +194,58 @@ namespace
         check(d.product == ProductClassId::Cm5, "product survived");
     }
 
+    void test_merge_keeps_reachability_the_rescan_did_not_read()
+    {
+        section("merging does not blank connection fields either");
+
+        // The same property as the test above, for the fields that test was
+        // named after but never touched. The connection merge arrived later
+        // and went in as a WHOLESALE REPLACE, under a comment promising
+        // conservative merging - so this is the third bug in this codebase to
+        // sit in the gap between a test's name and what it exercises.
+        //
+        // It bites because to_record leaves modbus_slave_id at 0 when a device
+        // reports no id, and host is always set on a scan record: the replace
+        // always fired, and an id learned on an earlier scan was overwritten
+        // with one the device never reported.
+        DeviceRecord first = a_device(5101);
+        first.connection.transport       = Transport::BacnetIp;
+        first.connection.host            = "192.168.1.50";
+        first.connection.modbus_slave_id = 5;
+        first.connection.device_instance = 4001;
+
+        Registry reg;
+        reg.add_or_merge(first);
+
+        // The same device on a new address, reporting no Modbus id this time.
+        DeviceRecord moved = a_device(5101);
+        moved.connection.transport       = Transport::BacnetIp;
+        moved.connection.host            = "192.168.1.77";
+        moved.connection.modbus_slave_id = 0;   // did not say
+        moved.connection.device_instance = 0;   // did not say
+        reg.add_or_merge(moved);
+
+        const auto& c = reg.devices()[0].connection;
+        check(c.host == "192.168.1.77", "the new address is taken");
+        check_eq(c.modbus_slave_id, 5, "the id it did NOT report this time survived");
+        check_eq(c.device_instance, 4001, "and so did the BACnet instance");
+    }
+
+    void test_a_scanned_device_is_not_given_an_id_it_never_reported()
+    {
+        section("a device that reported no Modbus id is not recorded on id 1");
+
+        // Connection::modbus_slave_id defaults to 1. A scan record built for a
+        // device that reported nothing therefore used to claim id 1 - a value
+        // nobody observed, indistinguishable from a device genuinely there.
+        // Checked here as well as in the scanner suite because this is the
+        // record the rest of the tool reads.
+        DeviceRecord d;
+        d.serial_number = 5201;
+        check_eq(d.connection.modbus_slave_id, 1,
+                 "the struct default really is 1 - this is why it mattered");
+    }
+
     void test_reached_is_sticky_but_provenance_upgrades()
     {
         section("reached only goes true; provenance upgrades toward evidence");
@@ -215,8 +284,8 @@ namespace
         reg.add_or_merge(a_device(7002));
 
         reg.select(1);
-        check(reg.selected() != nullptr, "selected");
-        check_eq(reg.selected()->serial_number, 7002, "the right one");
+        if (require(reg.selected() != nullptr, "selected"))
+            check_eq(reg.selected()->serial_number, 7002, "the right one");
 
         // The dangerous version of this clamps to the last device, so a page
         // that was open across a rescan silently starts showing - and
@@ -229,6 +298,252 @@ namespace
         check(reg.selected() != nullptr, "selectable again");
         reg.clear();
         check(reg.selected() == nullptr, "clearing the registry clears the selection");
+    }
+
+    void test_a_selection_never_slides_onto_another_device()
+    {
+        section("a selection follows its device or clears - it never slides");
+
+        // The half the out-of-range test above does not cover, and the half
+        // that actually happens.
+        //
+        // Devices answer a broadcast in whatever order they answer, so the
+        // same subnet scanned twice produces the same controllers at
+        // different positions. An index survives that intact and means
+        // something different afterwards. Nothing is ever out of range, so a
+        // bounds check sees no problem at all.
+        Registry reg;
+        reg.add_or_merge(a_device(8001));
+        reg.add_or_merge(a_device(8002));
+        reg.add_or_merge(a_device(8003));
+
+        const Handle picked = handle_at(reg, 1);
+        if (require(reg.select_by_handle(picked), "8002 selected"))
+        {
+            check_eq(reg.selected()->serial_number, 8002u, "the right one");
+            check_eq(reg.selected_index(), 1, "at index 1");
+        }
+
+        // The operator clears the list and scans again. The same three
+        // devices answer, in reverse.
+        reg.clear();
+        check(reg.selected() == nullptr, "the clear dropped the selection");
+
+        reg.add_or_merge(a_device(8003));
+        reg.add_or_merge(a_device(8002));
+        reg.add_or_merge(a_device(8001));
+
+        // This is the request a page renders before the rescan and sends
+        // after it. Index 1 is in range in both lists and holds 8002 in the
+        // first and 8002 in the second only by luck; the handle is the only
+        // key that is either right or absent.
+        check(!reg.select_by_handle(picked),
+              "the pre-rescan handle no longer resolves");
+        check(reg.selected() == nullptr, "so nothing is selected");
+        check_eq(reg.selected_index(), -1, "and no index is reported");
+
+        // Handles are not reissued, so the old one cannot come back meaning
+        // a different device.
+        for (const auto& d : reg.devices())
+            check(d.handle != picked, "no device reuses the retired handle");
+
+        // And a failed selection must drop whatever was selected BEFORE it,
+        // not leave it standing. Checked from a live selection, because the
+        // assertions above run from an already-empty one and so pass whether
+        // or not the clearing happens at all - a mutation removing the clear
+        // survived this test until this block was added.
+        const Handle live = handle_at(reg, 0);
+        check(reg.select_by_handle(live), "a real device is selected");
+        check(reg.selected() != nullptr, "and it took");
+
+        check(!reg.select_by_handle(to_handle(123456)), "then a stale key arrives");
+        check(reg.selected() == nullptr,
+              "which clears the selection rather than leaving the old one");
+        check_eq(reg.selected_index(), -1, "and reports no index");
+    }
+
+    void test_a_selection_holds_its_device_across_a_merge()
+    {
+        section("a selection holds when its device is merged, not replaced");
+
+        // The other direction. A rescan that merges rather than rebuilds must
+        // NOT drop a selection - the device is still there, and clearing it
+        // would make the tool unusable on any site where a scan is re-run.
+        Registry reg;
+        reg.add_or_merge(a_device(8001));
+        reg.add_or_merge(a_device(8002));
+
+        const Handle picked = handle_at(reg, 1);
+        check(reg.select_by_handle(picked), "8002 selected");
+
+        // 8002 answers again, with a newly learned address, alongside a
+        // device that was not there before.
+        DeviceRecord again = a_device(8002);
+        again.address_note = "192.168.1.77";
+        reg.add_or_merge(again);
+
+        reg.add_or_merge(a_device(8004));
+
+        check_eq(reg.size(), 3, "one new device, one merged");
+        if (require(reg.selected() != nullptr, "still selected"))
+        {
+            check_eq(reg.selected()->serial_number, 8002u, "still 8002");
+            check(reg.selected()->address_note == "192.168.1.77",
+                  "and it picked up what the rescan learned");
+        }
+
+        // A merge must not mint a second handle for a device already here.
+        check_eq((int)to_number(reg.devices()[1].handle), (int)to_number(picked),
+                 "the merged device kept its handle");
+    }
+
+    void test_unidentified_devices_are_still_selectable()
+    {
+        section("a device with no serial can still be opened");
+
+        // Handles exist partly for this. A serial number would be the
+        // obvious key, and it is missing on exactly the devices most worth
+        // looking at - the ones this tool flags for repair. Keying on serial
+        // would make the broken ones unreachable.
+        Registry reg;
+        reg.add_or_merge(a_device(0));
+        reg.add_or_merge(a_device(0));
+        check_eq(reg.size(), 2, "two unidentified devices, not merged into one");
+
+        const Handle first  = handle_at(reg, 0);
+        const Handle second = handle_at(reg, 1);
+        check(first != second, "and they have different handles");
+
+        if (require(reg.select_by_handle(second), "the second one is selectable"))
+        {
+            check_eq(reg.selected_index(), 1, "and it is the second one");
+            check(!reg.selected()->has_stable_identity(), "still has no identity");
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Duplicate Modbus ids. These used to live in the scanner suite and ran
+    // over one scan's results; the third and fourth cases below are the ones
+    // that arrangement could not express at all.
+
+    DeviceRecord a_device_on_modbus_id(uint32_t serial, int modbus_id)
+    {
+        DeviceRecord d = a_device(serial);
+        d.modbus_id_reported = modbus_id;
+        d.connection.host = "192.168.1.60";
+        d.observation_complete = true;
+        return d;
+    }
+
+    void test_a_duplicate_id_is_flagged_on_every_participant()
+    {
+        section("a duplicate Modbus id is flagged on each device involved");
+
+        Registry reg;
+        reg.add_or_merge(a_device_on_modbus_id(1001, 5));
+        reg.add_or_merge(a_device_on_modbus_id(1002, 5));
+        reg.add_or_merge(a_device_on_modbus_id(1003, 7));
+
+        check_eq(reg.refresh_duplicate_modbus_ids(), 2, "two are in conflict");
+
+        // A duplicate is a property of a pair, so BOTH must be flagged -
+        // picking one to blame would be arbitrary, and the operator has to
+        // see which two are fighting.
+        check(reg.devices()[0].needs_attention(), "the first is flagged");
+        check(reg.devices()[1].needs_attention(), "and so is the second");
+        check(!reg.devices()[2].needs_attention(), "the one on its own is not");
+    }
+
+    void test_id_zero_is_not_a_conflict()
+    {
+        section("several devices reporting Modbus id 0 are not in conflict");
+
+        // 0 is not an address. Treating it as one would flag every
+        // unconfigured device on a subnet as conflicting with every other.
+        Registry reg;
+        reg.add_or_merge(a_device_on_modbus_id(2001, 0));
+        reg.add_or_merge(a_device_on_modbus_id(2002, 0));
+        reg.add_or_merge(a_device_on_modbus_id(2003, 0));
+
+        check_eq(reg.refresh_duplicate_modbus_ids(), 0, "none flagged");
+    }
+
+    void test_a_duplicate_across_two_scans_is_still_found()
+    {
+        section("two devices on one id are found even on separate scans");
+
+        // The case per-scan detection could not see at all. Each scan holds
+        // one device, so neither scan contains a conflict - but the registry
+        // holds both, and the conflict is real.
+        Registry reg;
+        reg.add_or_merge(a_device_on_modbus_id(3001, 5));
+        check_eq(reg.refresh_duplicate_modbus_ids(), 0, "one device, no conflict yet");
+
+        reg.add_or_merge(a_device_on_modbus_id(3002, 5));
+        check_eq(reg.refresh_duplicate_modbus_ids(), 2,
+                 "the second scan reveals the conflict with the first");
+    }
+
+    void test_a_resolved_duplicate_stops_being_reported()
+    {
+        section("a duplicate that is no longer true is withdrawn from both");
+
+        // The other case per-scan detection got wrong, and the worse one.
+        // Both devices were flagged; then one is renumbered. If the stale
+        // repair survived, one device would go on saying "id 5 is claimed by
+        // 2 devices" while the page showed the other one as clean.
+        Registry reg;
+        reg.add_or_merge(a_device_on_modbus_id(4001, 5));
+        reg.add_or_merge(a_device_on_modbus_id(4002, 5));
+        check_eq(reg.refresh_duplicate_modbus_ids(), 2, "both flagged");
+
+        reg.add_or_merge(a_device_on_modbus_id(4002, 6));
+
+        check_eq(reg.refresh_duplicate_modbus_ids(), 0, "nobody is in conflict now");
+        check(!reg.devices()[0].needs_attention(), "the first is clean");
+        check(!reg.devices()[1].needs_attention(), "and so is the one that moved");
+        check_eq((int)reg.pending_repairs().size(), 0, "nothing left pending");
+    }
+
+    void test_refreshing_does_not_stack_repeats()
+    {
+        section("refreshing twice does not report the same conflict twice");
+
+        Registry reg;
+        reg.add_or_merge(a_device_on_modbus_id(5001, 5));
+        reg.add_or_merge(a_device_on_modbus_id(5002, 5));
+
+        reg.refresh_duplicate_modbus_ids();
+        reg.refresh_duplicate_modbus_ids();
+        reg.refresh_duplicate_modbus_ids();
+
+        check_eq((int)reg.devices()[0].repairs.size(), 1, "one repair, not three");
+        check_eq((int)reg.pending_repairs().size(), 2, "two pending in total");
+    }
+
+    void test_refreshing_leaves_other_repairs_alone()
+    {
+        section("refreshing duplicates does not disturb a serial repair");
+
+        // The clear-then-rederive step must remove duplicate repairs only. A
+        // device with no serial has a different and more serious problem, and
+        // losing it here would be a silent downgrade.
+        Registry reg;
+        DeviceRecord nameless = a_device_on_modbus_id(0, 5);
+        nameless.repairs.push_back(a_repair(RepairKind::AssignSerialNumber));
+        reg.add_or_merge(nameless);
+        reg.add_or_merge(a_device_on_modbus_id(6002, 5));
+
+        reg.refresh_duplicate_modbus_ids();
+        reg.refresh_duplicate_modbus_ids();
+
+        const auto& repairs = reg.devices()[0].repairs;
+        check_eq((int)repairs.size(), 2, "the serial repair plus one duplicate repair");
+
+        bool has_serial = false;
+        for (const auto& r : repairs)
+            if (r.kind == RepairKind::AssignSerialNumber) has_serial = true;
+        check(has_serial, "the serial repair survived");
     }
 
     void test_uninitialised_serial_detection()
@@ -298,7 +613,7 @@ namespace
 
         Registry reg;
         const int i = reg.add_or_merge(broken);
-        check(reg.approve_repair(i, 0), "approved while the problem existed");
+        check(reg.approve_repair(handle_at(reg, i), 0), "approved while the problem existed");
         check_eq((int)reg.pending_repairs().size(), 0, "nothing pending");
 
         // The problem is fixed elsewhere; the next scan sees a healthy device.
@@ -363,15 +678,26 @@ int run_registry_tests()
     test_repairs_start_unapproved();
     test_approval_is_per_repair_and_per_device();
     test_approval_does_not_survive_a_rescan();
-    test_stale_indices_are_refused_not_clamped();
+    test_stale_keys_are_refused_not_clamped();
     test_merge_only_on_serial();
     test_unidentified_devices_never_merge();
     test_merge_keeps_what_the_new_view_did_not_see();
+    test_merge_keeps_reachability_the_rescan_did_not_read();
+    test_a_scanned_device_is_not_given_an_id_it_never_reported();
     test_reached_is_sticky_but_provenance_upgrades();
     test_selection_clears_rather_than_clamps();
+    test_a_selection_never_slides_onto_another_device();
+    test_a_selection_holds_its_device_across_a_merge();
+    test_unidentified_devices_are_still_selectable();
     test_all_ff_devices_never_merge();
     test_a_clean_rescan_withdraws_a_stale_approval();
     test_a_partial_merge_does_not_erase_known_problems();
+    test_a_duplicate_id_is_flagged_on_every_participant();
+    test_id_zero_is_not_a_conflict();
+    test_a_duplicate_across_two_scans_is_still_found();
+    test_a_resolved_duplicate_stops_being_reported();
+    test_refreshing_does_not_stack_repeats();
+    test_refreshing_leaves_other_repairs_alone();
     test_uninitialised_serial_detection();
     test_labels_exist_for_everything_shown();
     return 0;

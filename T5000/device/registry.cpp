@@ -1,5 +1,8 @@
 #include "registry.h"
 
+#include <algorithm>
+#include <map>
+
 namespace t5000::device
 {
     bool is_uninitialised_serial(unsigned int serial)
@@ -40,6 +43,35 @@ namespace t5000::device
                 if (device.mini_type != 0)                     existing.mini_type = device.mini_type;
                 if (device.firmware != 0)                      existing.firmware = device.firmware;
                 if (!device.address_note.empty())              existing.address_note = device.address_note;
+
+                // A device that has been renumbered must carry its new id, or
+                // the registry keeps comparing the old one and reports a
+                // conflict that was resolved. Found by a test that moved a
+                // device off a duplicate id and watched the warning survive.
+                if (device.modbus_id_reported != 0)
+                    existing.modbus_id_reported = device.modbus_id_reported;
+
+                // Likewise reachability, field by field like everything else
+                // here. This was a wholesale replace, which quietly broke the
+                // rule stated three comments up.
+                //
+                // to_record leaves modbus_slave_id at 0 when the device
+                // reported no id, and host is always set on a scan record - so
+                // the replace always fired and overwrote a slave id learned
+                // earlier with one the device never reported.
+                if (!device.connection.host.empty())
+                {
+                    existing.connection.host      = device.connection.host;
+                    existing.connection.transport = device.connection.transport;
+                }
+                if (device.connection.udp_port != 0)
+                    existing.connection.udp_port = device.connection.udp_port;
+                if (device.connection.tcp_port != 0)
+                    existing.connection.tcp_port = device.connection.tcp_port;
+                if (device.connection.modbus_slave_id != 0)
+                    existing.connection.modbus_slave_id = device.connection.modbus_slave_id;
+                if (device.connection.device_instance != 0)
+                    existing.connection.device_instance = device.connection.device_instance;
 
                 // Reached is sticky in the true direction only. Having once
                 // talked to a device is a fact about the past; failing to
@@ -88,6 +120,12 @@ namespace t5000::device
         }
 
         m_devices.push_back(device);
+
+        // The handle is the registry's to give, never the caller's. A record
+        // arriving with one set - copied from an older list, say - would
+        // otherwise alias a device that is still here.
+        m_devices.back().handle = m_next_handle;
+        m_next_handle = to_handle(to_number(m_next_handle) + 1);
         return (int)m_devices.size() - 1;
     }
 
@@ -102,27 +140,65 @@ namespace t5000::device
     void Registry::clear()
     {
         m_devices.clear();
-        m_selected = -1;
+        m_selected = kNoHandle;
+
+        // m_next_handle is deliberately NOT reset. A page still holding a
+        // handle from before the clear must find nothing, not a new device
+        // that happens to have been handed the same number.
+    }
+
+    int Registry::index_of(Handle handle) const
+    {
+        if (handle == kNoHandle)
+            return -1;
+
+        for (size_t i = 0; i < m_devices.size(); i++)
+            if (m_devices[i].handle == handle)
+                return (int)i;
+        return -1;
     }
 
     void Registry::select(int index)
     {
-        m_selected = (index >= 0 && index < (int)m_devices.size()) ? index : -1;
+        m_selected = (index >= 0 && index < (int)m_devices.size())
+                     ? m_devices[index].handle
+                     : kNoHandle;
+    }
+
+    bool Registry::select_by_handle(Handle handle)
+    {
+        if (index_of(handle) < 0)
+        {
+            // Clearing rather than leaving the previous selection in place.
+            // A click on a device that is no longer there is a sign the page
+            // is out of date, and continuing to show whatever was selected
+            // before would hide that.
+            m_selected = kNoHandle;
+            return false;
+        }
+
+        m_selected = handle;
+        return true;
+    }
+
+    int Registry::selected_index() const
+    {
+        return index_of(m_selected);
     }
 
     const DeviceRecord* Registry::selected() const
     {
-        if (m_selected < 0 || m_selected >= (int)m_devices.size())
-            return nullptr;
-        return &m_devices[m_selected];
+        const int i = index_of(m_selected);
+        return i < 0 ? nullptr : &m_devices[i];
     }
 
-    bool Registry::approve_repair(int device_index, int repair_index)
+    bool Registry::approve_repair(Handle device, int repair_index)
     {
-        if (device_index < 0 || device_index >= (int)m_devices.size())
+        const int d = index_of(device);
+        if (d < 0)
             return false;
 
-        auto& repairs = m_devices[device_index].repairs;
+        auto& repairs = m_devices[d].repairs;
         if (repair_index < 0 || repair_index >= (int)repairs.size())
             return false;
 
@@ -130,14 +206,67 @@ namespace t5000::device
         return true;
     }
 
-    std::vector<std::pair<int, int>> Registry::pending_repairs() const
+    std::vector<std::pair<Handle, int>> Registry::pending_repairs() const
     {
-        std::vector<std::pair<int, int>> out;
-        for (size_t d = 0; d < m_devices.size(); d++)
-            for (size_t r = 0; r < m_devices[d].repairs.size(); r++)
-                if (!m_devices[d].repairs[r].approved)
-                    out.push_back({ (int)d, (int)r });
+        std::vector<std::pair<Handle, int>> out;
+        for (const auto& d : m_devices)
+            for (size_t r = 0; r < d.repairs.size(); r++)
+                if (!d.repairs[r].approved)
+                    out.push_back({ d.handle, (int)r });
         return out;
+    }
+
+    int Registry::refresh_duplicate_modbus_ids()
+    {
+        // Clear first. A conflict that has been resolved - because one of the
+        // pair was renumbered or has gone - must stop being reported, and
+        // re-deriving on top of the old list would stack repeats of the same
+        // warning on every scan.
+        for (auto& d : m_devices)
+        {
+            auto& r = d.repairs;
+            r.erase(std::remove_if(r.begin(), r.end(), [](const Repair& x) {
+                        return x.kind == RepairKind::ResolveDuplicateModbusId;
+                    }),
+                    r.end());
+        }
+
+        // Modbus id 0 is not an address, so several devices reporting it are
+        // not in conflict with each other. Without this, every unconfigured
+        // device on a subnet would accuse every other one.
+        std::map<int, int> counts;
+        for (const auto& d : m_devices)
+            if (d.modbus_id_reported != 0)
+                counts[d.modbus_id_reported]++;
+
+        int flagged = 0;
+        for (auto& d : m_devices)
+        {
+            const int id = d.modbus_id_reported;
+            if (id == 0 || counts[id] < 2)
+                continue;
+
+            Repair repair;
+            repair.kind    = RepairKind::ResolveDuplicateModbusId;
+            repair.problem = "Modbus id " + std::to_string(id) + " is claimed by " +
+                             std::to_string(counts[id]) +
+                             " devices, so none of them can be addressed reliably.";
+            repair.action  = "Write a free id to register 10 on this device, "
+                             "leaving the others on " + std::to_string(id) + ".";
+            repair.consequence =
+                "This device moves to a new address. Anything that refers to it "
+                "by the old id - other panels, schedules, third-party "
+                "integrations - will need updating to match.";
+
+            // Changing an id back is just another write, so this one is
+            // undoable in a way that assigning a serial is not.
+            repair.reversible = true;
+
+            d.repairs.push_back(repair);
+            flagged++;
+        }
+
+        return flagged;
     }
 
     const char* to_string(Provenance p)

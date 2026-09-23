@@ -1,0 +1,296 @@
+// Tests for the device-list JSON.
+//
+// These check the payload the page actually consumes, by substring rather than
+// by parsing: the point is to catch a field being renamed, dropped, or emitted
+// as the wrong JSON type, and a hand-rolled parser here would only test itself.
+//
+// The properties worth guarding are the ones a reader would rely on and could
+// not see going wrong: that a handle is a string, that a repair arrives with
+// its consequence attached rather than just its name, and that a device the
+// tool cannot vouch for is not described as though it had been read.
+
+#include "scan_json.h"
+#include "points_json.h"
+#include "../testing/check.h"
+
+#include <string.h>
+
+namespace
+{
+    using namespace t5000::app;
+    using namespace t5000::device;
+    using namespace t5000::testing;
+
+    bool has(const std::string& haystack, const char* needle)
+    {
+        return haystack.find(needle) != std::string::npos;
+    }
+
+    DeviceRecord a_device(uint32_t serial)
+    {
+        DeviceRecord d;
+        d.serial_number = serial;
+        d.product       = ProductClassId::Tstat10;
+        d.firmware      = 538;
+        d.address_note  = "192.168.1.50";
+        d.provenance    = Provenance::BacnetBroadcast;
+        d.reached       = true;
+        return d;
+    }
+
+    Repair a_repair()
+    {
+        Repair r;
+        r.kind        = RepairKind::AssignSerialNumber;
+        r.problem     = "This device reports no serial number.";
+        r.action      = "Write a serial to registers 0 and 2.";
+        r.consequence = "The device gets a permanent identity.";
+        r.reversible  = false;
+        return r;
+    }
+
+    void test_an_empty_registry_is_not_an_error()
+    {
+        section("an empty device list is a valid answer, and says which kind");
+
+        Registry reg;
+        ScanSummary summary;   // never scanned
+
+        const std::string json = build_devices_json(reg, summary);
+
+        check(has(json, "\"devices\":[]"), "no devices");
+        check(has(json, "\"hasScanned\":false"), "and the reason is 'not yet scanned'");
+        check(has(json, "\"error\":\"\""), "which is not an error");
+
+        // The page renders four different messages off these three fields.
+        // Collapsing them into one "nothing found" is the whole bug this is
+        // here to prevent, so the fields have to survive independently.
+        summary.has_scanned = true;
+        const std::string scanned = build_devices_json(reg, summary);
+        check(has(scanned, "\"hasScanned\":true"), "a completed scan is distinguishable");
+        check(has(scanned, "\"error\":\"\""), "from a failed one");
+
+        summary.error = "could not send the discovery query";
+        const std::string failed = build_devices_json(reg, summary);
+        check(has(failed, "could not send the discovery query"), "and the failure is carried");
+    }
+
+    void test_a_handle_is_a_string()
+    {
+        section("handles cross as strings, not numbers");
+
+        Registry reg;
+        reg.add_or_merge(a_device(500123));
+
+        const std::string json = build_devices_json(reg, ScanSummary());
+
+        // Quoted. A bare number would work today and round silently if a
+        // handle ever passed 2^53 - and this is the key an approval is
+        // addressed by, so a rounded one targets a different device.
+        check(has(json, "\"handle\":\"1\""), "quoted");
+        check(!has(json, "\"handle\":1"), "and not a bare number");
+    }
+
+    void test_a_repair_carries_its_consequence()
+    {
+        section("a repair is disclosed in full, not just named");
+
+        DeviceRecord d = a_device(0);
+        d.repairs.push_back(a_repair());
+
+        Registry reg;
+        reg.add_or_merge(d);
+
+        const std::string json = build_devices_json(reg, ScanSummary());
+
+        // A repair reduced to its kind is a button with no informed consent
+        // behind it. What would be written, and what happens afterwards, have
+        // to reach the operator.
+        check(has(json, "assign a serial number"), "the kind");
+        check(has(json, "reports no serial number"), "the problem");
+        check(has(json, "registers 0 and 2"), "exactly what would be written");
+        check(has(json, "permanent identity"), "and what that does");
+        check(has(json, "\"reversible\":false"), "and whether it can be undone");
+        check(has(json, "\"approved\":false"), "unapproved");
+        check(has(json, "\"needsAttention\":true"), "the device is flagged");
+        check(has(json, "\"pendingRepairs\":1"), "and counted");
+
+        // Nothing has been sent. The payload says so rather than leaving the
+        // page to assert it from a hard-coded string.
+        check(has(json, "\"readOnly\":true"), "the read-only claim travels with the data");
+    }
+
+    void test_an_unidentified_device_is_reported_as_such()
+    {
+        section("a device with no serial is not dressed up as identified");
+
+        Registry reg;
+        reg.add_or_merge(a_device(0));
+        reg.add_or_merge(a_device(0xFFFFFFFFu));
+
+        const std::string json = build_devices_json(reg, ScanSummary());
+
+        check(has(json, "\"hasStableIdentity\":false"), "flagged as unidentified");
+        check(has(json, "\"unidentifiedCount\":2"), "both of them counted");
+
+        // 0xFFFFFFFF must arrive as 4294967295, not -1. The signed version of
+        // this field is what merged two nameless devices into one record.
+        check(has(json, "\"serialNumber\":4294967295"), "the all-FF serial is unsigned");
+        check(!has(json, "\"serialNumber\":-1"), "and is not -1");
+    }
+
+    void test_the_panel_type_is_not_invented()
+    {
+        section("a panel type of 0 is resolved, not assumed");
+
+        // The bug this guards was found by running the server, not by a test:
+        // a TSTAT10 reporting mini_type 0 was shown CM5's eighteen inputs,
+        // because 0 is a real panel type for a CM5 and "unset" for everything
+        // else.
+        Registry reg;
+        DeviceRecord tstat = a_device(600001);
+        tstat.product   = ProductClassId::Tstat10;
+        tstat.mini_type = 0;
+        reg.add_or_merge(tstat);
+
+        const std::string json = build_devices_json(reg, ScanSummary());
+
+        check(has(json, "\"resolved\":false"), "the panel type is unresolved");
+        check(has(json, "\"reason\":\""), "with a reason a person can read");
+        check(has(json, "not a CM5"), "naming why 0 does not mean CM5 here");
+    }
+
+    void test_a_stale_handle_resolves_to_null()
+    {
+        section("a detail request for a device that is gone returns null");
+
+        Registry reg;
+        reg.add_or_merge(a_device(700001));
+        const Handle live = reg.devices()[0].handle;
+
+        check(build_device_json(reg, live) != "null", "a live handle resolves");
+        check(build_device_json(reg, to_handle(9999)) == "null", "a stale one does not");
+        check(build_device_json(reg, kNoHandle) == "null", "nor does the null handle");
+
+        // Null rather than the first device, or an empty object. A page
+        // holding a handle for a device that has gone needs to be told that,
+        // not handed a plausible substitute.
+        reg.clear();
+        check(build_device_json(reg, live) == "null", "and it stops resolving after a clear");
+    }
+
+    void test_selection_is_marked_on_exactly_one_device()
+    {
+        section("the selected device is marked, and only that one");
+
+        Registry reg;
+        reg.add_or_merge(a_device(800001));
+        reg.add_or_merge(a_device(800002));
+
+        const std::string none = build_devices_json(reg, ScanSummary());
+        check(has(none, "\"selectedHandle\":\"\""), "nothing selected reads as empty");
+        check(!has(none, "\"selected\":true"), "and no device claims to be");
+
+        reg.select_by_handle(reg.devices()[1].handle);
+        const std::string one = build_devices_json(reg, ScanSummary());
+        check(has(one, "\"selectedHandle\":\"2\""), "the handle is reported");
+
+        // Exactly one, not "at least one".
+        size_t count = 0, at = 0;
+        while ((at = one.find("\"selected\":true", at)) != std::string::npos) { count++; at++; }
+        check_eq((long)count, 1, "exactly one device is marked selected");
+    }
+
+    void test_text_from_a_device_is_escaped()
+    {
+        section("device text cannot break out of the JSON");
+
+        // Panel names come off the wire and are not trusted. A quote or a
+        // backslash in one must not end the string it is sitting in.
+        Registry reg;
+        DeviceRecord d = a_device(900001);
+        d.address_note = "192.168.1.9 (Say \"hi\")";
+        reg.add_or_merge(d);
+
+        const std::string json = build_devices_json(reg, ScanSummary());
+        check(has(json, "Say \\\"hi\\\""), "quotes are escaped");
+        check(has(json, "\"readOnly\":true"), "and the document is still intact to the end");
+    }
+
+    void test_the_unreadable_device_payload_keeps_the_page_contract()
+    {
+        section("a device that cannot be read never reads as one that was");
+
+        // A regression, and the worst kind this project can produce.
+        //
+        // /api/inputs used to answer a selected real device with a payload
+        // that had "points" instead of "inputs" and no isFixture at all. The
+        // page reads data.inputs (so the grid was empty) and treats a missing
+        // isFixture as false - and renders false as "Live device. Points
+        // below were read from serial NNN".
+        //
+        // So the screen asserted a reading that never happened, in the same
+        // commit that stopped it serving fixture points for a real device.
+        // Caught by loading the page, not by the tests or the compiler.
+        const std::string json = build_unavailable_inputs_json(
+            700002, "192.168.1.51 (Boiler Room)", "The read path is not verified.");
+
+        // Every field the page reads unconditionally, present.
+        check(has(json, "\"unavailable\":true"), "the state is stated outright");
+        check(has(json, "\"isFixture\":false"),
+              "isFixture is PRESENT and false - absent is what caused the lie");
+        check(has(json, "\"inputs\":[]"),
+              "the array is named inputs, which is what the page reads");
+        check(has(json, "\"readPath\""), "a read path band is always rendered");
+        check(has(json, "no verified read path"), "and says there is none");
+        check(has(json, "\"count\":0"), "nothing was read");
+        check(has(json, "The read path is not verified."), "the reason reaches the page");
+        check(has(json, "700002"), "the device is named");
+        check(has(json, "Boiler Room"), "with its address");
+
+        // The field name that caused it. "points" is what the old payload
+        // used, and the page has never read it.
+        check(!has(json, "\"points\""), "no stray points array to be ignored");
+
+        // And the claim itself must not be constructible from this payload.
+        check(!has(json, "\"isFixture\":true"), "it is not fixture data either");
+    }
+
+    void test_interfaces_report_their_failure()
+    {
+        section("the interface list distinguishes empty from broken");
+
+        std::vector<t5000::net::Interface> none;
+        const std::string empty = build_interfaces_json(none, std::string());
+        check(has(empty, "\"interfaces\":[]"), "no interfaces");
+        check(has(empty, "\"error\":\"\""), "and no error");
+
+        const std::string broken = build_interfaces_json(none, "could not list network interfaces");
+        check(has(broken, "could not list network interfaces"), "a failure is reported");
+
+        t5000::net::Interface n;
+        n.ip = "192.168.1.23";
+        n.name = "Ethernet";
+        n.description = "Intel I219-V";
+        n.is_up = true;
+        const std::string one = build_interfaces_json({ n }, std::string());
+        check(has(one, "192.168.1.23"), "the address");
+        check(has(one, "Ethernet"), "the name a person recognises");
+        check(has(one, "\"isUp\":true"), "and whether it is up");
+    }
+}
+
+int run_scan_json_tests()
+{
+    test_an_empty_registry_is_not_an_error();
+    test_a_handle_is_a_string();
+    test_a_repair_carries_its_consequence();
+    test_an_unidentified_device_is_reported_as_such();
+    test_the_panel_type_is_not_invented();
+    test_a_stale_handle_resolves_to_null();
+    test_selection_is_marked_on_exactly_one_device();
+    test_text_from_a_device_is_escaped();
+    test_the_unreadable_device_payload_keeps_the_page_contract();
+    test_interfaces_report_their_failure();
+    return 0;
+}
