@@ -51,6 +51,14 @@ namespace t5000::discovery
         d.connection.host      = r.ip_text();
         if (r.bacnet_port != 0)
             d.connection.udp_port = r.bacnet_port;
+
+        // The BACnet device instance. Parsed from the response since the
+        // parser was written and dropped here until now, so every scanned
+        // device carried 0 - harmless while nothing read it, and wrong the
+        // moment anything addressed a device by instance. T3000 uses it as
+        // g_bac_instance (MainFrm.cpp:7053). 0 is left as 0: the merge keeps
+        // a previously learned instance when a response does not carry one.
+        d.connection.device_instance = (int)r.object_instance;
         // Assigned unconditionally, so a device that reported nothing carries
         // 0 rather than Connection's struct default of 1. A defaulted 1 is a
         // value the device never reported, and it is indistinguishable from a

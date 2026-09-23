@@ -216,16 +216,30 @@ namespace t5000::web
     // rather than leaving a technician to guess at an empty or partial grid.
     const degraded = rp.path === "modbus-registers";
 
+    // "Read from the device" is claimed on readFromWire === true and nothing
+    // else. It used to be the fall-through for anything not marked fixture, so
+    // a payload that left a flag out claimed a reading by default - which is
+    // exactly how the unreadable-device payload came to say it had been read.
+    // A positive claim now needs a positive statement from the server.
+    const fromWire = !!(data.device && data.device.readFromWire === true);
+
     // Both bands, not one. An earlier version returned early on fixture data,
     // which meant the read-path explanation - the thing this page exists to
     // surface - was the one banner nobody ever saw while developing against the
     // fixture. Provenance and read path answer different questions.
-    $("banner").className = "banner " + (fixture ? "warn" : "info");
-    $("banner").innerHTML = fixture
-      ? "<b>Sample data.</b> No device is connected, so these are fixture points "
-        + "for checking the layout. Nothing here came from hardware."
-      : "<b>Live device.</b> Points below were read from serial "
-        + esc((data.device && data.device.serialNumber) || "unknown") + ".";
+    $("banner").className = "banner " + (fromWire ? "info" : "warn");
+    if (fixture) {
+      $("banner").innerHTML = "<b>Sample data.</b> No device is selected, so these are "
+        + "fixture points for checking the layout. Nothing here came from hardware.";
+    } else if (fromWire) {
+      $("banner").innerHTML = "<b>Read from the device.</b> Serial "
+        + esc(data.device.serialNumber) + " at " + esc(data.device.address || "unknown address")
+        + ", " + esc(new Date().toLocaleTimeString()) + ". Values do not refresh on their own "
+        + "- reload to read again.";
+    } else {
+      $("banner").innerHTML = "<b>Unconfirmed.</b> The server did not say these points came "
+        + "from a device, so this page will not say so either.";
+    }
 
     const p = $("path-banner");
     p.hidden = false;

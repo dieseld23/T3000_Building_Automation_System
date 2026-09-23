@@ -95,10 +95,29 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="app\fixture.cpp" />
+    <ClCompile Include="app\inputs_plan.cpp" />
+    <ClCompile Include="app\inputs_plan_selftest.cpp" />
     <ClCompile Include="app\points_json.cpp" />
     <ClCompile Include="app\product_json.cpp" />
     <ClCompile Include="app\scan_json.cpp" />
     <ClCompile Include="app\scan_json_selftest.cpp" />
+    <ClCompile Include="bacnet\command.cpp" />
+    <ClCompile Include="bacnet\command_guard.cpp" />
+    <ClCompile Include="bacnet\point_read.cpp" />
+    <ClCompile Include="bacnet\point_read_selftest.cpp" />
+    <ClCompile Include="bacnet\private_transfer.cpp" />
+    <!--
+      The one file that includes the BACnet stack's own headers, so every
+      structure it hands the DLL has the layout the DLL was built with. The
+      stack's include paths and PRINT_ENABLED are set here and nowhere else,
+      so no other file can pick up config.h or ud_str.h from the stack by
+      accident - its ud_str.h is the stale copy of the wire format.
+    -->
+    <ClCompile Include="bacnet\private_transfer_oracle.cpp">
+      <AdditionalIncludeDirectories>..\BacNetDllforVc\;..\BacNetDllforVc\MainCpp\;..\BacNetDllforVc\include\;..\BacNetDllforVc\object\;..\BacNetDllforVc\handler\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>PRINT_ENABLED=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="bacnet\private_transfer_selftest.cpp" />
     <ClCompile Include="device\bacnet_link.cpp" />
     <ClCompile Include="device\connection.cpp" />
     <ClCompile Include="device\connection_selftest.cpp" />
@@ -124,9 +143,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app\fixture.h" />
+    <ClInclude Include="app\inputs_plan.h" />
     <ClInclude Include="app\points_json.h" />
     <ClInclude Include="app\product_json.h" />
     <ClInclude Include="app\scan_json.h" />
+    <ClInclude Include="bacnet\command.h" />
+    <ClInclude Include="bacnet\point_read.h" />
+    <ClInclude Include="bacnet\private_transfer.h" />
     <ClInclude Include="device\bacnet_link.h" />
     <ClInclude Include="device\connection.h" />
     <ClInclude Include="device\registry.h" />
@@ -139,6 +162,7 @@
     <ClInclude Include="testing\check.h" />
     <ClInclude Include="web\devices_page.h" />
     <ClInclude Include="web\inputs_page.h" />
+    <ClInclude Include="wire\cm5_header.h" />
     <ClInclude Include="wire\decode.h" />
     <ClInclude Include="wire\points.h" />
   </ItemGroup>

@@ -106,6 +106,7 @@ namespace t5000::app
         // Present and false, never absent. Absent is what made the page claim
         // the points had been read from hardware.
         out += "\"isFixture\":false,";
+        out += "\"readFromWire\":false,";
         append_field(out, "address", address);
         out += "},";
 
@@ -114,7 +115,7 @@ namespace t5000::app
         // missing entirely.
         out += "\"readPath\":{";
         append_field(out, "path", "none"); out += ',';
-        append_field(out, "summary", "no verified read path to this device"); out += ',';
+        append_field(out, "summary", "nothing was read"); out += ',';
         append_field(out, "detail", reason);
         out += "},";
 
@@ -144,6 +145,10 @@ namespace t5000::app
         append_int(out, "protocol",     device.protocol);      out += ',';
         out += "\"isFixture\":";
         out += device.is_fixture ? "true" : "false";
+        out += ",\"readFromWire\":";
+        out += device.read_from_wire ? "true" : "false";
+        out += ',';
+        append_field(out, "address", device.address);
         out += "},";
 
         out += "\"readPath\":{";

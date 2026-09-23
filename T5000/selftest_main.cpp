@@ -16,6 +16,10 @@ int run_scan_response_tests();
 int run_scanner_tests();
 int run_json_read_tests();
 int run_scan_json_tests();
+int run_private_transfer_tests();
+int run_private_transfer_oracle_tests();
+int run_point_read_tests();
+int run_inputs_plan_tests();
 
 int run_selftests()
 {
@@ -40,6 +44,14 @@ int run_selftests()
     run_scanner_tests();
     printf("\n");
     run_scan_json_tests();
+    printf("\n");
+    run_private_transfer_tests();
+    printf("\n");
+    run_private_transfer_oracle_tests();
+    printf("\n");
+    run_point_read_tests();
+    printf("\n");
+    run_inputs_plan_tests();
 
     const int failures = t5000::testing::g_failures;
     const int checks   = t5000::testing::g_checks;

@@ -104,6 +104,30 @@ namespace
         check(d.path == ReadPath::PrivateData, "reads private data directly");
     }
 
+    void test_a_non_private_product_is_never_sent_a_private_read()
+    {
+        section("a product T3000 never reads by private data is not routed there");
+
+        // The transport is one the private-data guard accepts, so the old
+        // decision said "private data". T3000 opens its private-data view for
+        // five products only (MainFrm.cpp:7375-7380) - a Tstat8 is not one of
+        // them, over any transport.
+        Decision d = choose_read_path(PM_TSTAT8, 600, kBacnetIp);
+        check(d.path == ReadPath::ModbusRegisters, "a Tstat8 on BACnet/IP goes to registers");
+        check(d.detail.find("does not support private-data") != std::string::npos,
+              "and says it is the product");
+
+        d = choose_read_path(PM_TSTAT8, 600, kModbusTcpip);
+        check(d.path == ReadPath::ModbusRegisters, "and so does one on Modbus TCP");
+
+        // Each of the five still reaches private data on BACnet/IP.
+        const int five[] = { PM_CM5, PM_MINIPANEL, PM_MINIPANEL_ARM, PM_ESP32_T3_SERIES, PM_TSTAT10 };
+        bool all = true;
+        for (int p : five)
+            all = all && choose_read_path(p, 600, kBacnetIp).path == ReadPath::PrivateData;
+        check(all, "while all five private-data products on BACnet/IP still read private data");
+    }
+
     void test_unknown_product_on_modbus()
     {
         section("an unknown product on Modbus goes to registers");
@@ -123,6 +147,7 @@ int run_read_path_tests()
     test_tstat_below_cutoff_falls_back_and_explains();
     test_tstat_at_cutoff_uses_ptp();
     test_non_modbus_transport_needs_no_ptp();
+    test_a_non_private_product_is_never_sent_a_private_read();
     test_unknown_product_on_modbus();
     return 0;
 }
