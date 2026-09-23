@@ -24,6 +24,7 @@
 //    technician scanning a building to find out what is there should not
 //    discover afterwards that the tool renumbered some of it.
 
+#include <stdint.h>
 #include <string>
 #include <vector>
 
@@ -32,6 +33,34 @@
 
 namespace t5000::device
 {
+    // A stable, process-local key for a device record.
+    //
+    // Deliberately neither an index nor a serial number.
+    //
+    // An index is a position, and a position means a different device as soon
+    // as the list changes. A serial number would be the natural key except
+    // that it is missing on exactly the devices most worth looking at - the
+    // ones reporting 0, which is the problem this tool exists to surface.
+    //
+    // A handle is assigned on insert, never reused, and survives reordering.
+    // It matters because this key crosses a process boundary: a page renders
+    // a device list, and the click that follows arrives later, against a
+    // registry that may have changed in between.
+    //
+    // An `enum class` rather than a uint64_t alias, for the same reason
+    // ProductClassId and MiniType are distinct types: so that passing an
+    // index where a handle belongs fails to compile instead of running.
+    // Every caller in this file used to pass indices, and with a plain alias
+    // all of them would still build - `approve_repair(0, 0)` would quietly
+    // mean handle 0, and `approve_repair(5, 0)` would authorise a write to
+    // whichever device happened to hold handle 5.
+    enum class Handle : uint64_t { None = 0 };
+    constexpr Handle kNoHandle = Handle::None;
+
+    // Handles cross the HTTP boundary as decimal text.
+    inline uint64_t to_number(Handle h) { return static_cast<uint64_t>(h); }
+    inline Handle   to_handle(uint64_t n) { return static_cast<Handle>(n); }
+
     // How this device came to be in the list. Worth keeping, because a device
     // someone typed in by hand and a device that answered a broadcast are
     // trusted differently - a typo produces a record that looks exactly like
@@ -134,6 +163,10 @@ namespace t5000::device
 
     struct DeviceRecord
     {
+        // Assigned by the Registry when the record is inserted, and 0 until
+        // then. This is what the UI refers to a device by; see Handle above.
+        Handle handle = kNoHandle;
+
         // --- Identity. ---------------------------------------------------
         // Serial number is the closest thing to a stable key, which is
         // exactly why a device reporting 0 is a problem worth surfacing
@@ -214,28 +247,56 @@ namespace t5000::device
         void clear();
 
         // --- Selection. ---------------------------------------------------
-        // Every screen needs a selected device. Selecting an out-of-range
-        // index clears the selection rather than throwing or clamping: a
-        // stale index from a page that was open across a rescan should show
-        // "nothing selected", not somebody else's controller.
-        void select(int index);
-        void clear_selection() { m_selected = -1; }
-        int  selected_index() const { return m_selected; }
+        // Every screen needs a selected device, and the selection is held as
+        // a Handle rather than as an index.
+        //
+        // The index version of this was wrong in a way a bounds check cannot
+        // catch. It cleared an out-of-range index - the easy half - and kept
+        // an in-range one. So once the list changed underneath, index 1 was
+        // still a perfectly valid position holding a DIFFERENT controller,
+        // and the page carried on showing it under the heading of the device
+        // the operator had picked. The header promised "nothing selected, not
+        // somebody else's controller"; the code delivered that only for
+        // indices past the end, and the test only ever checked that half.
+        //
+        // With a handle there is no stored position to go stale: the device
+        // is either still here or it is not.
+        void select(int index);                 // resolves to a handle now
+        bool select_by_handle(Handle handle);   // false, and clears, if absent
+        void clear_selection() { m_selected = kNoHandle; }
+
+        Handle selected_handle() const { return m_selected; }
+
+        // Resolved from the handle on every call. -1 when nothing is selected
+        // or when the selected device is no longer in the list.
+        int selected_index() const;
         const DeviceRecord* selected() const;
 
         // --- Repairs. -----------------------------------------------------
-        // Approve one repair on one device. Returns false if either index is
-        // out of range, which is the case where a page has gone stale.
-        bool approve_repair(int device_index, int repair_index);
+        // Approve one repair on one device. Keyed by handle for the same
+        // reason selection is: this one authorises a WRITE to building
+        // equipment, so a stale key here does not mislead a reader, it
+        // reconfigures the wrong controller.
+        //
+        // The repair index within a device stays positional. That is bounded
+        // in a way the device key was not - a stale one can only mis-target
+        // inside a single device's current repair list - and approvals are
+        // cleared on every merge anyway.
+        //
+        // Returns false if the device is gone or the index is out of range.
+        bool approve_repair(Handle device, int repair_index);
 
         // Every repair awaiting approval, across all devices, as
-        // (device index, repair index) pairs. This is what a "N problems
+        // (device handle, repair index) pairs. This is what a "N problems
         // found" banner counts.
-        std::vector<std::pair<int, int>> pending_repairs() const;
+        std::vector<std::pair<Handle, int>> pending_repairs() const;
 
     private:
+        int index_of(Handle handle) const;
+
         std::vector<DeviceRecord> m_devices;
-        int m_selected = -1;
+        Handle m_selected    = kNoHandle;
+        Handle m_next_handle = to_handle(1);
     };
 
     const char* to_string(Provenance p);

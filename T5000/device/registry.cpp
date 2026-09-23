@@ -88,6 +88,12 @@ namespace t5000::device
         }
 
         m_devices.push_back(device);
+
+        // The handle is the registry's to give, never the caller's. A record
+        // arriving with one set - copied from an older list, say - would
+        // otherwise alias a device that is still here.
+        m_devices.back().handle = m_next_handle;
+        m_next_handle = to_handle(to_number(m_next_handle) + 1);
         return (int)m_devices.size() - 1;
     }
 
@@ -102,27 +108,65 @@ namespace t5000::device
     void Registry::clear()
     {
         m_devices.clear();
-        m_selected = -1;
+        m_selected = kNoHandle;
+
+        // m_next_handle is deliberately NOT reset. A page still holding a
+        // handle from before the clear must find nothing, not a new device
+        // that happens to have been handed the same number.
+    }
+
+    int Registry::index_of(Handle handle) const
+    {
+        if (handle == kNoHandle)
+            return -1;
+
+        for (size_t i = 0; i < m_devices.size(); i++)
+            if (m_devices[i].handle == handle)
+                return (int)i;
+        return -1;
     }
 
     void Registry::select(int index)
     {
-        m_selected = (index >= 0 && index < (int)m_devices.size()) ? index : -1;
+        m_selected = (index >= 0 && index < (int)m_devices.size())
+                     ? m_devices[index].handle
+                     : kNoHandle;
+    }
+
+    bool Registry::select_by_handle(Handle handle)
+    {
+        if (index_of(handle) < 0)
+        {
+            // Clearing rather than leaving the previous selection in place.
+            // A click on a device that is no longer there is a sign the page
+            // is out of date, and continuing to show whatever was selected
+            // before would hide that.
+            m_selected = kNoHandle;
+            return false;
+        }
+
+        m_selected = handle;
+        return true;
+    }
+
+    int Registry::selected_index() const
+    {
+        return index_of(m_selected);
     }
 
     const DeviceRecord* Registry::selected() const
     {
-        if (m_selected < 0 || m_selected >= (int)m_devices.size())
-            return nullptr;
-        return &m_devices[m_selected];
+        const int i = index_of(m_selected);
+        return i < 0 ? nullptr : &m_devices[i];
     }
 
-    bool Registry::approve_repair(int device_index, int repair_index)
+    bool Registry::approve_repair(Handle device, int repair_index)
     {
-        if (device_index < 0 || device_index >= (int)m_devices.size())
+        const int d = index_of(device);
+        if (d < 0)
             return false;
 
-        auto& repairs = m_devices[device_index].repairs;
+        auto& repairs = m_devices[d].repairs;
         if (repair_index < 0 || repair_index >= (int)repairs.size())
             return false;
 
@@ -130,13 +174,13 @@ namespace t5000::device
         return true;
     }
 
-    std::vector<std::pair<int, int>> Registry::pending_repairs() const
+    std::vector<std::pair<Handle, int>> Registry::pending_repairs() const
     {
-        std::vector<std::pair<int, int>> out;
-        for (size_t d = 0; d < m_devices.size(); d++)
-            for (size_t r = 0; r < m_devices[d].repairs.size(); r++)
-                if (!m_devices[d].repairs[r].approved)
-                    out.push_back({ (int)d, (int)r });
+        std::vector<std::pair<Handle, int>> out;
+        for (const auto& d : m_devices)
+            for (size_t r = 0; r < d.repairs.size(); r++)
+                if (!d.repairs[r].approved)
+                    out.push_back({ d.handle, (int)r });
         return out;
     }
 

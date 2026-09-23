@@ -23,6 +23,15 @@ namespace
         return d;
     }
 
+    // The handle the registry gave the device now sitting at `index`. Tests
+    // that want to act on "the device I just added" go through this rather
+    // than passing the index, because the API no longer accepts an index and
+    // deliberately will not compile if one is passed.
+    Handle handle_at(const Registry& reg, int index)
+    {
+        return reg.devices()[index].handle;
+    }
+
     Repair a_repair(RepairKind kind = RepairKind::AssignSerialNumber)
     {
         Repair r;
@@ -69,7 +78,8 @@ namespace
 
         check_eq((int)reg.pending_repairs().size(), 3, "three repairs pending");
 
-        check(reg.approve_repair(ia, 0), "approve the first repair on the first device");
+        check(reg.approve_repair(handle_at(reg, ia), 0),
+              "approve the first repair on the first device");
 
         // The other repair on the SAME device must still be pending, and so
         // must the same KIND of repair on a different device. Blanket
@@ -92,7 +102,7 @@ namespace
 
         Registry reg;
         const int i = reg.add_or_merge(d);
-        check(reg.approve_repair(i, 0), "approved");
+        check(reg.approve_repair(handle_at(reg, i), 0), "approved");
         check_eq((int)reg.pending_repairs().size(), 0, "nothing pending");
 
         // The same device seen again, with a fresh view of its problems. The
@@ -106,20 +116,27 @@ namespace
         check_eq((int)reg.pending_repairs().size(), 1, "approval was withdrawn");
     }
 
-    void test_stale_indices_are_refused_not_clamped()
+    void test_stale_keys_are_refused_not_clamped()
     {
-        section("out-of-range approvals are refused");
+        section("approvals for a device that is not here are refused");
 
-        // A page held open across a rescan will send indices that no longer
-        // mean what they did. Clamping would approve a write on whichever
-        // device happens to be last.
+        // A page held open across a rescan sends keys that no longer mean
+        // what they did. Clamping would approve a WRITE on whichever device
+        // happened to be last in the list.
         Registry reg;
         reg.add_or_merge(a_device(3001));
+        const Handle real = handle_at(reg, 0);
 
-        check(!reg.approve_repair(0, 0), "no such repair");
-        check(!reg.approve_repair(5, 0), "no such device");
-        check(!reg.approve_repair(-1, 0), "negative device index");
-        check(!reg.approve_repair(0, -1), "negative repair index");
+        check(!reg.approve_repair(real, 0), "no such repair on a real device");
+        check(!reg.approve_repair(to_handle(9999), 0), "no such device");
+        check(!reg.approve_repair(kNoHandle, 0), "the null handle");
+        check(!reg.approve_repair(real, -1), "negative repair index");
+
+        // Handle 1 is a real handle here, and an index of 1 would be out of
+        // range on a one-device list. The two key spaces are not
+        // interchangeable, which is why Handle is its own type - passing an
+        // index to any of these calls is a compile error, not a wrong write.
+        check_eq((int)to_number(real), 1, "the first handle issued is 1");
     }
 
     void test_merge_only_on_serial()
@@ -215,8 +232,8 @@ namespace
         reg.add_or_merge(a_device(7002));
 
         reg.select(1);
-        check(reg.selected() != nullptr, "selected");
-        check_eq(reg.selected()->serial_number, 7002, "the right one");
+        if (require(reg.selected() != nullptr, "selected"))
+            check_eq(reg.selected()->serial_number, 7002, "the right one");
 
         // The dangerous version of this clamps to the last device, so a page
         // that was open across a rescan silently starts showing - and
@@ -229,6 +246,127 @@ namespace
         check(reg.selected() != nullptr, "selectable again");
         reg.clear();
         check(reg.selected() == nullptr, "clearing the registry clears the selection");
+    }
+
+    void test_a_selection_never_slides_onto_another_device()
+    {
+        section("a selection follows its device or clears - it never slides");
+
+        // The half the out-of-range test above does not cover, and the half
+        // that actually happens.
+        //
+        // Devices answer a broadcast in whatever order they answer, so the
+        // same subnet scanned twice produces the same controllers at
+        // different positions. An index survives that intact and means
+        // something different afterwards. Nothing is ever out of range, so a
+        // bounds check sees no problem at all.
+        Registry reg;
+        reg.add_or_merge(a_device(8001));
+        reg.add_or_merge(a_device(8002));
+        reg.add_or_merge(a_device(8003));
+
+        const Handle picked = handle_at(reg, 1);
+        if (require(reg.select_by_handle(picked), "8002 selected"))
+        {
+            check_eq(reg.selected()->serial_number, 8002u, "the right one");
+            check_eq(reg.selected_index(), 1, "at index 1");
+        }
+
+        // The operator clears the list and scans again. The same three
+        // devices answer, in reverse.
+        reg.clear();
+        check(reg.selected() == nullptr, "the clear dropped the selection");
+
+        reg.add_or_merge(a_device(8003));
+        reg.add_or_merge(a_device(8002));
+        reg.add_or_merge(a_device(8001));
+
+        // This is the request a page renders before the rescan and sends
+        // after it. Index 1 is in range in both lists and holds 8002 in the
+        // first and 8002 in the second only by luck; the handle is the only
+        // key that is either right or absent.
+        check(!reg.select_by_handle(picked),
+              "the pre-rescan handle no longer resolves");
+        check(reg.selected() == nullptr, "so nothing is selected");
+        check_eq(reg.selected_index(), -1, "and no index is reported");
+
+        // Handles are not reissued, so the old one cannot come back meaning
+        // a different device.
+        for (const auto& d : reg.devices())
+            check(d.handle != picked, "no device reuses the retired handle");
+
+        // And a failed selection must drop whatever was selected BEFORE it,
+        // not leave it standing. Checked from a live selection, because the
+        // assertions above run from an already-empty one and so pass whether
+        // or not the clearing happens at all - a mutation removing the clear
+        // survived this test until this block was added.
+        const Handle live = handle_at(reg, 0);
+        check(reg.select_by_handle(live), "a real device is selected");
+        check(reg.selected() != nullptr, "and it took");
+
+        check(!reg.select_by_handle(to_handle(123456)), "then a stale key arrives");
+        check(reg.selected() == nullptr,
+              "which clears the selection rather than leaving the old one");
+        check_eq(reg.selected_index(), -1, "and reports no index");
+    }
+
+    void test_a_selection_holds_its_device_across_a_merge()
+    {
+        section("a selection holds when its device is merged, not replaced");
+
+        // The other direction. A rescan that merges rather than rebuilds must
+        // NOT drop a selection - the device is still there, and clearing it
+        // would make the tool unusable on any site where a scan is re-run.
+        Registry reg;
+        reg.add_or_merge(a_device(8001));
+        reg.add_or_merge(a_device(8002));
+
+        const Handle picked = handle_at(reg, 1);
+        check(reg.select_by_handle(picked), "8002 selected");
+
+        // 8002 answers again, with a newly learned address, alongside a
+        // device that was not there before.
+        DeviceRecord again = a_device(8002);
+        again.address_note = "192.168.1.77";
+        reg.add_or_merge(again);
+
+        reg.add_or_merge(a_device(8004));
+
+        check_eq(reg.size(), 3, "one new device, one merged");
+        if (require(reg.selected() != nullptr, "still selected"))
+        {
+            check_eq(reg.selected()->serial_number, 8002u, "still 8002");
+            check(reg.selected()->address_note == "192.168.1.77",
+                  "and it picked up what the rescan learned");
+        }
+
+        // A merge must not mint a second handle for a device already here.
+        check_eq((int)to_number(reg.devices()[1].handle), (int)to_number(picked),
+                 "the merged device kept its handle");
+    }
+
+    void test_unidentified_devices_are_still_selectable()
+    {
+        section("a device with no serial can still be opened");
+
+        // Handles exist partly for this. A serial number would be the
+        // obvious key, and it is missing on exactly the devices most worth
+        // looking at - the ones this tool flags for repair. Keying on serial
+        // would make the broken ones unreachable.
+        Registry reg;
+        reg.add_or_merge(a_device(0));
+        reg.add_or_merge(a_device(0));
+        check_eq(reg.size(), 2, "two unidentified devices, not merged into one");
+
+        const Handle first  = handle_at(reg, 0);
+        const Handle second = handle_at(reg, 1);
+        check(first != second, "and they have different handles");
+
+        if (require(reg.select_by_handle(second), "the second one is selectable"))
+        {
+            check_eq(reg.selected_index(), 1, "and it is the second one");
+            check(!reg.selected()->has_stable_identity(), "still has no identity");
+        }
     }
 
     void test_uninitialised_serial_detection()
@@ -298,7 +436,7 @@ namespace
 
         Registry reg;
         const int i = reg.add_or_merge(broken);
-        check(reg.approve_repair(i, 0), "approved while the problem existed");
+        check(reg.approve_repair(handle_at(reg, i), 0), "approved while the problem existed");
         check_eq((int)reg.pending_repairs().size(), 0, "nothing pending");
 
         // The problem is fixed elsewhere; the next scan sees a healthy device.
@@ -363,12 +501,15 @@ int run_registry_tests()
     test_repairs_start_unapproved();
     test_approval_is_per_repair_and_per_device();
     test_approval_does_not_survive_a_rescan();
-    test_stale_indices_are_refused_not_clamped();
+    test_stale_keys_are_refused_not_clamped();
     test_merge_only_on_serial();
     test_unidentified_devices_never_merge();
     test_merge_keeps_what_the_new_view_did_not_see();
     test_reached_is_sticky_but_provenance_upgrades();
     test_selection_clears_rather_than_clamps();
+    test_a_selection_never_slides_onto_another_device();
+    test_a_selection_holds_its_device_across_a_merge();
+    test_unidentified_devices_are_still_selectable();
     test_all_ff_devices_never_merge();
     test_a_clean_rescan_withdraws_a_stale_approval();
     test_a_partial_merge_does_not_erase_known_problems();
