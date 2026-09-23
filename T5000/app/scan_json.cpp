@@ -88,6 +88,11 @@ namespace t5000::app
             out += "},";
 
             append_field(out, "firmware", (long long)d.firmware);             out += ',';
+
+            // What the device said its Modbus id is, with 0 meaning it did not
+            // say. Not the connection's slave id, which defaults to 1 and would
+            // report every silent device as sitting on id 1.
+            append_field(out, "modbusId", (long long)d.modbus_id_reported); out += ',';
             append_field(out, "address", d.address_note);                     out += ',';
             append_field(out, "provenance",
                          std::string(to_string(d.provenance)));               out += ',';

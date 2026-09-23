@@ -369,6 +369,131 @@ namespace
         }
     }
 
+    // ---------------------------------------------------------------------
+    // Duplicate Modbus ids. These used to live in the scanner suite and ran
+    // over one scan's results; the third and fourth cases below are the ones
+    // that arrangement could not express at all.
+
+    DeviceRecord a_device_on_modbus_id(uint32_t serial, int modbus_id)
+    {
+        DeviceRecord d = a_device(serial);
+        d.modbus_id_reported = modbus_id;
+        d.connection.host = "192.168.1.60";
+        d.observation_complete = true;
+        return d;
+    }
+
+    void test_a_duplicate_id_is_flagged_on_every_participant()
+    {
+        section("a duplicate Modbus id is flagged on each device involved");
+
+        Registry reg;
+        reg.add_or_merge(a_device_on_modbus_id(1001, 5));
+        reg.add_or_merge(a_device_on_modbus_id(1002, 5));
+        reg.add_or_merge(a_device_on_modbus_id(1003, 7));
+
+        check_eq(reg.refresh_duplicate_modbus_ids(), 2, "two are in conflict");
+
+        // A duplicate is a property of a pair, so BOTH must be flagged -
+        // picking one to blame would be arbitrary, and the operator has to
+        // see which two are fighting.
+        check(reg.devices()[0].needs_attention(), "the first is flagged");
+        check(reg.devices()[1].needs_attention(), "and so is the second");
+        check(!reg.devices()[2].needs_attention(), "the one on its own is not");
+    }
+
+    void test_id_zero_is_not_a_conflict()
+    {
+        section("several devices reporting Modbus id 0 are not in conflict");
+
+        // 0 is not an address. Treating it as one would flag every
+        // unconfigured device on a subnet as conflicting with every other.
+        Registry reg;
+        reg.add_or_merge(a_device_on_modbus_id(2001, 0));
+        reg.add_or_merge(a_device_on_modbus_id(2002, 0));
+        reg.add_or_merge(a_device_on_modbus_id(2003, 0));
+
+        check_eq(reg.refresh_duplicate_modbus_ids(), 0, "none flagged");
+    }
+
+    void test_a_duplicate_across_two_scans_is_still_found()
+    {
+        section("two devices on one id are found even on separate scans");
+
+        // The case per-scan detection could not see at all. Each scan holds
+        // one device, so neither scan contains a conflict - but the registry
+        // holds both, and the conflict is real.
+        Registry reg;
+        reg.add_or_merge(a_device_on_modbus_id(3001, 5));
+        check_eq(reg.refresh_duplicate_modbus_ids(), 0, "one device, no conflict yet");
+
+        reg.add_or_merge(a_device_on_modbus_id(3002, 5));
+        check_eq(reg.refresh_duplicate_modbus_ids(), 2,
+                 "the second scan reveals the conflict with the first");
+    }
+
+    void test_a_resolved_duplicate_stops_being_reported()
+    {
+        section("a duplicate that is no longer true is withdrawn from both");
+
+        // The other case per-scan detection got wrong, and the worse one.
+        // Both devices were flagged; then one is renumbered. If the stale
+        // repair survived, one device would go on saying "id 5 is claimed by
+        // 2 devices" while the page showed the other one as clean.
+        Registry reg;
+        reg.add_or_merge(a_device_on_modbus_id(4001, 5));
+        reg.add_or_merge(a_device_on_modbus_id(4002, 5));
+        check_eq(reg.refresh_duplicate_modbus_ids(), 2, "both flagged");
+
+        reg.add_or_merge(a_device_on_modbus_id(4002, 6));
+
+        check_eq(reg.refresh_duplicate_modbus_ids(), 0, "nobody is in conflict now");
+        check(!reg.devices()[0].needs_attention(), "the first is clean");
+        check(!reg.devices()[1].needs_attention(), "and so is the one that moved");
+        check_eq((int)reg.pending_repairs().size(), 0, "nothing left pending");
+    }
+
+    void test_refreshing_does_not_stack_repeats()
+    {
+        section("refreshing twice does not report the same conflict twice");
+
+        Registry reg;
+        reg.add_or_merge(a_device_on_modbus_id(5001, 5));
+        reg.add_or_merge(a_device_on_modbus_id(5002, 5));
+
+        reg.refresh_duplicate_modbus_ids();
+        reg.refresh_duplicate_modbus_ids();
+        reg.refresh_duplicate_modbus_ids();
+
+        check_eq((int)reg.devices()[0].repairs.size(), 1, "one repair, not three");
+        check_eq((int)reg.pending_repairs().size(), 2, "two pending in total");
+    }
+
+    void test_refreshing_leaves_other_repairs_alone()
+    {
+        section("refreshing duplicates does not disturb a serial repair");
+
+        // The clear-then-rederive step must remove duplicate repairs only. A
+        // device with no serial has a different and more serious problem, and
+        // losing it here would be a silent downgrade.
+        Registry reg;
+        DeviceRecord nameless = a_device_on_modbus_id(0, 5);
+        nameless.repairs.push_back(a_repair(RepairKind::AssignSerialNumber));
+        reg.add_or_merge(nameless);
+        reg.add_or_merge(a_device_on_modbus_id(6002, 5));
+
+        reg.refresh_duplicate_modbus_ids();
+        reg.refresh_duplicate_modbus_ids();
+
+        const auto& repairs = reg.devices()[0].repairs;
+        check_eq((int)repairs.size(), 2, "the serial repair plus one duplicate repair");
+
+        bool has_serial = false;
+        for (const auto& r : repairs)
+            if (r.kind == RepairKind::AssignSerialNumber) has_serial = true;
+        check(has_serial, "the serial repair survived");
+    }
+
     void test_uninitialised_serial_detection()
     {
         section("both uninitialised serial values are detected");
@@ -513,6 +638,12 @@ int run_registry_tests()
     test_all_ff_devices_never_merge();
     test_a_clean_rescan_withdraws_a_stale_approval();
     test_a_partial_merge_does_not_erase_known_problems();
+    test_a_duplicate_id_is_flagged_on_every_participant();
+    test_id_zero_is_not_a_conflict();
+    test_a_duplicate_across_two_scans_is_still_found();
+    test_a_resolved_duplicate_stops_being_reported();
+    test_refreshing_does_not_stack_repeats();
+    test_refreshing_leaves_other_repairs_alone();
     test_uninitialised_serial_detection();
     test_labels_exist_for_everything_shown();
     return 0;

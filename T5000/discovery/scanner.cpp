@@ -42,6 +42,11 @@ namespace t5000::discovery
         if (!r.panel_name.empty())
             d.address_note += " (" + r.panel_name + ")";
 
+        // What it said, before any defaulting. 0 stays 0 here; the
+        // Connection below is how we would reach it, which is a different
+        // question with a different default.
+        d.modbus_id_reported = r.modbus_id;
+
         d.connection.transport = device::Transport::BacnetIp;
         d.connection.host      = r.ip_text();
         if (r.bacnet_port != 0)
@@ -77,51 +82,6 @@ namespace t5000::discovery
         return d;
     }
 
-    int flag_duplicate_modbus_ids(std::vector<device::DeviceRecord>& devices,
-                                  const std::vector<ScanResponse>& responses)
-    {
-        using namespace t5000::device;
-
-        if (devices.size() != responses.size())
-            return 0;   // caller error; do nothing rather than mis-pair
-
-        // Modbus id 0 is not an address, so several devices reporting it are
-        // not in conflict with each other.
-        std::map<int, int> counts;
-        for (const auto& r : responses)
-            if (r.modbus_id != 0)
-                counts[r.modbus_id]++;
-
-        int flagged = 0;
-        for (size_t i = 0; i < devices.size(); i++)
-        {
-            const int id = responses[i].modbus_id;
-            if (id == 0 || counts[id] < 2)
-                continue;
-
-            Repair repair;
-            repair.kind    = RepairKind::ResolveDuplicateModbusId;
-            repair.problem = "Modbus id " + std::to_string(id) + " is claimed by " +
-                             std::to_string(counts[id]) +
-                             " devices, so none of them can be addressed reliably.";
-            repair.action  = "Write a free id to register 10 on this device, "
-                             "leaving the others on " + std::to_string(id) + ".";
-            repair.consequence =
-                "This device moves to a new address. Anything that refers to it "
-                "by the old id - other panels, schedules, third-party "
-                "integrations - will need updating to match.";
-
-            // Changing an id back is just another write, so this one is
-            // undoable in a way that assigning a serial is not.
-            repair.reversible = true;
-
-            devices[i].repairs.push_back(repair);
-            flagged++;
-        }
-
-        return flagged;
-    }
-
     ScanResult scan(ScanTransport& transport, const ScanSettings& settings)
     {
         ScanResult result;
@@ -132,10 +92,6 @@ namespace t5000::discovery
             result.error = error.empty() ? "could not send the discovery query" : error;
             return result;
         }
-
-        // Responses are kept alongside the records so duplicate detection can
-        // look at Modbus ids afterwards, which needs the whole set.
-        std::vector<ScanResponse> responses;
 
         uint8_t buffer[1024];
 
@@ -214,12 +170,13 @@ namespace t5000::discovery
                 break;
             }
 
-            responses.push_back(parsed);
             result.devices.push_back(to_record(parsed));
         }
 
-        result.stats.duplicate_modbus_ids =
-            flag_duplicate_modbus_ids(result.devices, responses);
+        // stats.duplicate_modbus_ids is deliberately NOT set here. Duplicates
+        // are found over the whole device list once these records have been
+        // merged into it; a count taken from one scan would miss a pair whose
+        // members answered on different scans.
 
         return result;
     }

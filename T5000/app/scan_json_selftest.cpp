@@ -10,6 +10,7 @@
 // tool cannot vouch for is not described as though it had been read.
 
 #include "scan_json.h"
+#include "points_json.h"
 #include "../testing/check.h"
 
 #include <string.h>
@@ -216,6 +217,45 @@ namespace
         check(has(json, "\"readOnly\":true"), "and the document is still intact to the end");
     }
 
+    void test_the_unreadable_device_payload_keeps_the_page_contract()
+    {
+        section("a device that cannot be read never reads as one that was");
+
+        // A regression, and the worst kind this project can produce.
+        //
+        // /api/inputs used to answer a selected real device with a payload
+        // that had "points" instead of "inputs" and no isFixture at all. The
+        // page reads data.inputs (so the grid was empty) and treats a missing
+        // isFixture as false - and renders false as "Live device. Points
+        // below were read from serial NNN".
+        //
+        // So the screen asserted a reading that never happened, in the same
+        // commit that stopped it serving fixture points for a real device.
+        // Caught by loading the page, not by the tests or the compiler.
+        const std::string json = build_unavailable_inputs_json(
+            700002, "192.168.1.51 (Boiler Room)", "The read path is not verified.");
+
+        // Every field the page reads unconditionally, present.
+        check(has(json, "\"unavailable\":true"), "the state is stated outright");
+        check(has(json, "\"isFixture\":false"),
+              "isFixture is PRESENT and false - absent is what caused the lie");
+        check(has(json, "\"inputs\":[]"),
+              "the array is named inputs, which is what the page reads");
+        check(has(json, "\"readPath\""), "a read path band is always rendered");
+        check(has(json, "no verified read path"), "and says there is none");
+        check(has(json, "\"count\":0"), "nothing was read");
+        check(has(json, "The read path is not verified."), "the reason reaches the page");
+        check(has(json, "700002"), "the device is named");
+        check(has(json, "Boiler Room"), "with its address");
+
+        // The field name that caused it. "points" is what the old payload
+        // used, and the page has never read it.
+        check(!has(json, "\"points\""), "no stray points array to be ignored");
+
+        // And the claim itself must not be constructible from this payload.
+        check(!has(json, "\"isFixture\":true"), "it is not fixture data either");
+    }
+
     void test_interfaces_report_their_failure()
     {
         section("the interface list distinguishes empty from broken");
@@ -250,6 +290,7 @@ int run_scan_json_tests()
     test_a_stale_handle_resolves_to_null();
     test_selection_is_marked_on_exactly_one_device();
     test_text_from_a_device_is_escaped();
+    test_the_unreadable_device_payload_keeps_the_page_contract();
     test_interfaces_report_their_failure();
     return 0;
 }

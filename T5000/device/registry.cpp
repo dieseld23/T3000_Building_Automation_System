@@ -1,5 +1,8 @@
 #include "registry.h"
 
+#include <algorithm>
+#include <map>
+
 namespace t5000::device
 {
     bool is_uninitialised_serial(unsigned int serial)
@@ -40,6 +43,19 @@ namespace t5000::device
                 if (device.mini_type != 0)                     existing.mini_type = device.mini_type;
                 if (device.firmware != 0)                      existing.firmware = device.firmware;
                 if (!device.address_note.empty())              existing.address_note = device.address_note;
+
+                // A device that has been renumbered must carry its new id, or
+                // the registry keeps comparing the old one and reports a
+                // conflict that was resolved. Found by a test that moved a
+                // device off a duplicate id and watched the warning survive.
+                if (device.modbus_id_reported != 0)
+                    existing.modbus_id_reported = device.modbus_id_reported;
+
+                // Likewise reachability: address_note already follows a device
+                // that moved, so leaving the connection pointing at the old
+                // address would make the two disagree.
+                if (!device.connection.host.empty())
+                    existing.connection = device.connection;
 
                 // Reached is sticky in the true direction only. Having once
                 // talked to a device is a fact about the past; failing to
@@ -182,6 +198,59 @@ namespace t5000::device
                 if (!d.repairs[r].approved)
                     out.push_back({ d.handle, (int)r });
         return out;
+    }
+
+    int Registry::refresh_duplicate_modbus_ids()
+    {
+        // Clear first. A conflict that has been resolved - because one of the
+        // pair was renumbered or has gone - must stop being reported, and
+        // re-deriving on top of the old list would stack repeats of the same
+        // warning on every scan.
+        for (auto& d : m_devices)
+        {
+            auto& r = d.repairs;
+            r.erase(std::remove_if(r.begin(), r.end(), [](const Repair& x) {
+                        return x.kind == RepairKind::ResolveDuplicateModbusId;
+                    }),
+                    r.end());
+        }
+
+        // Modbus id 0 is not an address, so several devices reporting it are
+        // not in conflict with each other. Without this, every unconfigured
+        // device on a subnet would accuse every other one.
+        std::map<int, int> counts;
+        for (const auto& d : m_devices)
+            if (d.modbus_id_reported != 0)
+                counts[d.modbus_id_reported]++;
+
+        int flagged = 0;
+        for (auto& d : m_devices)
+        {
+            const int id = d.modbus_id_reported;
+            if (id == 0 || counts[id] < 2)
+                continue;
+
+            Repair repair;
+            repair.kind    = RepairKind::ResolveDuplicateModbusId;
+            repair.problem = "Modbus id " + std::to_string(id) + " is claimed by " +
+                             std::to_string(counts[id]) +
+                             " devices, so none of them can be addressed reliably.";
+            repair.action  = "Write a free id to register 10 on this device, "
+                             "leaving the others on " + std::to_string(id) + ".";
+            repair.consequence =
+                "This device moves to a new address. Anything that refers to it "
+                "by the old id - other panels, schedules, third-party "
+                "integrations - will need updating to match.";
+
+            // Changing an id back is just another write, so this one is
+            // undoable in a way that assigning a serial is not.
+            repair.reversible = true;
+
+            d.repairs.push_back(repair);
+            flagged++;
+        }
+
+        return flagged;
     }
 
     const char* to_string(Provenance p)

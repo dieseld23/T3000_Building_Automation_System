@@ -185,6 +185,16 @@ namespace t5000::device
         int            mini_type = 0;                         // raw; resolve via resolve_panel
         int            firmware  = 0;                         // for the PTP >= 525 gate
 
+        // The Modbus id the device SAID it has, with 0 meaning it did not say.
+        //
+        // Deliberately not Connection::modbus_slave_id, which is how WE would
+        // address it and defaults to 1. Reading duplicates off that field
+        // would treat every device that reported no id as being on id 1, and
+        // accuse them all of conflicting with whatever is genuinely there.
+        // An observation and a configuration are different things and only
+        // one of them can be absent.
+        int modbus_id_reported = 0;
+
         // --- Reachability. -----------------------------------------------
         Connection  connection;
         std::string address_note;   // human-readable: "192.168.1.50" or "COM3 id 12"
@@ -290,6 +300,28 @@ namespace t5000::device
         // (device handle, repair index) pairs. This is what a "N problems
         // found" banner counts.
         std::vector<std::pair<Handle, int>> pending_repairs() const;
+
+        // Recomputes the duplicate-Modbus-id repairs across the WHOLE list,
+        // and returns how many devices now carry one.
+        //
+        // A duplicate is a property of the set of known devices, not of one
+        // scan, and detecting it inside the scan missed two cases:
+        //
+        //   - Two devices on id 5 that answer on DIFFERENT scans are never
+        //     seen together, so neither scan finds a conflict and the list
+        //     quietly holds two devices on one address.
+        //
+        //   - Both answer, both get the repair, and then only one answers the
+        //     rescan. That one is a complete observation with no problems, so
+        //     its repair list is replaced with nothing - while the other
+        //     device goes on saying "id 5 is claimed by 2 devices" about a
+        //     device the page is now showing as clean. The screen contradicts
+        //     itself, which is the failure this tool exists to stop.
+        //
+        // Existing duplicate repairs are removed before the new ones are
+        // worked out, so a conflict that has been resolved stops being
+        // reported instead of accumulating.
+        int refresh_duplicate_modbus_ids();
 
     private:
         int index_of(Handle handle) const;

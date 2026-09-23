@@ -270,6 +270,13 @@ int main(int argc, char** argv)
         for (const auto& d : result.devices)
             g_registry.add_or_merge(d);
 
+        // Over the WHOLE list, not just this scan. Two devices sharing an id
+        // can answer on different scans and never appear in one result, and a
+        // rescan that only one of a pair answers would otherwise leave the
+        // other accusing a device the page now shows as clean.
+        g_summary.stats.duplicate_modbus_ids =
+            g_registry.refresh_duplicate_modbus_ids();
+
         return http::Response::json(app::build_devices_json(g_registry, g_summary));
     });
 
@@ -331,15 +338,12 @@ int main(int argc, char** argv)
         // because it looks like an answer.
         if (const device::DeviceRecord* selected = g_registry.selected())
         {
-            std::string body =
-                "{\"unavailable\":true,\"device\":{\"serialNumber\":" +
-                std::to_string((long long)selected->serial_number) +
-                ",\"address\":\"" + app::json_escape(selected->address_note) + "\"}," +
-                "\"message\":\"T5000 has found this device but cannot read its points "
-                "yet. The read path is not verified against hardware, and showing "
-                "sample data here would be indistinguishable from a real reading.\","
-                "\"points\":[]}";
-            return http::Response::json(body);
+            return http::Response::json(app::build_unavailable_inputs_json(
+                (int)selected->serial_number,
+                selected->address_note,
+                "T5000 has found this device but cannot read its points yet. "
+                "The read path is not verified against hardware, and showing "
+                "sample data here would be indistinguishable from a real reading."));
         }
 
         const app::DeviceInfo device = fixture_device();

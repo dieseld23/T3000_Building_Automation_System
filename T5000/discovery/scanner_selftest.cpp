@@ -155,48 +155,42 @@ namespace
               "and warns that the number is random");
     }
 
-    void test_duplicate_modbus_ids_flag_every_participant()
+    void test_a_reported_id_of_zero_stays_zero()
     {
-        section("a duplicate Modbus id is flagged on each device involved");
+        section("a device that reports no Modbus id is not recorded as id 1");
 
-        FakeTransport t;
-        t.queued.push_back(a_response(1001, 88, 12, 50));
-        t.queued.push_back(a_response(1002, 88, 12, 51));   // same id
-        t.queued.push_back(a_response(1003, 88, 13, 52));   // distinct
-        const auto result = scan(t, quick());
+        // Connection::modbus_slave_id defaults to 1, and to_record only
+        // assigns it when the wire value is non-zero. Reading duplicates off
+        // that field therefore saw every device that reported NO id as
+        // sitting on id 1 - and accused them all of conflicting with whatever
+        // is genuinely there.
+        //
+        // The earlier version of the duplicate tests set the field by hand and
+        // so never went through this path. This one does.
+        ScanResponse silent;
+        silent.serial_number = 900001;
+        silent.modbus_id     = 0;
 
-        check_eq((int)result.devices.size(), 3, "three devices");
-        check_eq(result.stats.duplicate_modbus_ids, 2, "two are in conflict");
+        const DeviceRecord d = to_record(silent);
+        check_eq(d.modbus_id_reported, 0, "reported id stays 0, meaning 'did not say'");
 
-        // A duplicate is a property of a pair, so BOTH must be flagged - a
-        // technician told only about one would renumber it and still have a
-        // clash if a third device shares the id.
-        check_eq((int)result.devices[0].repairs.size(), 1, "first is flagged");
-        check_eq((int)result.devices[1].repairs.size(), 1, "second is flagged");
-        check_eq((int)result.devices[2].repairs.size(), 0, "the distinct one is not");
+        ScanResponse speaks;
+        speaks.serial_number = 900002;
+        speaks.modbus_id     = 7;
 
-        check(result.devices[0].repairs[0].kind == RepairKind::ResolveDuplicateModbusId,
-              "the right kind");
-        check(result.devices[0].repairs[0].reversible,
-              "renumbering is reversible, unlike assigning a serial");
-        check(!result.devices[0].repairs[0].approved, "and still not approved");
-    }
+        const DeviceRecord e = to_record(speaks);
+        check_eq(e.modbus_id_reported, 7, "and a real one is carried through");
 
-    void test_modbus_id_zero_is_not_a_conflict()
-    {
-        section("several devices reporting id 0 are not in conflict");
+        // Three silent devices must not be a three-way conflict on id 1.
+        Registry reg;
+        reg.add_or_merge(to_record(silent));
+        ScanResponse silent2 = silent; silent2.serial_number = 900003;
+        ScanResponse silent3 = silent; silent3.serial_number = 900004;
+        reg.add_or_merge(to_record(silent2));
+        reg.add_or_merge(to_record(silent3));
 
-        // 0 is not an address, so it is not a claim on one. Treating it as a
-        // duplicate would flag every unconfigured device on the subnet
-        // against every other.
-        FakeTransport t;
-        t.queued.push_back(a_response(2001, 88, 0, 50));
-        t.queued.push_back(a_response(2002, 88, 0, 51));
-        t.queued.push_back(a_response(2003, 88, 0, 52));
-        const auto result = scan(t, quick());
-
-        check_eq((int)result.devices.size(), 3, "three devices");
-        check_eq(result.stats.duplicate_modbus_ids, 0, "none flagged as duplicates");
+        check_eq(reg.refresh_duplicate_modbus_ids(), 0,
+                 "three devices that reported nothing are not in conflict");
     }
 
     void test_bootloader_devices_are_listed_and_counted()
@@ -272,20 +266,6 @@ namespace
         check_eq((int)result.devices.size(), 3, "with the cap respected");
     }
 
-    void test_mismatched_inputs_do_nothing_rather_than_mis_pair()
-    {
-        section("duplicate detection refuses mismatched inputs");
-
-        // devices and responses are parallel arrays; if they ever diverge,
-        // flagging by index would attach a repair to the wrong device - and a
-        // repair names a register to write.
-        std::vector<DeviceRecord> devices(3);
-        std::vector<ScanResponse> responses(2);
-
-        check_eq(flag_duplicate_modbus_ids(devices, responses), 0, "nothing flagged");
-        for (const auto& d : devices)
-            check(d.repairs.empty(), "and no device was touched");
-    }
 }
 
 int run_scanner_tests()
@@ -294,12 +274,10 @@ int run_scanner_tests()
     test_a_failed_broadcast_stops_the_scan();
     test_responses_become_devices();
     test_a_missing_serial_proposes_a_repair_and_nothing_else();
-    test_duplicate_modbus_ids_flag_every_participant();
-    test_modbus_id_zero_is_not_a_conflict();
+    test_a_reported_id_of_zero_stays_zero();
     test_bootloader_devices_are_listed_and_counted();
     test_foreign_traffic_and_malformed_responses_are_told_apart();
     test_a_dying_socket_keeps_what_was_found();
     test_the_device_cap_is_reported_not_silent();
-    test_mismatched_inputs_do_nothing_rather_than_mis_pair();
     return 0;
 }

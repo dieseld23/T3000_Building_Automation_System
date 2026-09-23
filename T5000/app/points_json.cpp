@@ -96,6 +96,38 @@ namespace t5000::app
         }
     }
 
+    std::string build_unavailable_inputs_json(int serial_number,
+                                              const std::string& address,
+                                              const std::string& reason)
+    {
+        std::string out = "{\"unavailable\":true,\"device\":{";
+        append_int(out, "serialNumber", serial_number); out += ',';
+
+        // Present and false, never absent. Absent is what made the page claim
+        // the points had been read from hardware.
+        out += "\"isFixture\":false,";
+        append_field(out, "address", address);
+        out += "},";
+
+        // The page always renders a read-path band. "none" is a real answer
+        // and a more useful one than the "unknown" it shows when the field is
+        // missing entirely.
+        out += "\"readPath\":{";
+        append_field(out, "path", "none"); out += ',';
+        append_field(out, "summary", "no verified read path to this device"); out += ',';
+        append_field(out, "detail", reason);
+        out += "},";
+
+        append_int(out, "count", 0);
+
+        // "inputs", not "points". The page reads data.inputs; a payload using
+        // any other name produces an empty grid with no explanation.
+        out += ",\"inputs\":[],";
+        append_field(out, "message", reason);
+        out += '}';
+        return out;
+    }
+
     std::string build_inputs_json(const DeviceInfo& device,
                                   const device::Decision& decision,
                                   const std::vector<wire::InputPoint>& points)
