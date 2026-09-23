@@ -115,6 +115,7 @@ namespace
 
         std::vector<Sent>    sent;
         std::deque<Incoming> inbox;
+        uint16_t             port = 0;   // what local_port() reports
 
         // Called after each send with its index. Push onto `inbox` to reply.
         std::function<void(const Sent&, size_t, FakeTransport&)> respond;
@@ -149,6 +150,8 @@ namespace
         {
             inbox.push_back({ device_at(ip), bytes, 0 });
         }
+
+        uint16_t local_port() const override { return port; }
     };
 
     ReadSettings instant()
@@ -277,6 +280,47 @@ namespace
               "and says nothing answered, rather than just 'timeout'");
         check(r.error.find("192.168.1.50:47808") != std::string::npos,
               "naming the address that was tried");
+        check(r.error.find("went out from UDP") == std::string::npos,
+              "and, not knowing the local port, says nothing about it");
+
+        FakeTransport on_47808;
+        on_47808.port = 47808;
+        invoke = 1;
+        const InputsRead usual = read_inputs(on_47808, device_at(), instant(), invoke);
+        check(usual.error.find("went out from UDP") == std::string::npos,
+              "sent from 47808, the port is not a suspect");
+    }
+
+    void test_silence_from_a_fallback_port()
+    {
+        section("silence, when 47808 was taken and the read went out from 47809");
+
+        // T3000 on 47808 and a device that answers the well-known port rather
+        // than the sender's would look exactly like this: nothing arrives.
+        // The page should not only blame the device.
+        FakeTransport t;
+        t.port = 47809;
+        uint8_t invoke = 1;
+        const InputsRead r = read_inputs(t, device_at(), instant(), invoke);
+
+        check(!r.ok, "the read fails");
+        check(r.error.find("Nothing answered at all") != std::string::npos,
+              "as silence");
+        check(r.error.find("went out from UDP 47809") != std::string::npos,
+              "and says which port it went out from");
+        check(r.error.find("close it and read again") != std::string::npos,
+              "and what to do about it");
+
+        FakeTransport partway;
+        partway.port    = 47809;
+        partway.respond = [](const FakeTransport::Sent& s, size_t index, FakeTransport& f) {
+            if (index < 2)
+                f.reply(answer(s.request, s.invoke_id));
+        };
+        invoke = 1;
+        const InputsRead p = read_inputs(partway, device_at(), instant(), invoke);
+        check(p.error.find("went out from UDP") == std::string::npos,
+              "but not once the device has answered this port - it evidently replies to the sender");
     }
 
     void test_silence_partway()
@@ -550,6 +594,8 @@ namespace
             {
                 check(t.local().port != 47808,
                       "and does not share the taken port, where its replies would go elsewhere");
+                check(t.local_port() == t.local().port,
+                      "and reports the port it moved to, so a silent read can say so");
             }
         }
 
@@ -564,6 +610,7 @@ int run_point_read_tests()
     test_other_traffic_is_ignored();
     test_a_retry_reuses_its_invoke_id();
     test_silence();
+    test_silence_from_a_fallback_port();
     test_silence_partway();
     test_the_device_says_no();
     test_an_answer_that_does_not_fit();

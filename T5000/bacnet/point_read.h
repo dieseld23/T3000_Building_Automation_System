@@ -58,6 +58,9 @@ namespace t5000::bacnet
         static constexpr int kPortUnreachable = -2;
         virtual int receive(uint8_t* buffer, int capacity, int timeout_ms,
                             Endpoint& from, std::string& error) = 0;
+
+        // The local UDP port requests go out from, or 0 when not known.
+        virtual uint16_t local_port() const { return 0; }
     };
 
     struct ReadSettings
@@ -145,6 +148,7 @@ namespace t5000::bacnet
                        std::string& error) override;
         int  receive(uint8_t* buffer, int capacity, int timeout_ms,
                      Endpoint& from, std::string& error) override;
+        uint16_t local_port() const override { return m_local.port; }
 
     private:
         bool bind_to(uint32_t local_ip, uint16_t local_port, int& wsa_error);

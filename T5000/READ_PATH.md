@@ -151,10 +151,23 @@ the same port coexists with that one, with a datagram to the specific address
 delivered to the specific bind. Tested: with one socket on 0.0.0.0:47808 and
 one on 127.0.0.1:47808, a datagram to 127.0.0.1:47808 reached only the
 second. So a T5000 on 0.0.0.0 would have sent its requests and never seen the
-replies - T3000 would have received them, and would have had to make sense of
-private-transfer ACKs for invoke ids it never used. Binding the specific
-address makes T5000 fail visibly ("ports 47808-47811 are all in use on ...")
-or move to 47809, instead.
+replies - T3000 would have received them, into a handler that decodes every
+private-transfer ACK without looking at its sender
+(`global_function.cpp:7198-7217`). Binding the specific address makes the
+conflict a failed bind instead: T5000 moves to 47809, or says that
+47808-47811 are all in use.
+
+That fixes where the replies go only if the device replies to the port the
+request came from. One that replies to 47808 regardless would still be
+answering T3000, and to T5000 that is silence. Which kind these controllers
+are has not been checked against hardware, so when a read gets no answer at
+all from a port other than 47808, the error says which port it went out from
+and that closing the other program may be the fix.
+
+(T3000's comment above its bind loop, `global_function.cpp:8108-8109`, says it
+no longer binds 47808 and starts at 47809. The code does not do that: the loop
+is `BACNETIP_PORT + 0..3` and `BACNETIP_PORT` is 47808,
+`global_define.h:242`.)
 
 **Stricter than T3000 in four places**, each a case T3000 gets wrong:
 

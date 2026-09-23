@@ -310,6 +310,22 @@ namespace t5000::bacnet
                                      "or gone offline since the scan, a firewall may be "
                                      "blocking UDP 47808, or it may not support private-data "
                                      "reads over BACnet/IP.";
+
+                    // Or it did answer, to the wrong program. A device that
+                    // replies to 47808 rather than to the port a request came
+                    // from sends its answer to whoever holds 47808 - and when
+                    // this socket is not on 47808, something else is. Whether
+                    // these controllers do that is not known yet.
+                    const uint16_t local = transport.local_port();
+                    if (local != 0 && local != kBacnetPort)
+                    {
+                        outcome.error += " This read went out from UDP " + std::to_string(local) +
+                                         ", because 47808 was taken on this machine - T3000 or "
+                                         "another BACnet tool is probably running. A device that "
+                                         "replies to 47808 rather than to the port a request came "
+                                         "from would be answering that program instead; close it "
+                                         "and read again.";
+                    }
                 }
                 else
                 {
@@ -422,8 +438,10 @@ namespace t5000::bacnet
         // same port succeed alongside it, and then delivers a datagram
         // addressed to that specific address to T3000's socket, not ours -
         // tested, not assumed. So with T3000 running, a wildcard socket
-        // would see nothing while T3000's reply handler, which checks no
-        // invoke id, decoded our answers into its own Inputs table. Binding
+        // would see nothing, and our answers would go to T3000's handler,
+        // which decodes every private-transfer ACK without looking at who
+        // sent it (local_handler_conf_private_trans_ack,
+        // global_function.cpp:7198-7217). Binding
         // the same specific address instead makes the conflict a failed bind,
         // which moves us on to 47809, as it moves T3000.
         //
