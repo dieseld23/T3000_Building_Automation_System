@@ -33,7 +33,10 @@ namespace t5000::bacnet
     //
     //   X(enumerator, wire value, the CM5/ud_str.h constant it must equal)
 #define T5000_READ_COMMANDS(X)                                                \
-    X(Inputs, 2, READINPUT_T3000) /* ud_str.h:42 */
+    X(Inputs, 2, READINPUT_T3000)                    /* ud_str.h:42 */        \
+    X(CustomUnits, 14, READUNIT_T3000)               /* ud_str.h:54 */        \
+    X(AnalogCustomTables, 34, READANALOG_CUS_TABLE_T3000) /* ud_str.h:73 */   \
+    X(Settings, 98, READ_SETTING_COMMAND)            /* ud_str.h:92 */
 
     enum class ReadCommand : uint8_t
     {

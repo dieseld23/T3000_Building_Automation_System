@@ -9,6 +9,7 @@
 #include <windows.h>
 
 int run_wire_tests();
+int run_panel_wire_tests();
 int run_read_path_tests();
 int run_bacnet_link_tests();
 int run_connection_tests();
@@ -65,6 +66,8 @@ int run_selftests(int argc, char** argv)
     run_json_read_tests();
     printf("\n");
     run_wire_tests();
+    printf("\n");
+    run_panel_wire_tests();
     printf("\n");
     run_read_path_tests();
     printf("\n");

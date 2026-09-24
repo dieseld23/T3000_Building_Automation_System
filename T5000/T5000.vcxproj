@@ -147,6 +147,9 @@
     <ClCompile Include="selftest_main.cpp" />
     <ClCompile Include="wire\decode.cpp" />
     <ClCompile Include="wire\decode_selftest.cpp" />
+    <ClCompile Include="wire\panel.cpp" />
+    <ClCompile Include="wire\panel_guard.cpp" />
+    <ClCompile Include="wire\panel_selftest.cpp" />
     <ClCompile Include="wire\wire_guard.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -174,6 +177,7 @@
     <ClInclude Include="web\inputs_page.h" />
     <ClInclude Include="wire\cm5_header.h" />
     <ClInclude Include="wire\decode.h" />
+    <ClInclude Include="wire\panel.h" />
     <ClInclude Include="wire\points.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
