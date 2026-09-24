@@ -88,8 +88,13 @@
         main() would never execute in CI otherwise, and a decoder that builds but
         decodes wrongly is exactly the failure this project exists to prevent.
         A non-zero exit fails the build.
+
+        The source-root argument is the repository root, where the tests that
+        check a copy against the T3000 source find that source. "$(ProjectDir).." and
+        not $(SolutionDir): a path ending in a backslash before the closing
+        quote escapes the quote on a Windows command line.
       -->
-      <Command>"$(TargetPath)" --selftest</Command>
+      <Command>"$(TargetPath)" --selftest --source-root "$(ProjectDir).."</Command>
       <Message>Running T5000 self-tests</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -119,6 +124,9 @@
     </ClCompile>
     <ClCompile Include="bacnet\private_transfer_selftest.cpp" />
     <ClCompile Include="device\bacnet_link.cpp" />
+    <ClCompile Include="display\input_text.cpp" />
+    <ClCompile Include="display\input_text_selftest.cpp" />
+    <ClCompile Include="display\tables_guard_selftest.cpp" />
     <ClCompile Include="device\connection.cpp" />
     <ClCompile Include="device\connection_selftest.cpp" />
     <ClCompile Include="device\product.cpp" />
@@ -151,6 +159,8 @@
     <ClInclude Include="bacnet\point_read.h" />
     <ClInclude Include="bacnet\private_transfer.h" />
     <ClInclude Include="device\bacnet_link.h" />
+    <ClInclude Include="display\input_text.h" />
+    <ClInclude Include="display\tables.h" />
     <ClInclude Include="device\connection.h" />
     <ClInclude Include="device\registry.h" />
     <ClInclude Include="device\read_path.h" />

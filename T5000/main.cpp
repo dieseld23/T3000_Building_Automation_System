@@ -30,7 +30,7 @@
 #include "web/devices_page.h"
 #include "web/inputs_page.h"
 
-int run_selftests();
+int run_selftests(int argc, char** argv);
 
 namespace
 {
@@ -140,7 +140,7 @@ namespace
 int main(int argc, char** argv)
 {
     if (argc > 1 && strcmp(argv[1], "--selftest") == 0)
-        return run_selftests();
+        return run_selftests(argc, argv);
 
     // For driving the tool from a script. Opening a browser on every start is
     // right for a technician and wrong for a test run: the tab it opens is a

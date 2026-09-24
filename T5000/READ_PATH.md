@@ -178,11 +178,21 @@ is `BACNETIP_PORT + 0..3` and `BACNETIP_PORT` is 47808,
 | A chunk that times out is logged and skipped (`BacnetView.cpp:4447`), leaving a grid with holes | All or nothing: a partial read shows no points and names the range that failed |
 | Up to 10 retries x 3 attempts x 3 s per chunk | 2 attempts x 3 s, then the page is told |
 
-**Not yet:** values are shown as the raw integer the device sends - T3000
-scales them by range and adds units (`GetInputLabelEx`, the units tables),
-which is Stage 1 work still to port. An ESP32 T3 on newer firmware can have
-more than 64 inputs; T3000 reads 64 first too, and only widens the count after
-reading the settings block, which T5000 does not read yet. Path 2 (Modbus
+**How values are shown.** As T3000's Inputs grid shows them: `display/input_text.cpp`
+ports the loop at `BacnetInput.cpp:951-1237` column by column. The unit and
+range names are copied from `global_define.h` into `display/tables.h`, and a
+self-test re-reads that header on every build and fails if an entry or a count
+differs. Where T3000 would show something T5000 cannot, the row carries a note
+instead of a guess. That covers a custom range, whose names are stored on the
+device and read with commands T5000 does not send yet (`READUNIT_T3000`,
+`READANALOG_CUS_TABLE_T3000`), and a cell T3000 leaves holding the previous
+row's text.
+
+**Not yet:** the panel's settings (`READ_SETTING_COMMAND`), which T3000 uses
+for how many rows a model shows, a few per-model labels, and the Panel and
+Type columns. An ESP32 T3 on newer firmware can have more than 64 inputs;
+T3000 reads 64 first too, and only widens the count after reading the settings
+block. Path 2 (Modbus
 registers) and the PTP tunnel are not implemented, and nor is reading a
 sub-device through its controller.
 

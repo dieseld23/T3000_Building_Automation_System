@@ -11,10 +11,16 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <string>
+
 namespace t5000::testing
 {
     inline int g_failures = 0;
     inline int g_checks   = 0;
+
+    // The repository root, for tests that check a copy against the T3000
+    // source it was taken from. Set by run_selftests; see selftest_main.cpp.
+    inline std::string g_source_root;
 
     inline void check(bool condition, const char* what)
     {

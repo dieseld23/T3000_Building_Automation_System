@@ -142,10 +142,10 @@ namespace t5000::web
   <table id="grid" hidden>
     <thead>
       <tr>
-        <th>Input</th><th>Full Label</th><th class="num">Value</th>
-        <th>Auto/Man</th><th>Status</th><th class="opt">Signal</th>
-        <th class="num opt">Range</th><th class="num opt">Calibration</th>
-        <th class="num opt">Filter</th><th class="num opt">Panel</th><th class="opt">Label</th>
+        <th>Input</th><th>Full Label</th><th class="num">Value</th><th>Units</th>
+        <th>Auto/Man</th><th>Status</th><th class="opt">Range</th>
+        <th class="num opt">Calibration</th><th class="num opt">Filter</th>
+        <th class="opt">Signal Type</th><th class="opt">Label</th>
       </tr>
     </thead>
     <tbody id="rows"></tbody>
@@ -245,7 +245,8 @@ namespace t5000::web
     p.hidden = false;
     p.className = "banner " + (degraded ? "warn" : "ok");
     p.innerHTML = "<b>Read path: " + esc(rp.summary || "unknown") + ".</b> "
-                + esc(rp.detail || "");
+                + esc(rp.detail || "")
+                + (data.panel && data.panel.note ? " " + esc(data.panel.note) : "");
   }
 
   function render() {
@@ -267,19 +268,20 @@ namespace t5000::web
       <tr>
         <td class="num">${esc(r.input)}</td>
         <td>${esc(r.fullLabel) || '<span class="dim">(unnamed)</span>'}</td>
-        <td class="num">${esc(r.value)}</td>
+        <td class="num">${esc(r.value)}${r.note
+              ? ' <span class="pill pill-man" title="' + esc(r.note) + '">?</span>' : ''}</td>
+        <td class="dim">${esc(r.units)}</td>
         <td>${r.autoManual === "Manual"
               ? '<span class="pill pill-man">Manual</span>'
               : '<span class="dim">Auto</span>'}</td>
-        <td>${r.status === "OK"
-              ? '<span class="pill pill-ok">OK</span>'
-              : '<span class="pill pill-warn">Decom</span>'}</td>
-        <td class="dim opt">${esc(r.signal)}</td>
-        <td class="num dim opt">${esc(r.range)}</td>
-        <td class="num opt">${esc(r.calibration)}</td>
-        <td class="num dim opt">${esc(r.filter)}</td>
+        <td>${r.alarm
+              ? '<span class="pill pill-warn">' + esc(r.status) + '</span>'
+              : '<span class="dim">' + esc(r.status) + '</span>'}</td>
+        <td class="dim opt">${esc(r.range)}</td>
 )PAGE"
-        R"PAGE(        <td class="num dim opt">${esc(r.panel)}</td>
+        R"PAGE(        <td class="num opt">${r.calibration ? esc(r.sign + r.calibration) : ''}</td>
+        <td class="num dim opt">${esc(r.filter)}</td>
+        <td class="dim opt">${esc(r.signalType)}</td>
         <td class="dim opt">${esc(r.label)}</td>
       </tr>`).join("");
   }

@@ -6,6 +6,8 @@
 
 #include "testing/check.h"
 
+#include <windows.h>
+
 int run_wire_tests();
 int run_read_path_tests();
 int run_bacnet_link_tests();
@@ -20,9 +22,44 @@ int run_private_transfer_tests();
 int run_private_transfer_oracle_tests();
 int run_point_read_tests();
 int run_inputs_plan_tests();
+int run_tables_guard_tests();
+int run_input_text_tests();
 
-int run_selftests()
+namespace
 {
+    // Where the T3000 source is, for the tests that check a copy against it.
+    //
+    // The post-build step passes it (--source-root "$(ProjectDir).."), which
+    // is right wherever the tree is checked out. Run by hand, the exe sits at
+    // <root>\T3000 Output\<configuration>\T5000.exe, so two levels up is the
+    // fallback - and a test that still cannot find its file says which path
+    // it tried.
+    std::string find_source_root(int argc, char** argv)
+    {
+        for (int i = 1; i + 1 < argc; i++)
+        {
+            if (strcmp(argv[i], "--source-root") == 0)
+                return argv[i + 1];
+        }
+
+        char exe[MAX_PATH] = {};
+        const DWORD n = GetModuleFileNameA(nullptr, exe, MAX_PATH);
+        std::string path(exe, n);
+        for (int up = 0; up < 3; up++)   // the file name, then two directories
+        {
+            const size_t slash = path.find_last_of("\\/");
+            if (slash == std::string::npos)
+                return std::string();
+            path.resize(slash);
+        }
+        return path;
+    }
+}
+
+int run_selftests(int argc, char** argv)
+{
+    t5000::testing::g_source_root = find_source_root(argc, argv);
+
     printf("T5000 self-test\n\n");
 
     run_json_read_tests();
@@ -52,6 +89,10 @@ int run_selftests()
     run_point_read_tests();
     printf("\n");
     run_inputs_plan_tests();
+    printf("\n");
+    run_tables_guard_tests();
+    printf("\n");
+    run_input_text_tests();
 
     const int failures = t5000::testing::g_failures;
     const int checks   = t5000::testing::g_checks;

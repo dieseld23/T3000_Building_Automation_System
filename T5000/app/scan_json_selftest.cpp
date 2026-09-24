@@ -302,6 +302,38 @@ namespace
         check(has(l, "192.168.1.52:47808"), "with the address it was read from");
     }
 
+    void test_inputs_carry_what_t3000_shows()
+    {
+        section("each input carries T3000's text for its columns, and the raw fields");
+
+        t5000::wire::InputPoint temp{};
+        temp.digital_analog = 1;
+        temp.range          = 3;
+        temp.value          = 21500;
+        temp.decom          = 0x11;   // open circuit, 4-20 ma
+
+        t5000::wire::InputPoint custom{};
+        custom.digital_analog = 0;
+        custom.range          = 23;
+        custom.control        = 1;
+
+        DeviceInfo device;
+        device.serial_number = 700010;
+        t5000::device::Decision decision;
+        decision.summary = "private data";
+
+        const std::string j = build_inputs_json(device, decision, { temp, custom });
+        check(has(j, "\"value\":\"21.50\""), "the value as T3000 formats it");
+        check(has(j, "\"units\":\"\xC2\xB0" "C\""), "units, in UTF-8");
+        check(has(j, "\"range\":\"10K Type2\""), "the range's name");
+        check(has(j, "\"status\":\"Open\""), "the status text");
+        check(has(j, "\"alarm\":true"), "flagged as an alarm");
+        check(has(j, "\"signalType\":\"4-20 ma\""), "the signal type");
+        check(has(j, "custom digital range 1"), "a note where T5000 cannot show what T3000 would");
+        check(has(j, "\"raw\":{\"value\":21500,\"range\":3"), "and the raw fields it came from");
+        check(has(j, "\"panel\":{\"known\":false"), "and the panel's settings are said to be unknown");
+    }
+
     void test_interfaces_report_their_failure()
     {
         section("the interface list distinguishes empty from broken");
@@ -340,5 +372,6 @@ int run_scan_json_tests()
     test_only_a_wire_read_claims_one();
     test_the_parent_reaches_the_page();
     test_interfaces_report_their_failure();
+    test_inputs_carry_what_t3000_shows();
     return 0;
 }
