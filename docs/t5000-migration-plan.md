@@ -14,9 +14,11 @@ those surveys, made by opening the files.
 **Nothing in T5000 has yet touched a live controller.** Every claim here is
 source-against-source, except the struct sizes, which the compiler asserts.
 
-**Where it stands, 2026-09-24:** Stage 0 is done, and Stage 1 is done for
-Inputs (the rest of Inputs is PR #17). The stage table below has each stage's
-state, and [Next](#next) is the list of what comes after.
+**Where it stands, 2026-09-24:** Stage 0 is done. In Stage 1, Inputs are read
+and shown as T3000 shows them. Reading each panel's settings and custom range
+names first is PR #17, still open, and the Panel and Type columns are still to
+do. Outputs and Variables are not started. The stage table below has each
+stage's state, and [Next](#next) is the list of what comes after.
 [`T5000/README.md`](../T5000/README.md) describes the tool as it is today.
 
 ---
