@@ -242,8 +242,10 @@ hardware, and it converts the whole list from hearsay to fact.*
 *Done.* `device/product.cpp` holds the result per `mini_type`, from whole-file
 greps, and a second independent pass agreed on every count. It also explains
 the survey's biggest miss: OEM, OEM-12I and TSTAT11 are absent from the init
-chains because they are row-mask variants of a TSTAT10 (`BacnetInput.cpp:1662-1683`),
-not because they are unfinished.
+chains because they are variants of a TSTAT10, not because they are
+unfinished. (An earlier version of this note called them row masks. The
+code at `BacnetInput.cpp:1662-1683` is in the grid's click handler and only
+stops some rows' range from being edited; every row is still shown.)
 
 **Still unclosed, and above all of these:** the firmware gate in
 `read_path.cpp` is a correct reading of a guard clause and nothing more until

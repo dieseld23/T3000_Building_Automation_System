@@ -265,13 +265,17 @@ namespace t5000::device
         // point counts.
         CountsFromInitChain,
 
-        // Implemented as a ROW MASK over PM_TSTAT10's point list rather than
-        // as a device with its own counts. BacnetInput.cpp:1662-1683 sits
-        // inside `if (g_selected_product_id == PM_TSTAT10)` and hides a row
-        // range per mini_type. These are variants of one product, not
-        // products - which is why they have no count constants and are absent
-        // from the init chains.
-        RowMaskOnTstat10,
+        // Variants of a PM_TSTAT10 rather than devices with counts of their
+        // own - which is why they have no count constants and are absent from
+        // the init chains.
+        //
+        // What distinguishes them is a range of inputs whose RANGE cannot be
+        // changed. BacnetInput.cpp:1662-1683 is inside OnNMClickList1, the
+        // grid's click handler, under `lCol == INPUT_RANGE`: a click on the
+        // Range cell of one of those rows is ignored. The rows are still
+        // shown. An earlier version of this comment read the block as hiding
+        // them, which it does not.
+        VariantOfTstat10,
 
         // Counts in one direction only. The other direction falls through to
         // a default, which is a real limitation of the shipping app.
@@ -288,10 +292,11 @@ namespace t5000::device
     {
         MiniTypeSupport support;
 
-        // For RowMaskOnTstat10 only: the inclusive row range hidden from the
-        // TSTAT10's list. Zero-zero when not applicable.
-        int hidden_row_first;
-        int hidden_row_last;
+        // For VariantOfTstat10 only: the inclusive, 0-based rows whose range
+        // is fixed (lRow in T3000; 13-17 is IN14-IN18). Shown, but not
+        // editable. Zero-zero when not applicable.
+        int fixed_range_first;
+        int fixed_range_last;
 
         const char* note;   // may be null
     };

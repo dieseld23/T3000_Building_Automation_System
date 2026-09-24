@@ -115,17 +115,17 @@ namespace t5000::app
         switch (info.support)
         {
         case MiniTypeSupport::CountsFromInitChain: break;
-        case MiniTypeSupport::RowMaskOnTstat10:    support = "a TSTAT10 with rows hidden"; break;
+        case MiniTypeSupport::VariantOfTstat10:    support = "a TSTAT10 variant with some inputs on a fixed range"; break;
         case MiniTypeSupport::InputsOnly:          support = "inputs only"; break;
         case MiniTypeSupport::OutputsOnly:         support = "outputs only"; break;
         case MiniTypeSupport::NotImplemented:      support = "never implemented in T3000"; break;
         }
         out += ",\"support\":\"" + json_escape(support) + "\"";
 
-        if (info.support == MiniTypeSupport::RowMaskOnTstat10)
+        if (info.support == MiniTypeSupport::VariantOfTstat10)
         {
-            out += ",\"hiddenRows\":{\"first\":" + std::to_string(info.hidden_row_first) +
-                   ",\"last\":" + std::to_string(info.hidden_row_last) + "}";
+            out += ",\"fixedRangeRows\":{\"first\":" + std::to_string(info.fixed_range_first) +
+                   ",\"last\":" + std::to_string(info.fixed_range_last) + "}";
         }
 
         out += ",\"note\":";
