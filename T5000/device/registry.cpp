@@ -19,6 +19,11 @@ namespace t5000::device
         return false;
     }
 
+    bool DeviceRecord::address_mismatch() const
+    {
+        return !answered_from.empty() && !reported_ip.empty() && answered_from != reported_ip;
+    }
+
     int Registry::add_or_merge(const DeviceRecord& device)
     {
         // A device with no serial cannot be identified, so it cannot be
@@ -43,6 +48,16 @@ namespace t5000::device
                 if (device.mini_type != 0)                     existing.mini_type = device.mini_type;
                 if (device.firmware != 0)                      existing.firmware = device.firmware;
                 if (!device.address_note.empty())              existing.address_note = device.address_note;
+
+                // As a pair, from complete observations only. Field by field,
+                // a later response whose sender was not known would keep the
+                // old answered_from beside a new reported_ip, and the two
+                // could disagree about a device that never gave both.
+                if (device.observation_complete)
+                {
+                    existing.answered_from = device.answered_from;
+                    existing.reported_ip   = device.reported_ip;
+                }
 
                 // A device that has been renumbered must carry its new id, or
                 // the registry keeps comparing the old one and reports a

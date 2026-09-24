@@ -1,6 +1,7 @@
 // Tests for deciding whether a device's Inputs are read at all.
 
 #include "inputs_plan.h"
+#include "../discovery/scanner.h"
 #include "../testing/check.h"
 
 namespace
@@ -80,6 +81,29 @@ namespace
         check(!plan_inputs_read(child).can_read, "whatever the product");
     }
 
+    void test_a_device_behind_a_controller_is_not_read_from_the_address_it_came_from()
+    {
+        section("a sub-device stays refused now that the address is the one it answered from");
+
+        // The controller answers for its sub-device, so the sub-device's
+        // response arrives FROM the controller. Using the sender address
+        // makes that explicit - the host is now certainly the controller's -
+        // and the refusal must not depend on which address was chosen.
+        t5000::discovery::ScanResponse r;
+        r.serial_number        = 800200;
+        r.product_id           = static_cast<uint8_t>(ProductClassId::Cm5);
+        r.parent_serial_number = 800100;
+        r.ip[0] = 192; r.ip[1] = 168; r.ip[2] = 1; r.ip[3] = 77;
+        r.bacnet_port          = 47808;
+
+        const DeviceRecord child = t5000::discovery::to_record(r, 0xC0A80132);   // from 192.168.1.50
+        check(child.connection.host == "192.168.1.50", "its host is the controller's address");
+
+        const InputsPlan p = plan_inputs_read(child);
+        check(!p.can_read, "and it is still not read");
+        check(p.reason.find("800100") != std::string::npos, "  naming the controller");
+    }
+
     void test_an_esp32_read_states_its_limit()
     {
         section("an ESP32 T3 read says it may not be the whole list");
@@ -96,6 +120,7 @@ int run_inputs_plan_tests()
     test_a_private_data_controller_is_read();
     test_everything_else_is_refused_with_a_reason();
     test_a_device_behind_a_controller_is_not_read();
+    test_a_device_behind_a_controller_is_not_read_from_the_address_it_came_from();
     test_an_esp32_read_states_its_limit();
     return 0;
 }

@@ -113,9 +113,19 @@ T5000's encoder to match it byte for byte. Mutating the encoder AND its
 hand-written expected bytes the same wrong way - a misreading written down
 twice - is caught by that test and by no other.
 
-**Where it goes.** Straight to the IP and BACnet port the device reported in
-its scan response. T3000 instead broadcasts Who-Is for the device instance and
-binds whatever address the I-Am comes from (`BacnetView.cpp:4307`). Skipping
+**Where it goes.** Straight to the address the device's scan response came
+from, on the BACnet port the response names. The address is taken from
+`recvfrom`, as T3000 takes it (`TStatScanner.cpp:2032`, `:2369`), and not from
+the IP the device writes inside the response (bytes 16-22). The two agree on
+an ordinary subnet. Behind NAT, or on a controller with more than one
+interface, they may not, and only the sender has shown it can be reached.
+The written one is kept, and the device list flags a device whose two
+addresses differ. The port has no such second source: the response comes from
+the device's discovery socket, not its BACnet one, so the BACnet port is still
+the device's own claim (bytes 60-61), NAT or not.
+
+The read goes to that address directly. T3000 instead broadcasts Who-Is for
+the device instance and binds whatever address the I-Am comes from (`BacnetView.cpp:4307`). Skipping
 it means no broadcast when a device is read. What it gives up is confirmation
 that the device at that address is still the one scanned; nothing in an Inputs
 reply identifies its sender, so a controller replaced since the scan would be
@@ -185,13 +195,6 @@ more than 64 inputs; T3000 reads 64 first too, and only widens the count after
 reading the settings block, which T5000 does not read yet. Path 2 (Modbus
 registers) and the PTP tunnel are not implemented, and nor is reading a
 sub-device through its controller.
-
-The device's address comes from the IP written inside its scan response
-(bytes 16-22). T3000 records the address the response actually came from, as
-`recvfrom` reports it (`TStatScanner.cpp:2032`, `:2369`). The two agree for a
-device on the same subnet with one address; behind NAT, or on a controller
-with more than one interface, they may not, and T3000's is the one known to
-answer. Switching to the sender address is a follow-up.
 
 **None of this has touched hardware.** The synthetic devices used to test it
 answer in the format this same reading of the source says they should, so if

@@ -43,8 +43,12 @@ namespace t5000::discovery
         //   > 0  bytes received
         //     0  timed out, nothing waiting
         //   < 0  the socket failed; `error` says why and the scan stops
+        //
+        // sender_ip is the IPv4 address the datagram came from, in host byte
+        // order, or 0 when not known. The address only: the source PORT is
+        // the device's discovery socket, not the one it answers BACnet on.
         virtual int receive(uint8_t* buffer, int capacity, int timeout_ms,
-                            std::string& error) = 0;
+                            uint32_t& sender_ip, std::string& error) = 0;
     };
 
     struct ScanStats
@@ -98,7 +102,17 @@ namespace t5000::discovery
 
     // Turns one parsed response into a device record, including any repairs
     // its contents imply. Exposed because it is the part worth testing.
-    device::DeviceRecord to_record(const ScanResponse& response);
+    //
+    // sender_ip (host byte order) is where the response came from, and it is
+    // the address the device is reached at - as in T3000, which records the
+    // recvfrom address (TStatScanner.cpp:2032, :2369) rather than the one the
+    // device writes into the response. The written one is kept as
+    // reported_ip, for display and to flag a disagreement. 0 means the sender
+    // is not known, and then the written address is all there is.
+    device::DeviceRecord to_record(const ScanResponse& response, uint32_t sender_ip = 0);
+
+    // "a.b.c.d" for an address in host byte order.
+    std::string ipv4_text(uint32_t host_order);
 
     // Duplicate Modbus ids used to be detected here, over one scan's results.
     // They are now found by device::Registry::refresh_duplicate_modbus_ids
@@ -115,7 +129,9 @@ namespace t5000::discovery
     class UdpTransport : public ScanTransport
     {
     public:
-        explicit UdpTransport(const std::string& local_ip);
+        // local_port is kLocalBindPort except in tests, which pass 0 to let
+        // the system choose rather than depend on 57629 being free.
+        explicit UdpTransport(const std::string& local_ip, uint16_t local_port = kLocalBindPort);
         ~UdpTransport() override;
 
         UdpTransport(const UdpTransport&) = delete;
@@ -124,12 +140,17 @@ namespace t5000::discovery
         bool open(std::string& error);
         void close();
 
+        // The port actually bound, once open.
+        uint16_t bound_port() const { return m_bound_port; }
+
         bool broadcast_query(std::string& error) override;
         int  receive(uint8_t* buffer, int capacity, int timeout_ms,
-                     std::string& error) override;
+                     uint32_t& sender_ip, std::string& error) override;
 
     private:
         std::string m_local_ip;
+        uint16_t    m_local_port;
+        uint16_t    m_bound_port = 0;
         uintptr_t   m_socket;    // SOCKET, kept opaque so this header stays clean
         bool        m_winsock_started = false;
     };

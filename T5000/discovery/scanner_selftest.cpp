@@ -8,6 +8,7 @@
 #include "scanner.h"
 #include "../testing/check.h"
 
+#include <winsock2.h>
 #include <string.h>
 
 namespace
@@ -26,6 +27,10 @@ namespace
         int  broadcasts = 0;
         int  receives = 0;
 
+        // Who every datagram appears to come from, host byte order. 0 is a
+        // socket that could not say.
+        uint32_t sender = 0;
+
         bool broadcast_query(std::string& error) override
         {
             broadcasts++;
@@ -33,8 +38,10 @@ namespace
             return true;
         }
 
-        int receive(uint8_t* buffer, int capacity, int, std::string& error) override
+        int receive(uint8_t* buffer, int capacity, int, uint32_t& sender_ip,
+                    std::string& error) override
         {
+            sender_ip = sender;
             if (fail_receive_after >= 0 && receives >= fail_receive_after)
             {
                 error = "socket died";
@@ -111,6 +118,7 @@ namespace
 
         FakeTransport t;
         t.queued.push_back(a_response(500123, 88, 7, 50));
+        t.sender = 0xC0A80132;   // 192.168.1.50: the ordinary case, where the two agree
         const auto result = scan(t, quick());
 
         check(result.ok(), "no error");
@@ -122,10 +130,131 @@ namespace
         check_eq(d.firmware, 538, "firmware, which the PTP gate needs");
         check(d.provenance == Provenance::BacnetBroadcast, "provenance");
         check(d.reached, "it answered, so it is there");
-        check(d.connection.host == "192.168.1.50", "reachable at the address it gave");
+        check(d.connection.host == "192.168.1.50", "reachable at the address it answered from");
         check_eq(d.connection.udp_port, 47808, "on the port it named");
         check_eq(d.connection.modbus_slave_id, 7, "modbus id carried over");
+        check(!d.address_mismatch(), "and the address it reports agrees");
         check(d.repairs.empty(), "a healthy device needs no repairs");
+    }
+
+    void test_the_address_it_answered_from_is_the_one_used()
+    {
+        section("a device is contacted at the address it answered from, not the one it reports");
+
+        // Behind NAT, or on a controller with two interfaces, the address a
+        // device writes into its response need not be one this machine can
+        // reach. The one it answered from is. T3000 uses that one
+        // (TStatScanner.cpp:2032, :2369), and so must T5000 - or a read goes
+        // somewhere the device is not.
+        FakeTransport t;
+        t.queued.push_back(a_response(500124, 50, 7, 50));   // says 192.168.1.50
+        t.sender = 0x0A010203;                                // came from 10.1.2.3
+        const auto result = scan(t, quick());
+
+        check_eq((int)result.devices.size(), 1, "one device");
+        const auto& d = result.devices[0];
+        check(d.connection.host == "10.1.2.3", "contacted at the address the answer came from");
+        check(d.address_note.rfind("10.1.2.3", 0) == 0, "and the list shows that address");
+        check_eq(d.connection.udp_port, 47808,
+                 "on the BACnet port it reported - the sender's port is its discovery socket");
+        check(d.answered_from == "10.1.2.3", "answered_from is kept");
+        check(d.reported_ip == "192.168.1.50", "and so is the address it reports");
+        check(d.address_mismatch(), "and the disagreement is flagged");
+    }
+
+    void test_an_unknown_sender_falls_back_to_the_reported_address()
+    {
+        section("without a sender, the reported address is all there is");
+
+        // Deliberate, and only reachable from a transport that cannot say
+        // who sent a datagram - the real one always can.
+        ScanResponse r;
+        r.serial_number = 900050;
+        r.ip[0] = 192; r.ip[1] = 168; r.ip[2] = 1; r.ip[3] = 60;
+
+        const DeviceRecord d = to_record(r);
+        check(d.connection.host == "192.168.1.60", "the reported address is used");
+        check(d.answered_from.empty(), "and nothing claims it was answered from there");
+        check(!d.address_mismatch(), "so there is no disagreement to show");
+    }
+
+    void test_the_two_addresses_merge_as_a_pair()
+    {
+        section("a rescan replaces the address pair whole, and only a complete one does");
+
+        ScanResponse r;
+        r.serial_number = 900060;
+        r.ip[0] = 192; r.ip[1] = 168; r.ip[2] = 1; r.ip[3] = 50;
+
+        Registry reg;
+        reg.add_or_merge(to_record(r, 0x0A010203));
+        check(reg.devices()[0].address_mismatch(), "first scan: answered from 10.1.2.3");
+
+        // A partial observation knows nothing about either address.
+        DeviceRecord partial;
+        partial.serial_number        = 900060;
+        partial.observation_complete = false;
+        partial.answered_from        = "172.16.0.1";
+        partial.reported_ip          = "172.16.0.2";
+        reg.add_or_merge(partial);
+        check(reg.devices()[0].answered_from == "10.1.2.3" &&
+                  reg.devices()[0].reported_ip == "192.168.1.50",
+              "a partial observation leaves the pair alone");
+
+        // A later response whose sender was not known replaces the pair,
+        // so an old sender is not left beside a new report.
+        reg.add_or_merge(to_record(r));
+        check(reg.devices()[0].answered_from.empty(), "a complete one replaces both");
+        check(!reg.devices()[0].address_mismatch(),
+              "so no disagreement is claimed that this response did not show");
+    }
+
+    void test_ipv4_text_is_in_network_order()
+    {
+        section("addresses print most significant byte first");
+
+        check(ipv4_text(0x0A010203) == "10.1.2.3", "0x0A010203 is 10.1.2.3");
+        check(ipv4_text(0x7F000001) == "127.0.0.1", "0x7F000001 is 127.0.0.1");
+    }
+
+    void test_the_udp_transport_says_who_sent_a_datagram()
+    {
+        section("the real socket reports the address a datagram came from");
+
+        // The one part of the sender path the fake cannot cover: recvfrom
+        // hands back network byte order, and a missing conversion makes
+        // 127.0.0.1 into 1.0.0.127. Loopback only; port chosen by the system.
+        WSADATA wsa;
+        WSAStartup(MAKEWORD(2, 2), &wsa);
+
+        UdpTransport t("127.0.0.1", 0);
+        std::string error;
+        if (require(t.open(error), "a loopback scan socket opens"))
+        {
+            SOCKET from = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+            sockaddr_in to = {};
+            to.sin_family      = AF_INET;
+            to.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+            to.sin_port        = htons(t.bound_port());
+
+            const auto datagram = a_response(900070);
+            ::sendto(from, (const char*)datagram.data(), (int)datagram.size(), 0,
+                     (sockaddr*)&to, sizeof(to));
+
+            uint8_t buffer[256];
+            uint32_t sender = 0;
+            const int n = t.receive(buffer, sizeof(buffer), 2000, sender, error);
+            check_eq(n, (int)datagram.size(), "the datagram arrives");
+            check(sender == INADDR_LOOPBACK, "from 127.0.0.1, in host byte order");
+
+            ::closesocket(from);
+        }
+        else
+        {
+            printf("        %s\n", error.c_str());
+        }
+
+        WSACleanup();
     }
 
     void test_a_missing_serial_proposes_a_repair_and_nothing_else()
@@ -323,6 +452,11 @@ int run_scanner_tests()
     test_a_quiet_subnet_is_not_an_error();
     test_a_failed_broadcast_stops_the_scan();
     test_responses_become_devices();
+    test_the_address_it_answered_from_is_the_one_used();
+    test_an_unknown_sender_falls_back_to_the_reported_address();
+    test_the_two_addresses_merge_as_a_pair();
+    test_ipv4_text_is_in_network_order();
+    test_the_udp_transport_says_who_sent_a_datagram();
     test_a_missing_serial_proposes_a_repair_and_nothing_else();
     test_a_reported_id_of_zero_stays_zero();
     test_the_bacnet_instance_is_kept();

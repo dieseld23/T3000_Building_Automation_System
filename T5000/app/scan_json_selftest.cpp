@@ -271,6 +271,32 @@ namespace
         check(has(json, "\"parentSerial\":500001"), "parentSerial is emitted");
     }
 
+    void test_both_addresses_reach_the_page()
+    {
+        section("the address it answered from and the one it reports are both in the list");
+
+        Registry reg;
+        DeviceRecord d;
+        d.serial_number        = 900040;
+        d.observation_complete = true;
+        d.answered_from        = "10.1.2.3";
+        d.reported_ip          = "192.168.1.50";
+        reg.add_or_merge(d);
+
+        DeviceRecord same;
+        same.serial_number        = 900041;
+        same.observation_complete = true;
+        same.answered_from        = "192.168.1.51";
+        same.reported_ip          = "192.168.1.51";
+        reg.add_or_merge(same);
+
+        const std::string json = build_devices_json(reg, ScanSummary());
+        check(has(json, "\"answeredFrom\":\"10.1.2.3\""), "answeredFrom is emitted");
+        check(has(json, "\"reportedIp\":\"192.168.1.50\""), "reportedIp is emitted");
+        check(has(json, "\"addressMismatch\":true"), "a disagreement is flagged");
+        check(has(json, "\"addressMismatch\":false"), "and agreement is not");
+    }
+
     void test_only_a_wire_read_claims_one()
     {
         section("only a payload built from a wire read says it was read from the device");
@@ -339,6 +365,7 @@ int run_scan_json_tests()
     test_the_unreadable_device_payload_keeps_the_page_contract();
     test_only_a_wire_read_claims_one();
     test_the_parent_reaches_the_page();
+    test_both_addresses_reach_the_page();
     test_interfaces_report_their_failure();
     return 0;
 }

@@ -349,7 +349,19 @@ namespace t5000::web
       panel.title = d.panel.reason;
       tr.appendChild(panel);
 
-      tr.appendChild(el("td", null, d.address));
+      // The address shown is the one the device answered from, which is the
+      // one T5000 contacts. When the device describes itself differently,
+      // say so, rather than leave the operator to wonder which is in use.
+      var addr = el("td", null, d.address);
+      if (d.addressMismatch) {
+        addr.appendChild(document.createTextNode(" "));
+        var differs = el("span", "pill pill-warn", "reports " + d.reportedIp);
+        differs.title = "This device answered from " + d.answeredFrom + " but says its address is " +
+          d.reportedIp + ". T5000 contacts " + d.answeredFrom + ", the address the answer came " +
+          "from, as T3000 does. The device may be behind NAT or have a second network interface.";
+        addr.appendChild(differs);
+      }
+      tr.appendChild(addr);
       tr.appendChild(el("td", "num", d.firmware || ""));
       tr.appendChild(el("td", "dim", d.provenance));
 

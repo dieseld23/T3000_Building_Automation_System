@@ -19,7 +19,15 @@ namespace t5000::discovery
         }
     }
 
-    device::DeviceRecord to_record(const ScanResponse& r)
+    std::string ipv4_text(uint32_t host_order)
+    {
+        return std::to_string((host_order >> 24) & 0xFF) + "." +
+               std::to_string((host_order >> 16) & 0xFF) + "." +
+               std::to_string((host_order >> 8) & 0xFF) + "." +
+               std::to_string(host_order & 0xFF);
+    }
+
+    device::DeviceRecord to_record(const ScanResponse& r, uint32_t sender_ip)
     {
         using namespace t5000::device;
 
@@ -38,19 +46,34 @@ namespace t5000::discovery
         // its bootloader.
         d.reached = true;
 
-        d.address_note = r.ip_text();
+        // Two addresses, and the one that answered is the one used. The
+        // address a device writes into its response is its own idea of
+        // itself; behind NAT, or on a controller with a second interface, it
+        // can be an address this machine cannot reach. The address the
+        // response came from demonstrably can. T3000 uses that one
+        // (TStatScanner.cpp:2032, :2369).
+        d.reported_ip   = r.ip_text();
+        d.answered_from = sender_ip != 0 ? ipv4_text(sender_ip) : std::string();
+
+        d.connection.transport = device::Transport::BacnetIp;
+        d.connection.host      = d.answered_from.empty() ? d.reported_ip : d.answered_from;
+
+        // The port has no such second source. The response came from the
+        // device's discovery socket, not its BACnet one, so its source port
+        // says nothing about where BACnet is - this is still the device's
+        // own claim, NAT or not.
+        if (r.bacnet_port != 0)
+            d.connection.udp_port = r.bacnet_port;
+
+        // What the list shows is what T5000 will contact.
+        d.address_note = d.connection.host;
         if (!r.panel_name.empty())
             d.address_note += " (" + r.panel_name + ")";
 
         // What it said, before any defaulting. 0 stays 0 here; the
-        // Connection below is how we would reach it, which is a different
+        // Connection above is how we would reach it, which is a different
         // question with a different default.
         d.modbus_id_reported = r.modbus_id;
-
-        d.connection.transport = device::Transport::BacnetIp;
-        d.connection.host      = r.ip_text();
-        if (r.bacnet_port != 0)
-            d.connection.udp_port = r.bacnet_port;
 
         // The BACnet device instance. Parsed from the response since the
         // parser was written and dropped here until now, so every scanned
@@ -148,7 +171,8 @@ namespace t5000::discovery
             const int wait  = left < slice ? left : slice;
 
             std::string recv_error;
-            const int n = transport.receive(buffer, sizeof(buffer), wait, recv_error);
+            uint32_t    sender = 0;
+            const int n = transport.receive(buffer, sizeof(buffer), wait, sender, recv_error);
             elapsed = elapsed_ms();
 
             if (n < 0)
@@ -187,7 +211,7 @@ namespace t5000::discovery
                 break;
             }
 
-            result.devices.push_back(to_record(parsed));
+            result.devices.push_back(to_record(parsed, sender));
         }
 
         // stats.duplicate_modbus_ids is deliberately NOT set here. Duplicates
@@ -200,8 +224,8 @@ namespace t5000::discovery
 
     // ---------------------------------------------------------------------
 
-    UdpTransport::UdpTransport(const std::string& local_ip)
-        : m_local_ip(local_ip), m_socket((uintptr_t)INVALID_SOCKET)
+    UdpTransport::UdpTransport(const std::string& local_ip, uint16_t local_port)
+        : m_local_ip(local_ip), m_local_port(local_port), m_socket((uintptr_t)INVALID_SOCKET)
     {
     }
 
@@ -244,7 +268,7 @@ namespace t5000::discovery
         // with no error to explain it.
         sockaddr_in bind_addr = {};
         bind_addr.sin_family = AF_INET;
-        bind_addr.sin_port   = htons(kLocalBindPort);
+        bind_addr.sin_port   = htons(m_local_port);
 
         if (m_local_ip.empty())
         {
@@ -263,7 +287,7 @@ namespace t5000::discovery
             error = socket_error("binding " +
                                  (m_local_ip.empty() ? std::string("all interfaces")
                                                      : m_local_ip) +
-                                 " port " + std::to_string(kLocalBindPort));
+                                 " port " + std::to_string(m_local_port));
             if (err == WSAEADDRINUSE)
                 error += " - T3000 may already be running and holding that port";
             else if (err == WSAEADDRNOTAVAIL)
@@ -275,6 +299,12 @@ namespace t5000::discovery
             ::closesocket(s);
             return false;
         }
+
+        sockaddr_in bound = {};
+        int bound_len = sizeof(bound);
+        m_bound_port = ::getsockname(s, (sockaddr*)&bound, &bound_len) == 0
+                           ? ntohs(bound.sin_port)
+                           : m_local_port;
 
         m_socket = (uintptr_t)s;
         return true;
@@ -316,8 +346,9 @@ namespace t5000::discovery
     }
 
     int UdpTransport::receive(uint8_t* buffer, int capacity, int timeout_ms,
-                              std::string& error)
+                              uint32_t& sender_ip, std::string& error)
     {
+        sender_ip = 0;
         if ((SOCKET)m_socket == INVALID_SOCKET)
         {
             error = "the scan socket is not open";
@@ -358,6 +389,8 @@ namespace t5000::discovery
             return -1;
         }
 
+        if (from.sin_family == AF_INET)
+            sender_ip = ntohl(from.sin_addr.s_addr);
         return n;
     }
 }
