@@ -11,7 +11,7 @@ namespace t5000::app
     {
         // Between reads, as between the requests within one: T3000 pauses
         // between its connect-time reads too (Sleep(50) at
-        // BacnetView.cpp:6476, :6567), and these are small controllers.
+        // BacnetView.cpp:6476, :6570), and these are small controllers.
         void pause(const bacnet::ReadSettings& settings)
         {
             if (settings.pause_between_requests_ms > 0)
@@ -89,8 +89,6 @@ namespace t5000::app
         }
 
         // 2. The custom digital range names.
-        bool quiet = false;
-
         pause(settings);
         const ReadOutcome units = read_entities(transport, device, ReadCommand::CustomUnits, wire::kCustomUnitCount,
                                                 wire::kCustomUnitCount, (uint16_t)wire::kCustomUnitWireSize,
@@ -104,40 +102,32 @@ namespace t5000::app
         else
         {
             add(panel.note, "The custom digital range names were not read: " + why_not(units));
-            quiet = units.no_answer;
         }
 
         // 3. The custom analog table names: 0-3, and then 4 only if 0-3 came
-        // back, as T3000 does (BacnetView.cpp:6563-6565).
-        if (quiet)
+        // back, as T3000 does (BacnetView.cpp:6563-6565). T3000 asks for them
+        // whether or not the digital names came back (:6472), so this does too.
+        pause(settings);
+        const ReadOutcome first_four = read_entities_from(transport, device, ReadCommand::AnalogCustomTables, 0, 4, 4,
+                                                          (uint16_t)wire::kAnalogTableWireSize, settings, next_invoke_id);
+        r.requests_sent += first_four.requests_sent;
+
+        if (first_four.ok)
         {
-            add(panel.note, "The custom analog table names were not asked for, since the device had "
-                            "stopped answering.");
+            display::take_analog_tables(first_four.entities.data(), first_four.entities.size(), 0, 4, panel.ranges);
+
+            pause(settings);
+            const ReadOutcome fifth = read_entities_from(transport, device, ReadCommand::AnalogCustomTables, 4, 1, 1,
+                                                         (uint16_t)wire::kAnalogTableWireSize, settings, next_invoke_id);
+            r.requests_sent += fifth.requests_sent;
+            if (fifth.ok)
+                display::take_analog_tables(fifth.entities.data(), fifth.entities.size(), 4, 1, panel.ranges);
+            else
+                add(panel.note, "Custom analog table 5's name was not read: " + why_not(fifth));
         }
         else
         {
-            pause(settings);
-            const ReadOutcome first_four = read_entities_from(transport, device, ReadCommand::AnalogCustomTables, 0, 4, 4,
-                                                              (uint16_t)wire::kAnalogTableWireSize, settings, next_invoke_id);
-            r.requests_sent += first_four.requests_sent;
-
-            if (first_four.ok)
-            {
-                display::take_analog_tables(first_four.entities.data(), first_four.entities.size(), 0, 4, panel.ranges);
-
-                pause(settings);
-                const ReadOutcome fifth = read_entities_from(transport, device, ReadCommand::AnalogCustomTables, 4, 1, 1,
-                                                             (uint16_t)wire::kAnalogTableWireSize, settings, next_invoke_id);
-                r.requests_sent += fifth.requests_sent;
-                if (fifth.ok)
-                    display::take_analog_tables(fifth.entities.data(), fifth.entities.size(), 4, 1, panel.ranges);
-                else
-                    add(panel.note, "Custom analog table 5's name was not read: " + why_not(fifth));
-            }
-            else
-            {
-                add(panel.note, "The custom analog table names were not read: " + why_not(first_four));
-            }
+            add(panel.note, "The custom analog table names were not read: " + why_not(first_four));
         }
 
         // 4. The inputs.

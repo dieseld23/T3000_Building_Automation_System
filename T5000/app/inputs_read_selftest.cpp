@@ -287,10 +287,23 @@ namespace
             Run r;
             run(p, r);
             check(r.read.ok, "units unanswered: read");
-            check(sequence(r.transport) == "SUUIIIIIII", "  the tables are not asked for");
+            check(sequence(r.transport) == "SUUTTIIIIIII", "  the tables are still asked for, as T3000 does");
+            check(r.read.panel.ranges.analog_known[0] && r.read.panel.ranges.analog_known[4],
+                  "  and their names are used");
             check(has(r.read.panel.note, "did not answer"), "  the note says it did not answer");
             check(!has(r.read.panel.note, "firewall"), "  without the advice for a device that never answered");
-            check(has(r.read.panel.note, "not asked for"), "  and that the tables were skipped");
+            check(!has(r.read.panel.note, "analog"), "  and says nothing of the tables, which came back");
+        }
+        {
+            Panel p;
+            p.units  = Does::Silent;
+            p.tables = Does::Silent;
+            Run r;
+            run(p, r);
+            check(r.read.ok, "units and tables unanswered: read");
+            check(sequence(r.transport) == "SUUTTIIIIIII", "  tables 0-3 are asked for, and 4 is not");
+            check(!r.read.panel.ranges.analog_known[0], "  without the table names");
+            check(has(r.read.panel.note, "analog table names were not read"), "  and the note says so");
         }
         {
             Panel p;
@@ -348,6 +361,8 @@ namespace
         panel.known                  = true;
         panel.settings.mini_type_byte = mini_type;
         panel.settings.panel_number   = 5;
+        panel.settings.firmware_main  = 60;
+        panel.settings.firmware_sub   = 5;
         memcpy(panel.settings.panel_name, "AHU \"2\"", 7);
         panel.product = ProductClassId::Cm5;
         return panel;
@@ -373,6 +388,7 @@ namespace
         check(has(json, "rows 9-64 empty"), "the note says which rows T3000 blanks");
         check(has(json, "\"name\":\"AHU \\\"2\\\"\""), "the panel name, escaped");
         check(has(json, "\"miniType\":44") && has(json, "\"number\":5"), "the model code and panel number");
+        check(has(json, "\"firmware\":\"60.5\""), "the firmware, as T3000 shows it");
 
         const std::string all = build_inputs_json(from_wire(), t5000::device::Decision(), digital_inputs(64),
                                                   known_panel(1));

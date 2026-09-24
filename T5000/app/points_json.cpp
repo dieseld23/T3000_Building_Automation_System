@@ -202,7 +202,9 @@ namespace t5000::app
             append_field(out, "name", acp_to_utf8(panel.settings.panel_name, wire::settings_at::panel_name_length)); out += ',';
             append_int(out, "number",       panel.settings.panel_number); out += ',';
             append_int(out, "miniType",     panel.settings.mini_type()); out += ',';
-            append_int(out, "firmware",     panel.settings.firmware()); out += ',';
+            // As T3000 shows it: "%d.%d" (BacnetSetting.cpp:1194).
+            append_field(out, "firmware", std::to_string(panel.settings.firmware_main) + "." +
+                                              std::to_string(panel.settings.firmware_sub)); out += ',';
             append_int(out, "serialNumber", (long)panel.settings.serial_number); out += ',';
         }
         append_int(out, "inputsRead",  (long)points.size()); out += ',';

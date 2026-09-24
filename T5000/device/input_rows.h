@@ -26,8 +26,8 @@ namespace t5000::device
     bool sizes_points_from_settings(ProductClassId product, const wire::PanelSettings& settings);
 
     // How many inputs T3000 reads: BAC_INPUT_ITEM_COUNT, or, on a panel that
-    // sizes its points from its settings, DYNAMIC_INPUT_ITEM_COUNT - max_in
-    // when that is above 64 (global_function.cpp:17634-17636,
+    // sizes its points from its settings, DYNAMIC_INPUT_ITEM_COUNT, which is
+    // max_in when that is above 64 (global_function.cpp:17634-17636,
     // BacnetView.cpp:4963-4966). At most 255: the index is one byte.
     int inputs_to_read(ProductClassId product, const wire::PanelSettings& settings);
 

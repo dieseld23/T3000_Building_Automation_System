@@ -19,9 +19,8 @@
 //     answers - but when the panel answers with a refusal, it goes on to the
 //     inputs, without the per-model rules the settings drive, and says so.
 //   - A refused or unanswered custom-name read leaves those names missing,
-//     with a note, rather than stopping the page. A read that got no answer
-//     at all ends the name reads, since a device that has gone quiet will
-//     not answer the next one either.
+//     with a note, rather than stopping the page. As in T3000, the analog
+//     table names are asked for whether or not the digital names came back.
 //
 // And it is stricter in one place: the settings carry the panel's serial
 // number, and a panel whose serial is not the one the scan found at that

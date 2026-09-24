@@ -217,10 +217,10 @@ says so:
   would still show nothing. T5000 reads the inputs anyway, shows every row
   with no per-model rules, and the page says how that differs.
 - **The custom names.** A refusal leaves those names missing, and each row
-  that needed them has a note. When nothing answers, the remaining name reads
-  are skipped, since a device that has gone quiet will not answer the next
-  one; the inputs are still asked for. As in T3000, table 4 is asked for only
-  when tables 0-3 came back.
+  that needed them has a note. When nothing answers, the note says so, and
+  the page goes on; the inputs are still asked for. As in T3000, the analog
+  tables are asked for whether or not the digital names came back
+  (`BacnetView.cpp:6472`, `:6563`), and table 4 only when tables 0-3 did.
 
 **How values are shown.** As T3000's Inputs grid shows them: `display/input_text.cpp`
 ports the loop at `BacnetInput.cpp:951-1237` column by column. The unit and
