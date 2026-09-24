@@ -44,7 +44,11 @@ namespace t5000::wire
         int32_t  value;
 
         uint8_t  filter;
-        uint8_t  decom;              // 0 = ok, 1 = decommissioned
+
+        // Two fields in one byte, and not "decommissioned" whatever the name
+        // says. Low nibble: 0 normal, 1 open circuit, 2 short circuit. High
+        // nibble: the signal type (jumper). BacnetInput.cpp:1179-1180.
+        uint8_t  decom;
         uint8_t  sub_id;
         uint8_t  sub_product;
         uint8_t  control;

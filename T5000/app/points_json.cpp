@@ -1,5 +1,7 @@
 #include "points_json.h"
 
+#include "../display/input_text.h"
+
 #include <windows.h>
 
 #include <stdio.h>
@@ -157,6 +159,17 @@ namespace t5000::app
         append_field(out, "detail", decision.detail);
         out += "},";
 
+        // What T3000 decides from the panel's settings, which T5000 does not
+        // read yet: how many of the 64 rows a model shows, and a few per-model
+        // labels. Said once, here, rather than guessed per row.
+        const display::PanelContext panel;
+        out += "\"panel\":{\"known\":false,";
+        append_field(out, "note",
+                     "Every input is shown. T3000 shows fewer on some panel models, and names a "
+                     "few inputs by model; both depend on the panel's settings, which T5000 does not "
+                     "read yet.");
+        out += "},";
+
         append_int(out, "count", (long)points.size());
         out += ",\"inputs\":[";
 
@@ -165,22 +178,39 @@ namespace t5000::app
             const wire::InputPoint& p = points[i];
             if (i != 0) out += ',';
 
+            // The columns as T3000 shows them - text, computed here so the
+            // self-test covers it - followed by the raw fields they came from.
+            const display::InputText t = display::input_text(p, (int)i, panel);
+
             out += '{';
             append_int(out, "index", (long)i); out += ',';
             append_int(out, "input", (long)i + 1); out += ',';
             append_field(out, "fullLabel", acp_to_utf8(p.description, wire::kDescriptionLength)); out += ',';
             append_field(out, "label",     acp_to_utf8(p.label,       wire::kLabelLength)); out += ',';
-            append_int(out, "value",          p.value); out += ',';
-            append_int(out, "panel",          p.sub_id); out += ',';
-            append_int(out, "subProduct",     p.sub_product); out += ',';
-            append_int(out, "subNumber",      p.sub_number); out += ',';
-            append_int(out, "filter",         p.filter); out += ',';
-            append_int(out, "range",          p.range); out += ',';
-            append_int(out, "calibration",    wire::calibration(p)); out += ',';
-            append_field(out, "autoManual", p.auto_manual == 1 ? "Manual" : "Auto"); out += ',';
-            append_field(out, "signal",     p.digital_analog == 1 ? "Analog" : "Digital"); out += ',';
-            append_field(out, "status",     p.decom == 1 ? "Decommissioned" : "OK");
-            out += '}';
+            append_field(out, "autoManual",  t.auto_manual); out += ',';
+            append_field(out, "value",       t.value); out += ',';
+            append_field(out, "units",       t.units); out += ',';
+            append_field(out, "range",       t.range); out += ',';
+            append_field(out, "calibration", t.calibration); out += ',';
+            append_field(out, "sign",        t.sign); out += ',';
+            append_field(out, "filter",      t.filter); out += ',';
+            append_field(out, "status",      t.status); out += ',';
+            out += "\"alarm\":";
+            out += t.alarm ? "true" : "false";
+            out += ',';
+            append_field(out, "signalType",  t.signal_type); out += ',';
+            append_field(out, "note",        t.note); out += ',';
+
+            out += "\"raw\":{";
+            append_int(out, "value",         p.value); out += ',';
+            append_int(out, "range",         p.range); out += ',';
+            append_int(out, "digitalAnalog", p.digital_analog); out += ',';
+            append_int(out, "control",       p.control); out += ',';
+            append_int(out, "decom",         p.decom); out += ',';
+            append_int(out, "subId",         p.sub_id); out += ',';
+            append_int(out, "subProduct",    p.sub_product); out += ',';
+            append_int(out, "subNumber",     p.sub_number);
+            out += "}}";
         }
 
         out += "]}";
