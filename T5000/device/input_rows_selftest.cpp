@@ -113,6 +113,8 @@ namespace
         check_eq(inputs_to_read(esp32, panel(0, 700, 64)), 64, "max_in 64 is not above 64: 64");
         check_eq(inputs_to_read(esp32, panel(0, 700, 65)), 65, "max_in 65: 65");
         check_eq(inputs_to_read(esp32, panel(0, 700, 0)), 64, "max_in 0: 64");
+        check_eq(inputs_to_read(esp32, panel(0, 700, 32)), 64,
+                 "max_in 32: 64 - T3000 only ever raises the count, never lowers it");
         check_eq(inputs_to_read(esp32, panel(0, 700, 255)), 255, "max_in 255, the most one byte can name");
         check_eq(inputs_to_read(ProductClassId::MiniPanelArm, panel(0, 700, 96)), 64,
                  "any other product: 64");

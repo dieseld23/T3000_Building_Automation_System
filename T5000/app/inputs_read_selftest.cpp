@@ -388,6 +388,27 @@ namespace
         check(has(unknown, "settings were not read"), "  with a note saying why");
     }
 
+    void test_the_payload_uses_the_panel_type()
+    {
+        section("the rows get the panel's model, for its own labels");
+
+        // IN9 of an RMC1232 is named by position, not by range
+        // (BacnetInput.cpp:1066-1076) - which needs the panel's model to
+        // reach the rows.
+        std::vector<w::InputPoint> points(9);
+        for (auto& p : points)
+        {
+            p.digital_analog = 1;
+            p.range          = 11;
+        }
+
+        const std::string rmc = build_inputs_json(from_wire(), t5000::device::Decision(), points, known_panel(29));
+        check(has(rmc, "\"range\":\"-30V to -65V\""), "an RMC1232's IN9 has its own range name");
+
+        const std::string unknown = build_inputs_json(from_wire(), t5000::device::Decision(), points);
+        check(!has(unknown, "-30V to -65V"), "a panel whose model is not known does not");
+    }
+
     void test_the_payload_uses_the_names()
     {
         section("the rows use the custom names the panel sent");
@@ -415,6 +436,7 @@ int run_inputs_read_tests()
     test_names_that_do_not_come_back();
     test_silent_inputs_after_answered_settings();
     test_the_payload_leaves_out_the_rows_t3000_blanks();
+    test_the_payload_uses_the_panel_type();
     test_the_payload_uses_the_names();
     return 0;
 }
