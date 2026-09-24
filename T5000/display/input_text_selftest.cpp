@@ -172,6 +172,66 @@ namespace
         check(!beyond.note.empty(), "and a note saying so");
     }
 
+    PanelContext with_names()
+    {
+        PanelContext c;
+        c.ranges.digital_known = true;
+        c.ranges.digital[0]    = { "Closed/Tripped", true, "Closed", "Tripped" };
+        c.ranges.digital[7]    = { "A/B/C", false, "", "" };
+        c.ranges.analog_known[2] = true;
+        c.ranges.analog[2]       = "kPa";
+        return c;
+    }
+
+    void test_custom_ranges_use_the_devices_names()
+    {
+        section("a custom range shows the names the device sent");
+
+        const PanelContext names = with_names();
+
+        const InputText closed = input_text(digital_point(23, 0), 0, names);
+        check(closed.range == "Closed/Tripped", "range 23 shows custom digital range 1 in full");
+        check(closed.value == "Closed", "control 0 is its first state");
+        check(closed.note.empty(), "exactly as T3000 shows it");
+        check(input_text(digital_point(23, 1), 0, names).value == "Tripped", "control 1 is its second");
+
+        const InputText three = input_text(digital_point(30, 1), 0, names);
+        check(three.range == "A/B/C", "a range whose names do not split in two is still named");
+        check(three.value.empty(), "but shows no value, as T3000 shows none");
+        check(!three.note.empty(), "and says why");
+
+        const InputText kpa = input_text(analog_point(22, 1500), 0, names);
+        check(kpa.units == "kPa", "range 22 takes custom table 3's name as its units");
+        check(kpa.range == "Table 3", "while the range keeps T3000's own name for it");
+        check(kpa.note.empty(), "with nothing to explain");
+
+        const InputText missing = input_text(analog_point(23), 0, names);
+        check(missing.units.empty() && !missing.note.empty(), "a table the device did not send has a note");
+
+        PanelContext digital_unknown = names;
+        digital_unknown.ranges.digital_known = false;
+        check(input_text(digital_point(23, 1), 0, digital_unknown).value == "1",
+              "names stored but not known complete: T3000 does not use them, so 0 or 1");
+    }
+
+    void test_every_fixed_digital_range_splits_in_two()
+    {
+        section("the SplitCStringA port gives every fixed digital range its two states");
+
+        // The fixed ranges were split on their one slash before; they now go
+        // through the same port as the device's names. Each must still come
+        // out as the text either side of that slash.
+        for (int range = 1; range <= 22; range++)
+        {
+            const std::string pair = kDigitalUnits[range];
+            const size_t slash = pair.find('/');
+            const InputText off = input_text(digital_point((uint8_t)range, 0), 0, kUnknownPanel);
+            const InputText on  = input_text(digital_point((uint8_t)range, 1), 0, kUnknownPanel);
+            const std::string what = "range " + std::to_string(range) + " (" + pair + ")";
+            check(off.value == pair.substr(0, slash) && on.value == pair.substr(slash + 1), what.c_str());
+        }
+    }
+
     void test_status_is_the_low_nibble_unless_the_range_rules_it_out()
     {
         section("status: open and short alarms, except where the range makes them meaningless");
@@ -234,7 +294,7 @@ namespace
 
     void test_an_rmc1232_labels_inputs_9_to_12_only_when_known()
     {
-        section("the RMC1232's own range names need its panel type, which is not read yet");
+        section("the RMC1232's own range names need its panel type, from its settings");
 
         const InputText unknown = input_text(analog_point(11), 8, kUnknownPanel);
         check(unknown.range == "0.0 to 5.0", "panel type unknown: the table's entry");
@@ -270,6 +330,8 @@ int run_input_text_tests()
     test_a_digital_input_shows_its_state_from_control();
     test_a_digital_input_on_range_zero_shows_its_value();
     test_custom_digital_ranges_show_the_state_number();
+    test_custom_ranges_use_the_devices_names();
+    test_every_fixed_digital_range_splits_in_two();
     test_status_is_the_low_nibble_unless_the_range_rules_it_out();
     test_signal_type_is_the_high_nibble();
     test_invalid_range_matches_t3000();

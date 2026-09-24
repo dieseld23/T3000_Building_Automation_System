@@ -127,10 +127,15 @@
     <ClCompile Include="display\input_text.cpp" />
     <ClCompile Include="display\input_text_selftest.cpp" />
     <ClCompile Include="display\tables_guard_selftest.cpp" />
+    <ClCompile Include="display\custom_ranges.cpp" />
+    <ClCompile Include="display\custom_ranges_selftest.cpp" />
+    <ClCompile Include="display\device_text.cpp" />
     <ClCompile Include="device\connection.cpp" />
     <ClCompile Include="device\connection_selftest.cpp" />
     <ClCompile Include="device\product.cpp" />
     <ClCompile Include="device\product_selftest.cpp" />
+    <ClCompile Include="device\input_rows.cpp" />
+    <ClCompile Include="device\input_rows_selftest.cpp" />
     <ClCompile Include="device\registry.cpp" />
     <ClCompile Include="device\registry_selftest.cpp" />
     <ClCompile Include="device\read_path.cpp" />
@@ -164,6 +169,9 @@
     <ClInclude Include="device\bacnet_link.h" />
     <ClInclude Include="display\input_text.h" />
     <ClInclude Include="display\tables.h" />
+    <ClInclude Include="display\custom_ranges.h" />
+    <ClInclude Include="display\device_text.h" />
+    <ClInclude Include="device\input_rows.h" />
     <ClInclude Include="device\connection.h" />
     <ClInclude Include="device\registry.h" />
     <ClInclude Include="device\read_path.h" />

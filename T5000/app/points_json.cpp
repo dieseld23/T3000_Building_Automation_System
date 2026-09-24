@@ -1,5 +1,6 @@
 #include "points_json.h"
 
+#include "../display/device_text.h"
 #include "../display/input_text.h"
 
 #include <windows.h>
@@ -11,30 +12,9 @@ namespace t5000::app
 {
     std::string acp_to_utf8(const uint8_t* text, size_t max_length)
     {
-        if (text == nullptr)
-            return std::string();
-
         // The device pads with NULs and does not promise a terminator in a full
         // field, so the length is bounded by the field rather than by strlen.
-        const int bytes = (int)strnlen((const char*)text, max_length);
-        if (bytes <= 0)
-            return std::string();
-
-        const int wide_len = MultiByteToWideChar(CP_ACP, 0, (const char*)text, bytes, nullptr, 0);
-        if (wide_len <= 0)
-            return std::string();
-
-        std::wstring wide((size_t)wide_len, L'\0');
-        MultiByteToWideChar(CP_ACP, 0, (const char*)text, bytes, &wide[0], wide_len);
-
-        const int utf8_len = WideCharToMultiByte(CP_UTF8, 0, wide.data(), wide_len,
-                                                 nullptr, 0, nullptr, nullptr);
-        if (utf8_len <= 0)
-            return std::string();
-
-        std::string utf8((size_t)utf8_len, '\0');
-        WideCharToMultiByte(CP_UTF8, 0, wide.data(), wide_len, &utf8[0], utf8_len, nullptr, nullptr);
-        return utf8;
+        return display::acp_to_utf8(text, max_length);
     }
 
     std::string json_escape(const std::string& utf8)

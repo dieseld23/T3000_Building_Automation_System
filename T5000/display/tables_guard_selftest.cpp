@@ -13,7 +13,9 @@
 // also pinned by hand at the places that are easy to get wrong, and anything
 // it does not understand is a failure rather than a guess.
 
+#include "custom_ranges.h"
 #include "tables.h"
+#include "../device/input_rows.h"
 #include "../bacnet/point_read.h"
 #include "../testing/check.h"
 #include "../wire/panel.h"
@@ -415,6 +417,19 @@ namespace
         check_constant(header, "BAC_READ_INPUT_GROUP_NUMBER", t5000::bacnet::kInputsPerRequest);
         check_constant(header, "BAC_CUSTOMER_UNITS_COUNT", t5000::wire::kCustomUnitCount);
         check_constant(header, "BAC_ALALOG_CUSTMER_RANGE_TABLE_COUNT", t5000::wire::kAnalogTableCount);
+        check_constant(header, "DIGITAL_DIRECT", t5000::display::kDigitalDirect);
+        check_constant(header, "ESP32_IO_COUNT_REDEFINE_VERSION", t5000::device::kEsp32IoCountRedefineVersion);
+
+        // The panel types T5000 tests for by value: the row limits and the
+        // RMC1232's labels.
+        using t5000::device::MiniType;
+        check_constant(header, "TINY_EX_MINIPANEL", (long)MiniType::TinyExMiniPanel);
+        check_constant(header, "T3_RMC1232", (long)MiniType::Rmc1232);
+        check_constant(header, "PID_T322AI", (long)MiniType::T322AI);
+        check_constant(header, "T38AI8AO6DO", (long)MiniType::T38AI8AO6DO);
+        check_constant(header, "PID_T3PT12", (long)MiniType::T3PT12);
+        check_constant(header, "PID_T332AI", (long)MiniType::T332AI);
+        check_constant(header, "PID_T36CTA", (long)MiniType::T36CTA);
     }
 
     void test_the_tables_match_t3000()
