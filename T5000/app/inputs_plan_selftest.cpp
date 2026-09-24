@@ -104,14 +104,14 @@ namespace
         check(p.reason.find("800100") != std::string::npos, "  naming the controller");
     }
 
-    void test_an_esp32_read_states_its_limit()
+    void test_an_esp32_is_read()
     {
-        section("an ESP32 T3 read says it may not be the whole list");
+        section("an ESP32 T3 is read, with its count left to its settings");
 
         const InputsPlan p = plan_inputs_read(scanned(ProductClassId::Esp32T3Series));
         check(p.can_read, "an ESP32 T3 is read");
-        check(p.note.find("more than 64") != std::string::npos,
-              "and the page is told it may have more than the 64 shown");
+        check(p.note.find("more than 64") == std::string::npos,
+              "and the plan no longer claims only 64 are shown - the settings decide that now");
     }
 }
 
@@ -121,6 +121,6 @@ int run_inputs_plan_tests()
     test_everything_else_is_refused_with_a_reason();
     test_a_device_behind_a_controller_is_not_read();
     test_a_device_behind_a_controller_is_not_read_from_the_address_it_came_from();
-    test_an_esp32_read_states_its_limit();
+    test_an_esp32_is_read();
     return 0;
 }

@@ -256,6 +256,13 @@ namespace
         check(!has(json, "\"isFixture\":true"), "it is not fixture data either");
         check(has(json, "\"readFromWire\":false"),
               "and it says, positively, that nothing came off the wire");
+
+        // The panel and custom range keys a read payload carries, present
+        // and empty: a page reading data.panel.known must find false, not
+        // undefined.
+        check(has(json, "\"panel\":{\"known\":false"), "the panel is there, and not known");
+        check(has(json, "\"inputsShown\":0"), "with nothing shown");
+        check(has(json, "\"customRanges\":{\"digitalKnown\":false"), "and no custom range names");
     }
 
     void test_the_parent_reaches_the_page()

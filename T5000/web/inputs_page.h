@@ -246,7 +246,21 @@ namespace t5000::web
     p.className = "banner " + (degraded ? "warn" : "ok");
     p.innerHTML = "<b>Read path: " + esc(rp.summary || "unknown") + ".</b> "
                 + esc(rp.detail || "")
-                + (data.panel && data.panel.note ? " " + esc(data.panel.note) : "");
+                + esc(panelText(data.panel));
+  }
+
+  // The panel as its settings describe it, then whatever the server says
+  // about how the rows differ from T3000's because of it.
+  function panelText(panel) {
+    if (!panel) return "";
+    let t = "";
+    if (panel.known) {
+      t += " Panel " + (panel.name ? '"' + panel.name + '", ' : "")
+         + "number " + panel.number + ", model code " + panel.miniType
+         + ", firmware " + panel.firmware + ".";
+    }
+    if (panel.note) t += " " + panel.note;
+    return t;
   }
 
   function render() {

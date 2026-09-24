@@ -28,7 +28,19 @@ namespace t5000::bacnet
 
         std::string range_text(const ReadRequest& r)
         {
-            return "points " + std::to_string(r.first) + "-" + std::to_string(r.last);
+            const std::string span = std::to_string(r.first) + "-" + std::to_string(r.last);
+            switch (r.command)
+            {
+            case ReadCommand::Inputs:
+                return "points " + span;
+            case ReadCommand::Settings:
+                return "the panel's settings";
+            case ReadCommand::CustomUnits:
+                return "custom digital ranges " + span;
+            case ReadCommand::AnalogCustomTables:
+                return "custom analog tables " + span;
+            }
+            return "entities " + span;
         }
 
         // ASHRAE 135 clause 21, the values a technician might actually meet.
@@ -244,30 +256,41 @@ namespace t5000::bacnet
                               uint16_t entity_size, const ReadSettings& settings,
                               uint8_t& next_invoke_id)
     {
+        return read_entities_from(transport, device, command, 0, count, group_size, entity_size,
+                                  settings, next_invoke_id);
+    }
+
+    ReadOutcome read_entities_from(ReadTransport& transport, const Endpoint& device,
+                                   ReadCommand command, int start, int count, int group_size,
+                                   uint16_t entity_size, const ReadSettings& settings,
+                                   uint8_t& next_invoke_id)
+    {
         ReadOutcome outcome;
 
-        // The point index travels in one byte each way, so a count above 256
-        // cannot be asked for - and a group that does not fit one reply is a
+        // The point index travels in one byte each way, so nothing past 255
+        // can be asked for - and a group that does not fit one reply is a
         // caller bug, not a device problem.
-        if (count <= 0 || count > 256 || group_size <= 0 || entity_size == 0 ||
+        const int end = start + count;
+        if (start < 0 || count <= 0 || end > 256 || group_size <= 0 || entity_size == 0 ||
             settings.attempts <= 0)
         {
-            outcome.error = "Internal: a read of " + std::to_string(count) + " points in groups of " +
-                            std::to_string(group_size) + " was requested.";
+            outcome.error = "Internal: a read of " + std::to_string(count) + " points from " +
+                            std::to_string(start) + " in groups of " + std::to_string(group_size) +
+                            " was requested.";
             return outcome;
         }
 
         outcome.entities.reserve((size_t)count * entity_size);
 
-        for (int first = 0; first < count; first += group_size)
+        for (int first = start; first < end; first += group_size)
         {
-            if (first > 0 && settings.pause_between_requests_ms > 0)
+            if (first > start && settings.pause_between_requests_ms > 0)
                 std::this_thread::sleep_for(std::chrono::milliseconds(settings.pause_between_requests_ms));
 
             ReadRequest request;
             request.command     = command;
             request.first       = (uint8_t)first;
-            request.last        = (uint8_t)((first + group_size < count ? first + group_size : count) - 1);
+            request.last        = (uint8_t)((first + group_size < end ? first + group_size : end) - 1);
             request.entity_size = entity_size;
 
             const uint8_t invoke_id = next_invoke_id++;
@@ -296,6 +319,7 @@ namespace t5000::bacnet
 
             if (result == Wait::TimedOut)
             {
+                outcome.no_answer = true;
                 outcome.error = "No answer from " + device.text() + " for " + range_text(request) +
                                 " after " + std::to_string(settings.attempts) + " attempt" +
                                 (settings.attempts == 1 ? "" : "s") + " of " +
@@ -342,11 +366,12 @@ namespace t5000::bacnet
     }
 
     InputsRead read_inputs(ReadTransport& transport, const Endpoint& device,
-                           const ReadSettings& settings, uint8_t& next_invoke_id)
+                           const ReadSettings& settings, uint8_t& next_invoke_id,
+                           int count)
     {
         InputsRead result;
         result.transfer = read_entities(transport, device, ReadCommand::Inputs,
-                                        kInputCount, kInputsPerRequest,
+                                        count, kInputsPerRequest,
                                         (uint16_t)wire::kInputPointWireSize,
                                         settings, next_invoke_id);
         if (!result.transfer.ok)
@@ -355,8 +380,8 @@ namespace t5000::bacnet
             return result;
         }
 
-        result.points.resize(kInputCount);
-        for (int i = 0; i < kInputCount; i++)
+        result.points.resize((size_t)count);
+        for (int i = 0; i < count; i++)
         {
             const uint8_t* at = result.transfer.entities.data() + (size_t)i * wire::kInputPointWireSize;
             if (!wire::decode_input_point(at, wire::kInputPointWireSize, result.points[i]))

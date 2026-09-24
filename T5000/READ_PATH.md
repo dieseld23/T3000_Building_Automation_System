@@ -126,10 +126,13 @@ the device's own claim (bytes 60-61), NAT or not.
 
 The read goes to that address directly. T3000 instead broadcasts Who-Is for
 the device instance and binds whatever address the I-Am comes from (`BacnetView.cpp:4307`). Skipping
-it means no broadcast when a device is read. What it gives up is confirmation
-that the device at that address is still the one scanned; nothing in an Inputs
-reply identifies its sender, so a controller replaced since the scan would be
-read under the old one's serial until the next scan.
+it means no broadcast when a device is read. What the I-Am would have given -
+confirmation that the device at that address is still the one scanned - comes
+from the settings read instead, which is sent first: it carries the panel's
+serial number, and a panel whose serial is not the one the scan found at that
+address is not read further. T3000's own web view makes the same check
+(`BacnetWebView.cpp:1655-1665`). A panel whose settings give serial 0 is read,
+and the page says its identity could not be confirmed.
 
 **Devices a controller answered for are not read.** A Minipanel or T3 answers
 the scan for the Tstats on its RS485 bus, from its own address, with the
@@ -188,23 +191,57 @@ is `BACNETIP_PORT + 0..3` and `BACNETIP_PORT` is 47808,
 | A chunk that times out is logged and skipped (`BacnetView.cpp:4447`), leaving a grid with holes | All or nothing: a partial read shows no points and names the range that failed |
 | Up to 10 retries x 3 attempts x 3 s per chunk | 2 attempts x 3 s, then the page is told |
 
+**What else is read, and in what order.** T3000 reads three things from a
+panel when it connects, before it shows any point, and T5000 reads them each
+time the Inputs page is opened (`app/inputs_read.cpp`), since it has no
+connection to keep them in:
+
+| Read | Command | Requests | What it decides |
+| --- | --- | --- | --- |
+| Settings | `READ_SETTING_COMMAND` (98), one 400-byte block | 1 | the panel's model (`mini_type`), and so its row count and per-model labels; the serial number; on an ESP32 T3 from firmware 63.7, how many inputs it has |
+| Custom digital ranges | `READUNIT_T3000` (14), eight 25-byte units | 1 | the state names of digital ranges 23-30 |
+| Custom analog tables | `READANALOG_CUS_TABLE_T3000` (34), five 105-byte tables | 2 | the unit names of analog ranges 20-24 |
+| Inputs | `READINPUT_T3000` (2) | 7 | the points |
+
+So opening the page sends 11 requests where it used to send 7, about 1.1 s on
+loopback with T3000's 100 ms pacing between them. All four are on the
+`ReadCommand` whitelist, and the oracle checks each request against T3000's
+stack in the shape T3000 sends it.
+
+When one of them does not come back, T5000 goes further than T3000, and
+says so:
+
+- **The settings.** When nothing answers, the read stops there, as T3000's
+  does: it treats a panel whose settings do not come back as not connected
+  (`BacnetView.cpp:5905-5955`). When the panel answers with a refusal, T3000
+  would still show nothing. T5000 reads the inputs anyway, shows every row
+  with no per-model rules, and the page says how that differs.
+- **The custom names.** A refusal leaves those names missing, and each row
+  that needed them has a note. When nothing answers, the remaining name reads
+  are skipped, since a device that has gone quiet will not answer the next
+  one; the inputs are still asked for. As in T3000, table 4 is asked for only
+  when tables 0-3 came back.
+
 **How values are shown.** As T3000's Inputs grid shows them: `display/input_text.cpp`
 ports the loop at `BacnetInput.cpp:951-1237` column by column. The unit and
 range names are copied from `global_define.h` into `display/tables.h`, and a
 self-test re-reads that header on every build and fails if an entry or a count
-differs. Where T3000 would show something T5000 cannot, the row carries a note
-instead of a guess. That covers a custom range, whose names are stored on the
-device and read with commands T5000 does not send yet (`READUNIT_T3000`,
-`READANALOG_CUS_TABLE_T3000`), and a cell T3000 leaves holding the previous
-row's text.
+differs; the integer constants T5000 copies from it are checked the same way.
+The custom names are cut out of the replies by ports of T3000's receive
+handlers (`display/custom_ranges.cpp`), including the parts a plain copy would
+miss: a digital name of 12 or more characters is dropped, a non-zero `direct`
+byte swaps off and on, and a 0xEF in a table name's ninth byte is a precision
+marker, not text, unless the name has no NUL in its first 22 bytes. The rows
+T3000 shows are those below its row limit for the panel's model
+(`device/input_rows.cpp`, from `BacnetInput.cpp:736-807`); a T3-8AI8AO6DO
+shows 8, and T3000 leaves the rest of its 64 rows empty, so T5000 leaves them
+out. Where T3000 would show something T5000 cannot, the row carries a note
+instead of a guess - a custom range whose names did not come back, or a cell
+T3000 leaves holding the previous row's text.
 
-**Not yet:** the panel's settings (`READ_SETTING_COMMAND`), which T3000 uses
-for how many rows a model shows, a few per-model labels, and the Panel and
-Type columns. An ESP32 T3 on newer firmware can have more than 64 inputs;
-T3000 reads 64 first too, and only widens the count after reading the settings
-block. Path 2 (Modbus
-registers) and the PTP tunnel are not implemented, and nor is reading a
-sub-device through its controller.
+**Not yet:** the Panel and Type columns. Path 2 (Modbus registers) and the
+PTP tunnel are not implemented, and nor is reading a sub-device through its
+controller.
 
 **None of this has touched hardware.** The synthetic devices used to test it
 answer in the format this same reading of the source says they should, so if

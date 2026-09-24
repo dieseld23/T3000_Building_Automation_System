@@ -1,5 +1,7 @@
 #include "points_json.h"
 
+#include "../bacnet/point_read.h"
+#include "../device/input_rows.h"
 #include "../display/device_text.h"
 #include "../display/input_text.h"
 
@@ -76,6 +78,13 @@ namespace t5000::app
             snprintf(buf, sizeof(buf), "\"%s\":%ld", name, value);
             out += buf;
         }
+
+        void add_note(std::string& note, const std::string& more)
+        {
+            if (!note.empty())
+                note += ' ';
+            note += more;
+        }
     }
 
     std::string build_unavailable_inputs_json(int serial_number,
@@ -101,6 +110,11 @@ namespace t5000::app
         append_field(out, "detail", reason);
         out += "},";
 
+        // The same panel and customRanges keys build_inputs_json writes, with
+        // nothing known, so the page never reads a missing field as a value.
+        out += "\"panel\":{\"known\":false,\"inputsRead\":0,\"inputsShown\":0,\"note\":\"\"},";
+        out += "\"customRanges\":{\"digitalKnown\":false,\"digital\":[],\"analog\":[]},";
+
         append_int(out, "count", 0);
 
         // "inputs", not "points". The page reads data.inputs; a payload using
@@ -113,7 +127,8 @@ namespace t5000::app
 
     std::string build_inputs_json(const DeviceInfo& device,
                                   const device::Decision& decision,
-                                  const std::vector<wire::InputPoint>& points)
+                                  const std::vector<wire::InputPoint>& points,
+                                  const InputsPanel& panel)
     {
         std::string out;
         out.reserve(256 + points.size() * 192);
@@ -139,28 +154,94 @@ namespace t5000::app
         append_field(out, "detail", decision.detail);
         out += "},";
 
-        // What T3000 decides from the panel's settings, which T5000 does not
-        // read yet: how many of the 64 rows a model shows, and a few per-model
-        // labels. Said once, here, rather than guessed per row.
-        const display::PanelContext panel;
-        out += "\"panel\":{\"known\":false,";
-        append_field(out, "note",
-                     "Every input is shown. T3000 shows fewer on some panel models, and names a "
-                     "few inputs by model; both depend on the panel's settings, which T5000 does not "
-                     "read yet.");
+        // What T3000 decides from the panel's settings: how many rows a model
+        // shows, and a few per-model labels. Said once, here, rather than per
+        // row.
+        display::PanelContext context;
+        context.known  = panel.known;
+        context.type   = static_cast<device::MiniType>(panel.known ? panel.settings.mini_type() : 0);
+        context.ranges = panel.ranges;
+
+        size_t shown = points.size();
+        std::string note = panel.note;
+        if (panel.known)
+        {
+            const int type = device::bacnet_device_type(panel.settings);
+            const device::InputRows rows = device::input_rows(panel.product, panel.settings);
+            if (!rows.set)
+            {
+                add_note(note, "T3000 sets no row count for this panel's model (mini_type " + std::to_string(type) +
+                                   ", a Tiny-EX Minipanel): it keeps the count of the panel opened before it, "
+                                   "and shows every row empty if there was none. Every input read is shown here.");
+            }
+            else if ((size_t)rows.rows < points.size())
+            {
+                shown = (size_t)rows.rows;
+                add_note(note, "This panel's model (mini_type " + std::to_string(type) + ") has " +
+                                   std::to_string(rows.rows) + " inputs. T3000 shows rows " +
+                                   std::to_string(rows.rows + 1) + "-" + std::to_string(points.size()) +
+                                   " empty, and they are left out here.");
+            }
+            if (points.size() > (size_t)bacnet::kInputCount)
+            {
+                add_note(note, "Its settings give it " + std::to_string(points.size()) +
+                                   " inputs, which an ESP32 T3 on firmware 63.7 or later may have, so all " +
+                                   std::to_string(points.size()) + " were read.");
+            }
+        }
+        else if (note.empty())
+        {
+            note = "The panel's settings were not read, so every input is shown. T3000 shows fewer on "
+                   "some panel models, and names a few inputs by model.";
+        }
+
+        out += "\"panel\":{\"known\":";
+        out += panel.known ? "true," : "false,";
+        if (panel.known)
+        {
+            append_field(out, "name", acp_to_utf8(panel.settings.panel_name, wire::settings_at::panel_name_length)); out += ',';
+            append_int(out, "number",       panel.settings.panel_number); out += ',';
+            append_int(out, "miniType",     panel.settings.mini_type()); out += ',';
+            append_int(out, "firmware",     panel.settings.firmware()); out += ',';
+            append_int(out, "serialNumber", (long)panel.settings.serial_number); out += ',';
+        }
+        append_int(out, "inputsRead",  (long)points.size()); out += ',';
+        append_int(out, "inputsShown", (long)shown); out += ',';
+        append_field(out, "note", note);
         out += "},";
 
-        append_int(out, "count", (long)points.size());
+        // The custom range names as the device sent them, for reference; the
+        // rows below already use them.
+        out += "\"customRanges\":{\"digitalKnown\":";
+        out += panel.ranges.digital_known ? "true" : "false";
+        out += ",\"digital\":[";
+        for (int i = 0; panel.ranges.digital_known && i < wire::kCustomUnitCount; i++)
+        {
+            if (i != 0) out += ',';
+            out += '"' + json_escape(panel.ranges.digital[i].text) + '"';
+        }
+        out += "],\"analog\":[";
+        for (int i = 0; i < wire::kAnalogTableCount; i++)
+        {
+            if (i != 0) out += ',';
+            out += "{\"known\":";
+            out += panel.ranges.analog_known[i] ? "true," : "false,";
+            append_field(out, "name", panel.ranges.analog[i]);
+            out += '}';
+        }
+        out += "]},";
+
+        append_int(out, "count", (long)shown);
         out += ",\"inputs\":[";
 
-        for (size_t i = 0; i < points.size(); i++)
+        for (size_t i = 0; i < shown; i++)
         {
             const wire::InputPoint& p = points[i];
             if (i != 0) out += ',';
 
             // The columns as T3000 shows them - text, computed here so the
             // self-test covers it - followed by the raw fields they came from.
-            const display::InputText t = display::input_text(p, (int)i, panel);
+            const display::InputText t = display::input_text(p, (int)i, context);
 
             out += '{';
             append_int(out, "index", (long)i); out += ',';

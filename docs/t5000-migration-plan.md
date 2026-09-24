@@ -177,8 +177,10 @@ That is the source-side `CString` cost, and it lands here, not later.
 *Done for Inputs.* The grid itself, `BacnetInput.cpp:951-1237`, turned out to
 be the thing to port rather than the two label helpers. It is in
 `T5000/display/input_text.cpp`, with the tables in `display/tables.h`, checked
-against `global_define.h` on every build. Still to come: `Device_Basic_Setting`
-(the Settings read), the custom range tables, and Outputs and Variables.
+against `global_define.h` on every build. `Device_Basic_Setting` is read too
+(`READ_SETTING_COMMAND`, `app/inputs_read.cpp`), and so are the custom range
+tables; the row limits and per-model labels they drive are ported. Still to
+come: the Panel and Type columns, and Outputs and Variables.
 
 **Stage 2 is the cliff** — the first code that writes to live equipment.
 

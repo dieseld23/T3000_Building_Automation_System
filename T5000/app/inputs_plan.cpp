@@ -53,18 +53,9 @@ namespace t5000::app
             return plan;
         }
 
-        // T3000's first read of any device is 64 inputs (BacnetView.cpp:4435),
-        // so this matches it. Only afterwards, having read the settings block,
-        // does it widen the count for an ESP32 T3 on firmware 63.7 or later
-        // (ReInital_Someof_Point, global_function.cpp:17634). That second
-        // step needs the settings read, which T5000 does not do yet.
-        if (d.product == device::ProductClassId::Esp32T3Series)
-        {
-            plan.note = "ESP32 T3 controllers on newer firmware can have more than 64 inputs. "
-                        "These are the first 64 - what T3000 also reads first - and any "
-                        "beyond them are not shown.";
-        }
-
+        // How many inputs to read is decided by the read itself, from the
+        // panel's settings: 64, or more on an ESP32 T3 on firmware 63.7 or
+        // later (app/inputs_read.cpp).
         plan.can_read = true;
         return plan;
     }

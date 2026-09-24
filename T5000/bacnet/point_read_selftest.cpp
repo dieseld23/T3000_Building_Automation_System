@@ -15,24 +15,12 @@
 
 #include "point_read.h"
 #include "../testing/check.h"
+#include "../testing/fake_transport.h"
 
 namespace
 {
     using namespace t5000::bacnet;
     using namespace t5000::testing;
-
-    using Bytes = std::vector<uint8_t>;
-
-    constexpr uint32_t kDeviceIp = 0xC0A80132;    // 192.168.1.50
-    constexpr uint32_t kOtherIp  = 0xC0A80133;    // 192.168.1.51
-
-    Endpoint device_at(uint32_t ip = kDeviceIp, uint16_t port = 47808)
-    {
-        Endpoint e;
-        e.ip   = ip;
-        e.port = port;
-        return e;
-    }
 
     // One input point on the wire: label "IN<n>", value n*1000 + bias,
     // everything else zero - enough to tell each point from its neighbours,
@@ -50,117 +38,20 @@ namespace
         return e;
     }
 
-    // A correct ComplexACK for a request, as a device would send it.
+    // A correct ComplexACK for an Inputs request, as a device would send it,
+    // carrying `carried` points (all of them by default).
     Bytes answer(const ReadRequest& r, uint8_t invoke, int carried = -1,
                  uint8_t reply_first = 0xFF, int bias = 0)
     {
         const int n = carried < 0 ? r.count() : carried;
 
-        Bytes temco = { 0, 0, to_wire(r.command),
-                        reply_first == 0xFF ? r.first : reply_first,
-                        reply_first == 0xFF ? r.last : (uint8_t)(reply_first + r.count() - 1),
-                        (uint8_t)r.entity_size, 0 };
+        Bytes entities;
         for (int i = 0; i < n; i++)
         {
             const Bytes e = input_entity(r.first + i, bias);
-            temco.insert(temco.end(), e.begin(), e.end());
+            entities.insert(entities.end(), e.begin(), e.end());
         }
-
-        Bytes d = { 0x81, 0x0A, 0, 0, 0x01, 0x00, 0x30, invoke, 0x12,
-                    0x0A, 0x01, 0x04, 0x19, 0x01, 0x2E, 0x65 };
-        if (temco.size() <= 253)
-        {
-            d.push_back((uint8_t)temco.size());
-        }
-        else
-        {
-            d.push_back(254);
-            d.push_back((uint8_t)(temco.size() >> 8));
-            d.push_back((uint8_t)(temco.size() & 0xFF));
-        }
-        d.insert(d.end(), temco.begin(), temco.end());
-        d.push_back(0x2F);
-        d[2] = (uint8_t)(d.size() >> 8);
-        d[3] = (uint8_t)(d.size() & 0xFF);
-        return d;
-    }
-
-    Bytes framed(Bytes apdu)
-    {
-        Bytes d = { 0x81, 0x0A, 0, 0, 0x01, 0x00 };
-        d.insert(d.end(), apdu.begin(), apdu.end());
-        d[2] = (uint8_t)(d.size() >> 8);
-        d[3] = (uint8_t)(d.size() & 0xFF);
-        return d;
-    }
-
-    // A device and a network, scripted. Every send is recorded; `respond`
-    // decides what arrives in reply. An empty inbox times out at once, so
-    // these tests never wait on a clock.
-    class FakeTransport : public ReadTransport
-    {
-    public:
-        struct Sent
-        {
-            ReadRequest request;
-            uint8_t     invoke_id;
-        };
-
-        struct Incoming
-        {
-            Endpoint from;
-            Bytes    bytes;
-            int      special = 0;   // a negative receive() result instead of bytes
-        };
-
-        std::vector<Sent>    sent;
-        std::deque<Incoming> inbox;
-        uint16_t             port = 0;   // what local_port() reports
-
-        // Called after each send with its index. Push onto `inbox` to reply.
-        std::function<void(const Sent&, size_t, FakeTransport&)> respond;
-
-        bool send_read(const ReadRequest& request, uint8_t invoke_id, std::string&) override
-        {
-            sent.push_back({ request, invoke_id });
-            if (respond)
-                respond(sent.back(), sent.size() - 1, *this);
-            return true;
-        }
-
-        int receive(uint8_t* buffer, int capacity, int, Endpoint& from, std::string& error) override
-        {
-            if (inbox.empty())
-                return 0;
-
-            Incoming in = inbox.front();
-            inbox.pop_front();
-            if (in.special < 0)
-            {
-                error = "scripted failure";
-                return in.special;
-            }
-            from = in.from;
-            const int n = (int)in.bytes.size() < capacity ? (int)in.bytes.size() : capacity;
-            memcpy(buffer, in.bytes.data(), (size_t)n);
-            return n;
-        }
-
-        void reply(const Bytes& bytes, uint32_t ip = kDeviceIp)
-        {
-            inbox.push_back({ device_at(ip), bytes, 0 });
-        }
-
-        uint16_t local_port() const override { return port; }
-    };
-
-    ReadSettings instant()
-    {
-        ReadSettings s;
-        s.reply_timeout_ms          = 200;
-        s.attempts                  = 2;
-        s.pause_between_requests_ms = 0;
-        return s;
+        return ack(r, invoke, entities, reply_first);
     }
 
     // A device that answers everything correctly.
@@ -604,9 +495,99 @@ namespace
     }
 }
 
+namespace
+{
+    void test_more_than_64_inputs()
+    {
+        section("an ESP32 with 96 inputs is read in ten requests");
+
+        FakeTransport t;
+        t.respond = well_behaved;
+        uint8_t invoke = 0;
+
+        const InputsRead r = read_inputs(t, device_at(), instant(), invoke, 96);
+        check(r.ok, "the read succeeds");
+        check_eq((long)r.points.size(), 96, "96 points");
+        if (!require(t.sent.size() == 10, "ten requests"))
+            return;
+        check(t.sent[9].request.first == 90 && t.sent[9].request.last == 95, "the last is 90-95");
+        check_streq((const char*)r.points[95].label, "IN95", "point 95 is point 95");
+    }
+
+    void test_a_read_from_the_middle()
+    {
+        section("a read can start past entity 0, as T3000's read of table 4 does");
+
+        FakeTransport t;
+        t.respond = [](const FakeTransport::Sent& s, size_t, FakeTransport& f)
+        {
+            f.reply(ack(s.request, s.invoke_id, Bytes((size_t)s.request.count() * s.request.entity_size, 0x42)));
+        };
+        uint8_t invoke = 0;
+
+        const ReadOutcome o = read_entities_from(t, device_at(), ReadCommand::AnalogCustomTables,
+                                                 4, 1, 1, 105, instant(), invoke);
+        check(o.ok, "table 4 alone is read");
+        if (!require(t.sent.size() == 1, "in one request"))
+            return;
+        check(t.sent[0].request.first == 4 && t.sent[0].request.last == 4, "for 4-4");
+        check_eq((long)o.entities.size(), 105, "one table's bytes");
+
+        FakeTransport u;
+        u.respond = t.respond;
+        const ReadOutcome groups = read_entities_from(u, device_at(), ReadCommand::Inputs, 250, 6, 4, 46,
+                                                      instant(), invoke);
+        check(groups.ok && u.sent.size() == 2 && u.sent[0].request.first == 250 &&
+                  u.sent[0].request.last == 253 && u.sent[1].request.first == 254 &&
+                  u.sent[1].request.last == 255,
+              "250-255 in fours: 250-253, then 254-255");
+
+        FakeTransport v;
+        const ReadOutcome past = read_entities_from(v, device_at(), ReadCommand::Inputs, 250, 7, 10, 46,
+                                                    instant(), invoke);
+        check(!past.ok && v.sent.empty(), "250-256 cannot be named in a byte, and nothing is sent");
+    }
+
+    void test_silence_and_refusal_are_told_apart()
+    {
+        section("a read that stopped for silence says so; one that was refused does not");
+
+        uint8_t invoke = 0;
+
+        FakeTransport quiet;
+        const ReadOutcome silent = read_entities(quiet, device_at(), ReadCommand::Settings, 1, 1, 400,
+                                                 instant(), invoke);
+        check(!silent.ok && silent.no_answer, "nothing answered: no_answer");
+        check(silent.error.find("the panel's settings") != std::string::npos,
+              "and the error names what was asked for, not \"points 0-0\"");
+
+        FakeTransport refusing;
+        refusing.respond = [](const FakeTransport::Sent& s, size_t, FakeTransport& f)
+        {
+            f.reply(refusal(s.invoke_id));
+        };
+        const ReadOutcome refused = read_entities(refusing, device_at(), ReadCommand::Settings, 1, 1, 400,
+                                                  instant(), invoke);
+        check(!refused.ok && !refused.no_answer, "an Error reply: refused, not silent");
+
+        FakeTransport answering;
+        answering.respond = [](const FakeTransport::Sent& s, size_t, FakeTransport& f)
+        {
+            f.reply(ack(s.request, s.invoke_id, Bytes(400, 0)));
+        };
+        const ReadOutcome settings = read_entities(answering, device_at(), ReadCommand::Settings, 1, 1, 400,
+                                                   instant(), invoke);
+        check(settings.ok && !settings.no_answer && settings.entities.size() == 400,
+              "a 400-byte answer, whose size needs both header bytes, is read");
+    }
+}
+
 int run_point_read_tests()
 {
     test_a_whole_read();
+    test_more_than_64_inputs();
+    test_a_read_from_the_middle();
+    test_silence_and_refusal_are_told_apart();
     test_other_traffic_is_ignored();
     test_a_retry_reuses_its_invoke_id();
     test_silence();

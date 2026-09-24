@@ -16,6 +16,7 @@
 
 #include "app/fixture.h"
 #include "app/inputs_plan.h"
+#include "app/inputs_read.h"
 #include "app/points_json.h"
 #include "app/product_json.h"
 #include "app/scan_json.h"
@@ -116,8 +117,8 @@ namespace
                 (int)d.serial_number, d.address_note, "Nothing was sent. " + error);
         }
 
-        const bacnet::InputsRead read =
-            bacnet::read_inputs(transport, plan.endpoint, bacnet::ReadSettings(), g_next_invoke_id);
+        const app::InputsPageRead read = app::read_inputs_page(
+            transport, plan.endpoint, d.product, d.serial_number, bacnet::ReadSettings(), g_next_invoke_id);
         if (!read.ok)
             return app::build_unavailable_inputs_json((int)d.serial_number, d.address_note, read.error);
 
@@ -133,7 +134,14 @@ namespace
         if (!plan.note.empty())
             decision.detail += " " + plan.note;
 
-        return app::build_inputs_json(info, decision, read.points);
+        app::InputsPanel panel;
+        panel.known    = read.panel.settings_known;
+        panel.settings = read.panel.settings;
+        panel.product  = d.product;
+        panel.ranges   = read.panel.ranges;
+        panel.note     = read.panel.note;
+
+        return app::build_inputs_json(info, decision, read.points, panel);
     }
 }
 
