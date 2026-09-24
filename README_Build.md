@@ -73,19 +73,56 @@ A clean checkout therefore builds with nothing but Visual Studio installed.
 Submodules
 -----------------------------------------------------------
 
-The repository declares one active submodule, `T3000Webview`. Clone with submodules, or initialise it afterwards:
+The repository declares one active submodule, `T3000Webview`, the source of the webview UI. The solution does not need it: no project in `T3000 - VS2019.sln` lives under it or references it, and the built UI is committed (see above). Initialise it only to work on that UI:
 
 ```
 git submodule update --init T3000Webview
 ```
 
+CI checks out submodules anyway; `scripts/ci-local.ps1` skips them, and checks on each run that the solution still does not reference one.
+
 `.gitmodules` also lists `T3000_CrossPlatform` and `PartsAndVendors`, but neither has a corresponding entry in the index, so git ignores them. This is harmless.
+
+T5000
+-----------------------------------------------------------
+
+`T5000` is the standalone configuration tool, in `T5000\`, and it builds as part of the solution. To build only it, add `-t:T5000`:
+
+```
+& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" "T3000 - VS2019.sln" -t:T5000 -p:Platform=x86 -p:Configuration=Release
+```
+
+* Its self-test runs after every build, as `T5000.exe --selftest --source-root <repo>`, and a failing check fails the build. Some tests read T3000's own headers from the source root, to catch a copied table or constant that has drifted.
+* It builds to `T3000 Output\release\T5000.exe`. A running T5000 locks that file, so stop it before building.
+* `T5000.exe` serves its UI on `http://127.0.0.1:8730` and opens a browser; `--no-browser` skips the browser; `--selftest` runs the tests by hand.
+
+[`T5000/README.md`](T5000/README.md) covers what it does and how to work on it.
+
+Building a clean checkout, as CI does
+-----------------------------------------------------------
+
+`scripts/ci-local.ps1` builds a throwaway git worktree of a ref with the same command CI runs, so a file that was never committed fails here rather than in CI. Run it with PowerShell 7; under Windows PowerShell 5, git's progress output on stderr is treated as an error.
+
+```
+pwsh -NoProfile -File scripts/ci-local.ps1
+pwsh -NoProfile -File scripts/ci-local.ps1 -Ref origin/master -Parallel
+```
+
+| Parameter | Default | Does |
+| --- | --- | --- |
+| `-Ref` | `HEAD` | What to build: a branch, tag or SHA |
+| `-WorktreePath` | `C:\t3000-ci` | Where the worktree goes. Keep it short; deep MFC paths hit `MAX_PATH` |
+| `-Parallel` | off | Adds `/m`. Faster, but no longer the exact CI command |
+| `-Keep` | off | Leaves the worktree in place afterwards |
+
+It checks for MFC for v143 and the .NET 4.5.2 reference assemblies before building, and stops with the reason if either is missing.
 
 What to do if CI or local build fails with a build error
 -----------------------------------------------------------
 * If the above fails this is mostly due to:
    * Compilation errors in one or more CPP files
-   * Developer _forgot_ to add new files to CMakeLists.txt
+   * Developer _forgot_ to add new files to the project: the `.vcxproj` the file belongs to, such as `T3000\T3000_VS2019.vcxproj` or `T5000\T5000.vcxproj`. The build uses MSBuild and the project files; the `CMakeLists.txt` files in the tree are not part of it.
+   * For T5000, a self-test failure. The build log lists each failed check.
 
 Common first-time failures and what they mean:
 
@@ -96,6 +133,6 @@ Common first-time failures and what they mean:
 | `MSB3644` | .NET Framework 4.5.2 targeting pack missing | Install the 4.5.2 Developer Pack |
 | `MSB3073` | Built a `.vcxproj` directly instead of the `.sln` | Build `T3000 - VS2019.sln` |
 
-### A note on the CI badge
+### CI
 
-The GitHub Actions build has been failing since around 2026-06-10, when the `windows-latest` runner image moved to Visual Studio 2026. The runner image does not carry `C++ MFC for v143` or the .NET Framework 4.5.2 targeting pack, so the workflow hits `MSB8041` and `MSB3644` before compiling anything. This is an environment gap in the workflow, not a defect in the source -- the same commit builds cleanly on a local machine that has both components installed.
+`.github/workflows/BuildTest.yml` builds the solution on GitHub's `windows-latest` runner. Since around 2026-06-10 that image has carried Visual Studio 2026 without `C++ MFC for v143` or the .NET Framework 4.5.2 targeting pack, which failed the build at `MSB8041` and `MSB3644`. The workflow now installs MFC for v143 and supplies the 4.5.2 reference assemblies itself before building (since 2026-09-18), and it passes. Because it builds the whole solution, it runs T5000's self-test too.

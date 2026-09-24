@@ -14,6 +14,11 @@ those surveys, made by opening the files.
 **Nothing in T5000 has yet touched a live controller.** Every claim here is
 source-against-source, except the struct sizes, which the compiler asserts.
 
+**Where it stands, 2026-09-24:** Stage 0 is done, and Stage 1 is done for
+Inputs (the rest of Inputs is PR #17). The stage table below has each stage's
+state, and [Next](#next) is the list of what comes after.
+[`T5000/README.md`](../T5000/README.md) describes the tool as it is today.
+
 ---
 
 ## The headline: additive, not multiplicative
@@ -30,6 +35,10 @@ three are now guarded field-by-field in `T5000/wire/`, compiler-enforced:
 | `InputPoint` | 46 | ✓ every field |
 | `OutputPoint` | 45 | ✓ every field |
 | `VariablePoint` | 39 | ✓ every field |
+
+The panel's settings block and its two custom-range tables, which the Inputs
+read asks for first, are guarded as well (`wire/panel_guard.cpp`), on the
+fields T5000 reads.
 
 **There are three data paths, not thirty.**
 
@@ -113,7 +122,7 @@ id means reading the wrong registers on live equipment.
 
 ## A large fraction of "all products" was never finished
 
-This is the finding that most affects your scope answer. Several products exist
+This finding matters most for scope. Several products exist
 as enum entries that the shipping app does not fully implement. Supporting them
 is **new product development, not porting** — there is no behaviour to copy.
 
@@ -149,16 +158,16 @@ would check each before acting on it.
 
 Each ships on its own. Ordered by dependency, not by difficulty.
 
-| Stage | Delivers | Changed by all-products? |
-|---|---|---|
-| **0** | Discovery, selection, firmware detection, **product-identity model** | **Larger** — two id axes, capability table |
-| **1** | Inputs + Outputs + Variables read | Unchanged — one shared layout |
-| **2** | Write support for points, then Arrays, PVar | Unchanged |
-| **3** | Device settings, user login | Slightly larger — per-product field ranges |
-| **4** | PID loops, then Tstat | **Larger** — Tstat is a second data model |
-| **5** | Weekly + annual schedules | Larger — Tstats encode schedules differently |
-| **6** | Trend logs + alarms | Unchanged |
-| **7** | Programs | Blocked on a decision; controllers only |
+| Stage | Delivers | Changed by all-products? | State, 2026-09-24 |
+|---|---|---|---|
+| **0** | Discovery, selection, firmware detection, **product-identity model** | **Larger** — two id axes, capability table | Done (#9, #12, #13, #15) |
+| **1** | Inputs + Outputs + Variables read | Unchanged — one shared layout | Inputs done (#14, #16; settings and custom ranges in #17, open). Outputs and Variables not started |
+| **2** | Write support for points, then Arrays, PVar | Unchanged | Not started |
+| **3** | Device settings, user login | Slightly larger — per-product field ranges | Not started. The settings block is already read and guarded, for Inputs |
+| **4** | PID loops, then Tstat | **Larger** — Tstat is a second data model | Not started |
+| **5** | Weekly + annual schedules | Larger — Tstats encode schedules differently | Not started |
+| **6** | Trend logs + alarms | Unchanged | Not started |
+| **7** | Programs | Blocked on a decision; controllers only | Not started |
 
 Stage 0 absorbs nearly all the widened scope. Stages 1, 2 and 6 are unaffected
 because the struct layout is shared.
@@ -183,12 +192,112 @@ tables; the row limits and per-model labels they drive are ported. Still to
 come: the Panel and Type columns, and Outputs and Variables.
 
 **Stage 2 is the cliff** — the first code that writes to live equipment.
+Writes get their own transport, separate from the read path, which cannot
+express one. Each write needs an explicit approval, and is done only when a
+read-back confirms it. The scan's repairs are the first things an approve
+button would act on. See also [what the write path must not
+reproduce](#what-the-write-path-must-not-reproduce).
+
+## Next
+
+In order:
+
+1. **Merge #17**, which reads each panel's settings and custom range names
+   before its inputs.
+2. **Finish Inputs:** the Panel and Type columns.
+3. **Outputs and Variables.** Same struct path as Inputs, and their structs
+   are already guarded. T3000 also reads multi-state ranges
+   (`READ_MSV_COMMAND`) and variable units (`READVARUNIT_T3000`) when it
+   connects (`BacnetView.cpp:6483-6575`); the port will need both.
+4. **The first hardware check,** once a controller is available and the owner
+   agrees. Two things above all:
+   - the serial check: the settings' `n_serial_number` must equal the serial
+     in the scan response, or the page refuses the panel;
+   - whether a controller replies to the port a request came from.
+     `READ_PATH.md` explains why that decides whether T5000 can run beside
+     T3000.
+
+   Later, when there is a Modbus device on firmware below 525 to try, the
+   firmware gate (see the end of Risks).
+5. **Stage 2, writes,** as above.
+6. **The register path** for Tstats and the Modbus modules, starting with the
+   guard on the Tstat registers described under Risks.
+
+Smaller loose ends:
+
+- `build_device_json` (`app/scan_json.h`) has tests but no route. It is for a
+  device detail pane that does not exist yet.
+- The Connection dialog saves settings that nothing reads yet. They will
+  matter for MS/TP and Modbus. Until then, a device is read at the address
+  its scan response came from.
+- The device list shows the scan's firmware as a raw number. Check how
+  T3000's device list shows it before changing it. The Inputs banner already
+  shows the panel's firmware as T3000 does (`60.5`).
+
+---
+
+## Carried over from the first plan
+
+The first plan, `docs/new-config-tool-plan.md` (removed 2026-09-24; it is in
+git history), was written before any of T5000 existed. Most of it has since been superseded by what was built: T5000
+speaks BACnet private transfer itself, instead of calling T3000's
+`GetPrivateData_Blocking` and `WritePrivateData_Blocking`, and it includes
+T3000's struct header rather than editing a copy. Three parts still hold, and
+are kept here. The rest is in git history.
+
+### The wire format is `T3000/CM5/ud_str.h`, not the BACnet library's copy
+
+There are two `ud_str.h` files, and they define different structs under the
+same names. `T3000/global_variable.h:5` includes `CM5\ud_str.h`, so that is the
+one the shipping app and the devices use. `BacNetDllforVc/include/ud_str.h` has
+`sen_on` and `sen_off` where the live one has `sub_id` and `sub_product`, and a
+one-byte `calibration` where the live one splits calibration into two bytes.
+The stale copy is the one that looks portable (it includes only `stdint.h`
+and `stdbool.h`), which is what makes it dangerous: a tool built on it would
+compile cleanly and misread every point.
+
+T5000 includes the live header unmodified, through the shims in
+`wire/cm5_header.h`, and `wire/wire_guard.cpp` checks every field's offset and
+size against it. A `sizeof` check alone would not catch the difference above,
+because the two copies differ by which field sits at an offset, not by size.
+
+### What the write path must not reproduce
+
+T3000 handles writes badly in four ways. The first three are in the Inputs
+grid, and the last is in the Variables dialog:
+
+- **A write reported as a success is often never checked.** After a write
+  succeeds, `BacnetInput.cpp:85` asks the device for the point again only when
+  the product is a private-data one and the protocol is not MS/TP, a
+  BACnet-to-Modbus bridge, or PTP transfer mode (`SPECIAL_BAC_TO_MODBUS`,
+  `global_define.h:2550`). Otherwise the status bar says "Success!" and the
+  grid shows the typed value without the device having been asked.
+- **Where it is checked, the check is a timer.** `Post_Refresh_One_Message`,
+  then `SetTimer(2, 2000, NULL)` (`:87-89`). The refresh races the write.
+- **A failed write throws away what was typed.** `:96` restores the old point
+  from `m_temp_Input_data`, and the only trace is "Fail!" in the status pane.
+  Someone editing fifteen rows cannot tell which were rejected, or what they
+  had entered.
+- **Background refresh can overwrite an edit in progress.** The Variables
+  dialog runs `SetTimer(1, BAC_LIST_REFRESH_TIME)` and `SetTimer(4, 15000)`
+  (`BacnetVariable.cpp:124-125`).
+
+So in T5000, a write is not done until a read-back has confirmed it. A
+rejected value stays on screen with the reason beside it. A refresh never
+touches a row being edited.
+
+### The UI binds to loopback
+
+The server binds 127.0.0.1 only. The tool reads and will write building
+equipment; remote or tablet access is a later, deliberate step, and it comes
+with a decision about authentication.
 
 ---
 
 ## Not worth porting
 
-Unchanged from the first plan, minus graphics, which is now out by decision:
+Ruled out when this plan was first written. Graphics has since been ruled out
+too, by decision:
 
 - **MFC itself** — the reason this tool exists.
 - **Excel COM automation** (`excel9.cpp`, 5,591 lines) — needs Office installed.
@@ -201,24 +310,24 @@ Unchanged from the first plan, minus graphics, which is now out by decision:
 
 ---
 
-## One question left, and it is smaller than the last two
+## Which list "all the product families" means: settled by building it
 
-**Which list did "all the product families" mean?**
+There were two candidate lists:
 
 - **~90 `PM_*` hardware models** — includes CO2 sensors, humidity sensors,
   pressure transducers, water sensors, BTU meters, power meters, Zigbee
   repeaters, a boat monitor and a tester jig. Most are not controllers and have
   no configuration screens beyond Inputs/Outputs/Settings.
-- **30 `T3_*` panel configurations** — the controller shapes. This is the list
-  I had been planning against.
+- **30 `T3_*` panel configurations** — the controller shapes.
 
-*Recommendation: build the capability table so it is keyed by `PM_*` and can
-describe any of the ~90, but populate it first for the controllers and Tstats.
-A sensor then costs a table row, not a code path. That gets you "all products"
-without paying for ninety of them up front.*
-
-If you want it stated as a default: I will take that route unless you say
-otherwise, since it does not foreclose anything.
+The recommended route was taken: the capability table is keyed by `PM_*`, so
+it can describe any of the ~90, and it is populated first for the controllers
+and Tstats. `device/product.cpp` has 21 rows today: the 5 private-data
+controllers, 8 Tstats on the register path, 7 Modbus I/O modules, and a
+third-party row that says the device is not Temco's. Any other `PM_*` value is
+reported as unknown, with no screens. A sensor costs a table row, not a code
+path. The `T3_*` configurations are a second table, keyed by `mini_type`, in
+the same file.
 
 ---
 
@@ -228,6 +337,12 @@ otherwise, since it does not foreclose anything.
 in the old code and the collisions are live numbers. *Cheapest guard: make them
 distinct types in T5000 so a mix-up fails to compile — the same trick that
 makes the wire guard work. No hardware needed.*
+
+*Done.* `ProductClassId` and `MiniType` are separate `enum class` types
+(`device/product.h`), and `product_selftest.cpp` asserts the collisions above,
+so a renumbering is noticed. The one place T3000 mixes them, the
+`bacnet_device_type` row chain, is ported with the mix kept explicit as a
+plain `int` (`device/input_rows.h`).
 
 **The Tstat register model is a second wire format with no guard.** The point
 structs are protected by `wire_guard.cpp`; `product_register_value[]` has
