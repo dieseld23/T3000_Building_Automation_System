@@ -1,5 +1,12 @@
 # How a point actually gets read, and why it depends on firmware
 
+How T5000 reads points from a controller, and the T3000 behaviour each part
+follows. The first sections explain why there are two read paths and which
+one a device gets. [What T5000 now reads, and how](#what-t5000-now-reads-and-how)
+is where the current behaviour starts.
+
+## A correction: `GetPrivateData_Blocking` does not route Modbus
+
 Correcting an earlier claim in this project's history. The commit message on
 "Pin the point wire format before building anything on it" says
 `GetPrivateData_Blocking` "routes MODBUS_RS485 and PROTOCOL_MB_TCPIP_TO_MB_RS485
@@ -239,9 +246,11 @@ out. Where T3000 would show something T5000 cannot, the row carries a note
 instead of a guess - a custom range whose names did not come back, or a cell
 T3000 leaves holding the previous row's text.
 
-**Not yet:** the Panel and Type columns. Path 2 (Modbus registers) and the
+**Not yet:** the Panel and Type columns. Outputs and Variables, which will
+use this same path with their own commands. Path 2 (Modbus registers) and the
 PTP tunnel are not implemented, and nor is reading a sub-device through its
-controller.
+controller. The migration plan's [Next](../docs/t5000-migration-plan.md#next)
+list has the order.
 
 **None of this has touched hardware.** The synthetic devices used to test it
 answer in the format this same reading of the source says they should, so if

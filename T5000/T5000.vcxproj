@@ -1,21 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <!--
-    The new standalone configuration tool for Tstat/T3 units.
+    T5000, the standalone configuration tool. README.md says what it does and
+    where it stands; READ_PATH.md explains how it reads a point.
 
-    It does not talk to a device yet. What it currently contains is the wire
-    format, the logic for deciding how a device can be read, and proofs of both:
-
-      wire/points.h        the live point layout, vendored
-      wire/wire_guard.cpp  static_asserts the vendored layout still matches
-                           CM5/ud_str.h - drift fails the build
-      wire/decode.cpp      bytes off the wire into point structs
-      device/read_path.cpp which read path a device supports, and why
-      READ_PATH.md         the derivation behind read_path.cpp, with citations
-
-    A console application so the self-tests can actually be run - they execute
-    as a post-build event, so a failing check fails the build. It is not a usable
-    tool and does not pretend to be.
+    A console application. It serves its UI on http://127.0.0.1:8730, and has a
+    self-test mode that the post-build event below runs, so a failing check
+    fails the build.
   -->
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">

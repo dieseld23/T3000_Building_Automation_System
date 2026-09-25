@@ -1,12 +1,15 @@
-// T5000 - a standalone configuration tool for Tstat/T3 units.
+// T5000 - a standalone configuration tool for Temco controllers.
 //
 //   T5000.exe --selftest    run the self-tests, exit non-zero on failure
 //   T5000.exe               serve the UI on http://127.0.0.1:8730
+//   T5000.exe --no-browser  the same, without opening a browser
 //
-// It can now FIND devices, and still cannot change one. The scan is read-only
-// by construction (see discovery/scanner.h), and problems it notices are
-// staged as proposals nobody has agreed to yet. Point data is still the
-// fixture, flagged as such everywhere it is served.
+// It finds devices and reads a selected controller's inputs, and cannot yet
+// change anything. The scan and the reads are read-only by construction (see
+// discovery/scanner.h and bacnet/command.h), and problems the scan notices are
+// staged as proposals nobody has agreed to yet. With no device selected, the
+// Inputs page gets the fixture, flagged as such everywhere it is served.
+// README.md says where the project stands.
 
 #include <windows.h>
 #include <shellapi.h>
