@@ -30,6 +30,7 @@ int run_input_rows_tests();
 int run_inputs_read_tests();
 int run_device_db_tests();
 int run_device_list_tests();
+int run_http_server_tests();
 
 namespace
 {
@@ -111,6 +112,8 @@ int run_selftests(int argc, char** argv)
     run_device_db_tests();
     printf("\n");
     run_device_list_tests();
+    printf("\n");
+    run_http_server_tests();
 
     const int failures = t5000::testing::g_failures;
     const int checks   = t5000::testing::g_checks;

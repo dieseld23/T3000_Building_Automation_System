@@ -1,6 +1,7 @@
 #include "read.h"
 
 #include <ctype.h>
+#include <limits.h>
 #include <stdlib.h>
 
 namespace t5000::json
@@ -69,16 +70,24 @@ namespace t5000::json
 
     bool parse_u64(const std::string& text, unsigned long long& out)
     {
-        // Rejected explicitly. strtoull happily wraps "-1" round to
-        // 18446744073709551615, which as a handle would be a number no device
-        // has rather than the error it actually is.
-        if (text.find('-') != std::string::npos)
+        // Digits and nothing else, read by hand rather than with strtoull.
+        // strtoull wraps "-1" round to 18446744073709551615, which as a handle
+        // would be a number no device has rather than the error it actually
+        // is; it also takes leading spaces and a "+", stops quietly at an
+        // embedded NUL, and answers an overflow with ULLONG_MAX.
+        if (text.empty())
             return false;
 
-        char* end = nullptr;
-        const unsigned long long value = strtoull(text.c_str(), &end, 10);
-        if (!all_consumed(text, end))
-            return false;
+        unsigned long long value = 0;
+        for (const char c : text)
+        {
+            if (c < '0' || c > '9')
+                return false;
+            const unsigned digit = (unsigned)(c - '0');
+            if (value > (ULLONG_MAX - digit) / 10)
+                return false;
+            value = value * 10 + digit;
+        }
 
         out = value;
         return true;
@@ -164,6 +173,44 @@ namespace t5000::json
                 out += (char)(0x80 | ((cp >> 6) & 0x3F));
                 out += (char)(0x80 | (cp & 0x3F));
             }
+        }
+
+        // true, false, null, or a JSON number: -?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?
+        bool is_scalar(const std::string& t)
+        {
+            if (t == "true" || t == "false" || t == "null")
+                return true;
+
+            size_t i = 0;
+            const auto digits = [&]() {
+                const size_t start = i;
+                while (i < t.size() && t[i] >= '0' && t[i] <= '9')
+                    i++;
+                return i - start;
+            };
+
+            if (i < t.size() && t[i] == '-')
+                i++;
+            if (i < t.size() && t[i] == '0')
+                i++;
+            else if (digits() == 0)
+                return false;
+
+            if (i < t.size() && t[i] == '.')
+            {
+                i++;
+                if (digits() == 0)
+                    return false;
+            }
+            if (i < t.size() && (t[i] == 'e' || t[i] == 'E'))
+            {
+                i++;
+                if (i < t.size() && (t[i] == '+' || t[i] == '-'))
+                    i++;
+                if (digits() == 0)
+                    return false;
+            }
+            return i == t.size();
         }
 
         // s[i] is the opening quote. Leaves i after the closing one.
@@ -318,6 +365,14 @@ namespace t5000::json
                     if (value.text.empty())
                     {
                         error = "\"" + key + "\" has no value";
+                        return false;
+                    }
+
+                    // A missing comma would otherwise run two members into
+                    // one value: {"a":1"b":2} would read a as 1"b":2.
+                    if (!is_scalar(value.text))
+                    {
+                        error = "\"" + key + "\" is not a string, a number, true, false or null";
                         return false;
                     }
                 }

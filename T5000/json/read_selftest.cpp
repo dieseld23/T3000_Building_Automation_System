@@ -137,6 +137,9 @@ namespace
         check(f["b"].text == "true", "a bool");
         check(f["z"].text == "null", "and null");
 
+        check(parse_flat_object("{\"n\":-1.5e+3,\"z\":0}", f, error), "numbers in every JSON form are read");
+        check(f["n"].text == "-1.5e+3" && f["z"].text == "0", "as their text");
+
         check(parse_flat_object("{}", f, error), "an empty object is read");
         check(f.empty(), "as empty");
 
@@ -169,9 +172,16 @@ namespace
             "{\"a\":\"\\x\"}",
             "{\"a\":\"\\u12\"}",
             "{\"a\":\"\\ud83d\"}",
+            "{\"a\":\"\\ud83dxxdc00\"}",
             "{\"a\":\"\\ude00\"}",
             "{\"a\":\"\\ud83d\\u0041\"}",
             "{\"a\":\"line\nbreak\"}",
+            "{\"a\":1\"b\":2}",
+            "{\"a\":tru}",
+            "{\"a\":01}",
+            "{\"a\":1.}",
+            "{\"a\":-}",
+            "{\"a\":1e}",
         };
         for (const char* text : bad)
         {
@@ -180,6 +190,28 @@ namespace
             check(!read, text);
             check(!error.empty(), "and says why");
         }
+    }
+}
+
+namespace
+{
+    void test_a_whole_number_is_digits_and_nothing_else()
+    {
+        section("a handle is digits and nothing else, and never wraps");
+
+        unsigned long long n = 7;
+        check(parse_u64("18446744073709551615", n), "the largest 64-bit number is read");
+        check(n == 18446744073709551615ull, "exactly");
+
+        n = 7;
+        check(!parse_u64("18446744073709551616", n), "one more is refused, not clamped");
+        check(!parse_u64("", n), "nothing");
+        check(!parse_u64(" 12", n), "a leading space");
+        check(!parse_u64("+12", n), "a plus sign");
+        check(!parse_u64("-1", n), "a minus sign");
+        check(!parse_u64("12x", n), "trailing rubbish");
+        check(!parse_u64(std::string("12\0" "3", 4), n), "an embedded NUL");
+        check_eq((long)n, 7, "and nothing refused was assigned");
     }
 }
 
@@ -192,5 +224,6 @@ int run_json_read_tests()
     test_it_admits_what_it_cannot_do();
     test_a_flat_object_is_read_key_by_key();
     test_a_flat_object_refuses_what_it_cannot_read();
+    test_a_whole_number_is_digits_and_nothing_else();
     return 0;
 }

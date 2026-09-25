@@ -139,6 +139,24 @@ namespace t5000::store
                 return false;
             }
         }
+        else
+        {
+            // Any program can set user_version, and 1 is an obvious choice.
+            // A file that says 1 and has no devices table is not ours either.
+            int64_t ours = 0;
+            if (!read_int(m_db, "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'devices'",
+                          ours, error))
+            {
+                close();
+                return false;
+            }
+            if (ours != 1)
+            {
+                error = "it is a SQLite database, but not a T5000 device list";
+                close();
+                return false;
+            }
+        }
 
         m_path = path;
         return true;

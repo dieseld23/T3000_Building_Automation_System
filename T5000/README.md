@@ -29,7 +29,7 @@ synthetic devices on loopback.
 | --- | --- |
 | Scan | Done. Broadcasts T3000's discovery query on a chosen interface and lists what answers. |
 | Device list | Done. Identifies each product and flags problems the scan noticed, as repairs for someone to approve later. Nothing is written to a device. |
-| Saved device list | Done. Every device that answers a scan is saved in `T5000.db` and listed again the next time T5000 starts, with when it was last seen. Each can be given a name, building, floor and room, and the list is grouped by them. A device can be forgotten. |
+| Saved device list | Done. Every device with a serial number that answers a scan is saved in `T5000.db` and listed again the next time T5000 starts, with when it was last seen. (A device reporting no serial is listed but cannot be saved: there is nothing to know it by next time.) Each can be given a name, building, floor and room, and the list is grouped by them. A device can be forgotten. |
 | Virtual devices | Not started. Next; see the migration plan. |
 | Inputs | Done for the five BACnet private-data products (CM5, MiniPanel, MiniPanel ARM, ESP32 T3, TSTAT10) over BACnet/IP. The grid matches T3000's column by column, including the panel's own custom range names and its row count per model. The Panel and Type columns are not done. |
 | Outputs, Variables | Not started. They use the same point-struct path as Inputs, and their structs are already guarded. |
@@ -56,9 +56,12 @@ the saved list at the address it answered from last time.
   and forgetting one change `T5000.db` and nothing else. None of it is sent to
   a device. T5000 will not write to a database it did not create, such as one
   of T3000's.
-- **The UI is bound to loopback.** The server binds 127.0.0.1 only
-  (`http/server.cpp`). Remote access is a later decision that will come with
-  authentication.
+- **The UI is bound to loopback, and answers only its own page.** The server
+  binds 127.0.0.1 only (`http/server.cpp`). Loopback keeps other machines
+  out but not other web pages, so a request whose `Origin` is not T5000's,
+  or whose `Host` is not 127.0.0.1 or localhost, is refused before any route
+  runs (`from_this_tool`, `http/server.h`). Remote access is a later decision
+  that will come with authentication.
 - **Test against loopback synthetic devices, never real ones.** Selecting a
   device and opening Inputs sends it real requests, and that includes a
   device from the saved list, at its saved address. Start T5000 with

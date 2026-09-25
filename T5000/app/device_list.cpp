@@ -197,11 +197,17 @@ namespace t5000::app
         if (!db.is_open())
             return;
 
+        // Every device seen this session, not only those in this scan. A
+        // save that failed earlier is then made good by the next one that
+        // works, and clearing the error below is true rather than hopeful.
+        // A device from an earlier scan keeps its own last_seen: the file
+        // takes the later of the two.
+        //
         // The merged records, not the raw ones: a field this scan did not
         // carry keeps what an earlier one learned, on disk as in memory.
         std::vector<DeviceRecord> answered;
         for (const auto& d : registry.devices())
-            if (d.answered_scan == scan)
+            if (d.answered_scan != 0)
                 answered.push_back(d);
 
         std::string error;

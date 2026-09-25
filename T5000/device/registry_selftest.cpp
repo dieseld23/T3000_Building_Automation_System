@@ -689,10 +689,11 @@ namespace
         check(reg.remove(gone), "the device is removed");
         check_eq(reg.size(), 1, "one is left");
         check(reg.selected() == nullptr, "nothing is selected, rather than the next device");
+        check(reg.selected_handle() == kNoHandle, "and the page is not sent the removed device's handle");
         check(!reg.remove(gone), "removing it again finds nothing");
 
         reg.select_by_handle(kept);
-        check(reg.remove(handle_at(reg, 0)) && reg.selected() == nullptr,
+        check(reg.remove(handle_at(reg, 0)) && reg.selected_handle() == kNoHandle,
               "removing the selected one clears the selection");
 
         reg.add_or_merge(a_device(8003));

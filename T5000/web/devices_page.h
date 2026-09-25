@@ -684,15 +684,26 @@ namespace t5000::web
     render();
   }
 
+  // Never throws. A request that could not be made at all - T5000 closed,
+  // say - comes back as a refusal with the reason, like any other, so no
+  // button can be pressed with nothing happening on the page.
   async function post(url, body) {
-    var res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-    var data = null;
-    try { data = await res.json(); } catch (e) { /* reported below */ }
-    return data || { ok: false, message: "The server answered " + res.status + " with nothing readable." };
+    var res;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+    } catch (e) {
+      return { ok: false, message: "T5000 could not be reached. Is it still running? (" + text(e && e.message) + ")" };
+    }
+    // JSON from every route; plain text when the server refused the request
+    // before any route ran, and that text is the reason.
+    var raw = "";
+    try { raw = await res.text(); } catch (e) { /* reported below */ }
+    try { return JSON.parse(raw); } catch (e) { /* not JSON */ }
+    return { ok: false, message: raw || ("The server answered " + res.status + " with nothing readable.") };
   }
 
   // What every list action does with its answer: show the list as it now
@@ -767,7 +778,7 @@ namespace t5000::web
   async function select(handle) {
     var data = await post("/api/devices/select", { handle: handle });
     if (data.state) applyState(data.state);
-    if (!data.ok && data.message) setBanner("warn", esc(data.message));
+    if (!data.ok) setBanner("warn", esc(data.message || "The device could not be selected."));
   }
 
   async function forgetOne(handle) {

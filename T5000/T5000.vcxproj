@@ -144,6 +144,7 @@
     <ClCompile Include="discovery\scanner_selftest.cpp" />
     <ClCompile Include="net\interfaces.cpp" />
     <ClCompile Include="http\server.cpp" />
+    <ClCompile Include="http\server_selftest.cpp" />
     <ClCompile Include="json\read.cpp" />
     <ClCompile Include="json\read_selftest.cpp" />
     <ClCompile Include="main.cpp" />

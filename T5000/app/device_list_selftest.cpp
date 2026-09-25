@@ -185,6 +185,36 @@ namespace
                 check_eq((long)d.last_seen, 100, "and the file agrees about the quiet one");
     }
 
+    void test_a_later_scan_saves_what_an_earlier_one_did_not()
+    {
+        section("a later scan saves every device seen this session, not only its own");
+
+        // A save that failed leaves devices listed but not in the file. The
+        // row going missing is how that is simulated here.
+        store::DeviceDb db;
+        Registry reg;
+        StoreStatus status = open_saved_list(db, ":memory:", reg);
+        ScanSummary summary;
+        record_scan(reg, db, a_scan({ answered(8001), answered(8002) }), 100, summary, status);
+
+        std::string error;
+        check(db.forget(8001, error), "8001's row is lost");
+
+        status.error = "the last scan could not be saved: disk full";
+        record_scan(reg, db, a_scan({ answered(8002) }), 200, summary, status);
+        check(status.error.empty(), "a save that works clears the error");
+
+        const auto rows = saved(db);
+        check_eq((long)rows.size(), 2, "and it is true: both devices are in the file");
+        for (const auto& d : rows)
+        {
+            if (d.serial_number == 8001)
+                check_eq((long)d.last_seen, 100, "the one not in this scan keeps its own last sighting");
+            if (d.serial_number == 8002)
+                check_eq((long)d.last_seen, 200, "the one in it has the new one");
+        }
+    }
+
     void test_a_restored_device_is_not_accused_of_a_duplicate()
     {
         section("a device known only from the saved list is not in conflict with anything");
@@ -467,6 +497,7 @@ int run_device_list_tests()
     test_a_list_that_cannot_be_opened_is_not_fatal();
     test_a_scan_is_saved_and_comes_back();
     test_answered_is_per_scan();
+    test_a_later_scan_saves_what_an_earlier_one_did_not();
     test_a_restored_device_is_not_accused_of_a_duplicate();
     test_a_restored_device_that_answers_keeps_its_history();
     test_forgetting_a_device();

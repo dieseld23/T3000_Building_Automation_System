@@ -407,6 +407,31 @@ namespace
         }
     }
 
+    void test_a_foreign_database_claiming_our_version_is_left_alone()
+    {
+        section("a database that says version 1 but has no device table is not taken for ours");
+
+        TempFile file(L"claims");
+        {
+            Database raw;
+            std::string error;
+            if (!require(raw.open(file.utf8(), error), "a file is made"))
+                return;
+            check(raw.exec("CREATE TABLE ALL_NODE (Serial_ID TEXT); PRAGMA user_version = 1;", error),
+                  "with someone else's table and our version number");
+        }
+
+        DeviceDb db;
+        std::string error;
+        check(!db.open(file.utf8(), error), "it is refused");
+        check(error.find("not a T5000") != std::string::npos, "as not a T5000 list");
+
+        Database raw;
+        if (require(raw.open(file.utf8(), error), "the file still opens directly"))
+            check_eq((long)single_int(raw, "SELECT count(*) FROM sqlite_master"), 1,
+                     "and holds only the table it had");
+    }
+
     void test_a_file_that_is_not_sqlite_is_left_alone()
     {
         section("a file that is not a database at all is refused and not changed");
@@ -452,6 +477,7 @@ int run_device_db_tests()
     test_the_list_survives_closing();
     test_a_newer_file_is_left_alone();
     test_someone_elses_database_is_left_alone();
+    test_a_foreign_database_claiming_our_version_is_left_alone();
     test_a_file_that_is_not_sqlite_is_left_alone();
     test_the_default_path_is_beside_the_exe();
     return 0;

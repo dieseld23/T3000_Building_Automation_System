@@ -33,9 +33,10 @@ namespace t5000::app
     //
     // Numbers the scan, marks each device it found as having answered it at
     // `now`, merges them into the registry, re-derives the duplicate Modbus
-    // ids, and saves every device that answered. `summary` gets the scan's
-    // statistics; `status.error` gets any failure to save, and is cleared by
-    // a save that works.
+    // ids, and saves every device that has answered a scan this session.
+    // `summary` gets the scan's statistics; `status.error` gets any failure
+    // to save, and is cleared by a save that works, which then includes
+    // whatever an earlier failure left unsaved.
     void record_scan(device::Registry& registry, store::DeviceDb& db,
                      const discovery::ScanResult& result, int64_t now,
                      ScanSummary& summary, StoreStatus& status);

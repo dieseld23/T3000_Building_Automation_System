@@ -123,24 +123,48 @@ namespace
         return t5000::http::Response::json(body);
     }
 
-    // A command-line argument arrives in the ANSI code page, and SQLite takes
-    // UTF-8. A path with an accented letter in it would otherwise name a
-    // different file.
-    std::string utf8_from_ansi(const char* text)
+    std::string utf8_from_wide(const wchar_t* w)
     {
-        const int wide = MultiByteToWideChar(CP_ACP, 0, text, -1, nullptr, 0);
-        if (wide <= 1)
-            return std::string();
-        std::wstring w((size_t)wide, L'\0');
-        MultiByteToWideChar(CP_ACP, 0, text, -1, &w[0], wide);
-
-        const int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, nullptr, 0, nullptr, nullptr);
+        const int n = WideCharToMultiByte(CP_UTF8, 0, w, -1, nullptr, 0, nullptr, nullptr);
         if (n <= 1)
             return std::string();
         std::string out((size_t)n, '\0');
-        WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, &out[0], n, nullptr, nullptr);
+        WideCharToMultiByte(CP_UTF8, 0, w, -1, &out[0], n, nullptr, nullptr);
         out.resize((size_t)n - 1);
         return out;
+    }
+
+    // The file --db names, as the UTF-8 SQLite takes, or empty when there is
+    // no --db. False when --db has no file name after it.
+    //
+    // From the wide command line, not argv. argv has already been through
+    // the ANSI code page, which swaps a letter it lacks for its nearest
+    // match - a Polish L-with-stroke in a user's folder name becomes a plain
+    // L - and so names another folder.
+    bool db_argument(std::string& path)
+    {
+        path.clear();
+
+        int n = 0;
+        LPWSTR* args = CommandLineToArgvW(GetCommandLineW(), &n);
+        if (!args)
+            return true;
+
+        bool ok = true;
+        for (int i = 1; i < n; i++)
+        {
+            if (wcscmp(args[i], L"--db") != 0)
+                continue;
+            if (i + 1 >= n || args[i + 1][0] == L'\0')
+            {
+                ok = false;
+                break;
+            }
+            path = utf8_from_wide(args[++i]);
+        }
+
+        LocalFree(args);
+        return ok;
     }
 
     // Advanced by every request sent, across reads, so a late reply to one
@@ -207,23 +231,18 @@ int main(int argc, char** argv)
     // live page, one click from a scan that broadcasts on whatever network the
     // machine is on - which has happened during development.
     bool open_a_browser = true;
-    std::string db_path;
     for (int i = 1; i < argc; i++)
     {
         if (strcmp(argv[i], "--no-browser") == 0)
-        {
             open_a_browser = false;
-        }
-        else if (strcmp(argv[i], "--db") == 0)
-        {
-            if (i + 1 >= argc)
-            {
-                fprintf(stderr, "--db needs a file name after it.\n");
-                wait_before_closing();
-                return 1;
-            }
-            db_path = utf8_from_ansi(argv[++i]);
-        }
+    }
+
+    std::string db_path;
+    if (!db_argument(db_path))
+    {
+        fprintf(stderr, "--db needs a file name after it.\n");
+        wait_before_closing();
+        return 1;
     }
     if (db_path.empty())
         db_path = t5000::store::default_db_path();

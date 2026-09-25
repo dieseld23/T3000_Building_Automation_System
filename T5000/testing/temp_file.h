@@ -30,7 +30,7 @@ namespace t5000::testing
             GetTempPathW(MAX_PATH, dir);
 
             wchar_t name[128] = {};
-            swprintf_s(name, L"T5000-selftest-é-%lu-%d-%s.db",
+            swprintf_s(name, L"T5000-selftest-\u00e9-%lu-%d-%s.db",
                        (unsigned long)GetCurrentProcessId(), ++counter, tag);
 
             m_wide = std::wstring(dir) + name;

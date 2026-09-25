@@ -365,6 +365,13 @@ The server binds 127.0.0.1 only. The tool reads and will write building
 equipment; remote or tablet access is a later, deliberate step, and it comes
 with a decision about authentication.
 
+Loopback keeps other machines out, not other web pages: any page open in the
+technician's browser can send a request to 127.0.0.1:8730. So the server
+refuses, before any route runs, a request whose `Origin` is not its own page
+or whose `Host` is not 127.0.0.1 or localhost on its port (#19,
+`from_this_tool` in `T5000/http/server.h`). Every write route will depend on
+that check.
+
 ---
 
 ## Not worth porting
