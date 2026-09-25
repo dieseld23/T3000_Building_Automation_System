@@ -38,7 +38,9 @@ It does not.
 
 **There is one point-struct layout.** Every product that uses the struct path
 uses the same `Str_in_point` / `Str_out_point` / `Str_variable_point`. All
-three are now guarded field-by-field in `T5000/wire/`, compiler-enforced:
+three are copied in `T5000/wire/` and guarded field-by-field against
+`CM5/ud_str.h` by `T5000/conformance/`, compiler-enforced when
+`T3000 - VS2019.sln` builds:
 
 | Struct | Size | Guarded |
 |---|---|---|

@@ -102,8 +102,9 @@ T5000's copies of T3000 to the originals:
 - the oracle: T3000's BACnet DLL encodes a request, and T5000's bytes must
   match it.
 
-A change to `wire/`, `bacnet/command.h`, `device/product.h` or
-`display/tables.h` is not checked against T3000 until those run. Build
+A change to `wire/`, `bacnet/command.h`, `bacnet/private_transfer.cpp`,
+`device/product.h` or `display/tables.h` is not checked against T3000 until
+those run. Build
 `-t:T5000Conformance` or run `scripts/ci-local.ps1` before pushing one.
 [`README_Build.md`](../README_Build.md) has both.
 
