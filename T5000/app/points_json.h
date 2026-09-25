@@ -44,6 +44,11 @@ namespace t5000::app
         // reading. A positive statement cannot be produced by omission.
         bool read_from_wire = false;
         std::string address;           // where it was read from, when it was
+
+        // When the device has not answered a scan since T5000 started: when
+        // it was last seen, and that its address comes from the saved list.
+        // Empty for a device this session's scan found.
+        std::string sighting;
     };
 
     // The panel the inputs came from, as far as it was read.
@@ -84,7 +89,11 @@ namespace t5000::app
     //
     // Hence a builder rather than a string literal at the call site: the shape
     // is a contract with the page, and contracts belong somewhere testable.
+    //
+    // `sighting` is DeviceInfo::sighting: said beside the reason, for a
+    // device known only from the saved list.
     std::string build_unavailable_inputs_json(int serial_number,
                                               const std::string& address,
-                                              const std::string& reason);
+                                              const std::string& reason,
+                                              const std::string& sighting = std::string());
 }

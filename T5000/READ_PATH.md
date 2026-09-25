@@ -141,6 +141,21 @@ address is not read further. T3000's own web view makes the same check
 (`BacnetWebView.cpp:1655-1665`). A panel whose settings give serial 0 is read,
 and the page says its identity could not be confirmed.
 
+**A device known only from the saved list must prove it.** Its address is the
+one it answered from when it was last seen, which may be months ago and in
+another building, so the panel there now may be a different one. Nothing this
+session vouches for it, so its settings have to: unless they give its saved
+serial, nothing after the settings read is sent. A refusal, a reply that does
+not match the request, and serial 0 all stop the read, as a different serial
+does, and the page says to scan first (`Identity::MustConfirm`,
+`app/inputs_read.h`). A device that has answered a scan since T5000 started
+is read as the paragraph before this one says: only a different serial stops
+it, and a refusal, a reply that does not match or serial 0 leaves a note and
+the read goes on, because that scan saw the serial answer from that address.
+It counts as seen whichever scan of the session it answered, not only the last.
+The page says when a device has not been seen this session, and when it last
+was (`plan_inputs_read`, `app/inputs_plan.cpp`).
+
 **Devices a controller answered for are not read.** A Minipanel or T3 answers
 the scan for the Tstats on its RS485 bus, from its own address, with the
 sub-device's serial and a non-zero parent serial - T3000 deliberately stops
@@ -222,7 +237,9 @@ says so:
   does: it treats a panel whose settings do not come back as not connected
   (`BacnetView.cpp:5905-5955`). When the panel answers with a refusal, T3000
   would still show nothing. T5000 reads the inputs anyway, shows every row
-  with no per-model rules, and the page says how that differs.
+  with no per-model rules, and the page says how that differs. The same goes
+  for a reply that does not match the request. Neither applies to a device
+  known only from the saved list, which stops there (see above).
 - **The custom names.** A refusal leaves those names missing, and each row
   that needed them has a note. When nothing answers, the note says so, and
   the page goes on; the inputs are still asked for. As in T3000, the analog

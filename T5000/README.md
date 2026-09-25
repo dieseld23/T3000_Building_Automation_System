@@ -42,7 +42,9 @@ The Inputs page shows built-in fixture points when no device is selected,
 labelled as such. The Connection dialog saves transport settings to
 `T5000.connection.json` beside the exe. Nothing reads them yet: a scanned
 device is read at the address its scan response came from, and a device from
-the saved list at the address it answered from last time.
+the saved list at the address it answered from last time. A device no scan has
+found since T5000 started has nothing read beyond its settings unless they
+give its saved serial, and the page says when it was last seen.
 
 ## Safety rules
 
@@ -64,7 +66,8 @@ the saved list at the address it answered from last time.
   that will come with authentication.
 - **Test against loopback synthetic devices, never real ones.** Selecting a
   device and opening Inputs sends it real requests, and that includes a
-  device from the saved list, at its saved address. Start T5000 with
+  device from the saved list, at its saved address: at least the settings
+  read, which is how T5000 checks it is still the same panel. Start T5000 with
   `--no-browser` and `--db` naming a scratch file, scan with interface
   127.0.0.1, and select only devices you are serving yourself.
 

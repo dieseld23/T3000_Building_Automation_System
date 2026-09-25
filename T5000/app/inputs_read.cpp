@@ -36,13 +36,23 @@ namespace t5000::app
     }
 
     InputsPageRead read_inputs_page(bacnet::ReadTransport& transport, const bacnet::Endpoint& device,
-                                    device::ProductClassId product, uint32_t scanned_serial,
-                                    const bacnet::ReadSettings& settings, uint8_t& next_invoke_id)
+                                    device::ProductClassId product, uint32_t expected_serial,
+                                    Identity identity, const bacnet::ReadSettings& settings,
+                                    uint8_t& next_invoke_id)
     {
         using namespace bacnet;
 
         InputsPageRead r;
         PanelRead& panel = r.panel;
+
+        const bool must_confirm = identity == Identity::MustConfirm;
+        const std::string expected = std::to_string(expected_serial);
+
+        // Said with every refusal of a device known only from the saved list.
+        // The settings are the one read it has been sent; nothing follows.
+        const std::string scan_first =
+            " Its address comes from the saved list, and another panel may have it now, so nothing "
+            "more was read from it. Scan, and then open Inputs again.";
 
         // 1. The settings.
         const ReadOutcome s = read_entities(transport, device, ReadCommand::Settings, 1, 1,
@@ -54,16 +64,25 @@ namespace t5000::app
             panel.settings_known = true;
 
             const uint32_t reported = panel.settings.serial_number;
-            if (reported != 0 && reported != scanned_serial)
+            if (reported != 0 && reported != expected_serial)
             {
                 r.error = "The panel at " + device.text() + " gives its serial number as " +
-                          std::to_string(reported) + " in its settings, not " + std::to_string(scanned_serial) +
-                          ", the serial the scan found at that address. It may have been replaced or "
-                          "renumbered since the scan. Nothing more was read from it; scan again.";
+                          std::to_string(reported) + " in its settings, not " + expected;
+                if (must_confirm)
+                    r.error += ", the serial saved for this device." + scan_first;
+                else
+                    r.error += ", the serial the scan found at that address. It may have been replaced or "
+                               "renumbered since the scan. Nothing more was read from it; scan again.";
                 return r;
             }
             if (reported == 0)
             {
+                if (must_confirm)
+                {
+                    r.error = "The panel at " + device.text() + " gives no serial number in its settings, "
+                              "so T5000 cannot confirm it is serial " + expected + "." + scan_first;
+                    return r;
+                }
                 add(panel.note, "The panel's settings carry no serial number, so T5000 could not confirm "
                                 "it is the device the scan found.");
             }
@@ -73,6 +92,16 @@ namespace t5000::app
             // As T3000: a panel whose settings do not come back is not
             // connected, and nothing more is asked of it.
             r.error = s.error;
+            return r;
+        }
+        else if (must_confirm)
+        {
+            // Refused, or a reply that could not be used. Without the
+            // settings there is no serial to check, and for this device
+            // nothing else vouches for it.
+            r.error = "The panel at " + device.text() + " did not give settings T5000 could use, so it "
+                      "cannot confirm it is serial " + expected + ". " +
+                      (s.ok ? std::string("The settings could not be decoded.") : s.error) + scan_first;
             return r;
         }
         else

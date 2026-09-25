@@ -24,6 +24,7 @@ namespace
         Answer,
         Refuse,
         Silent,
+        Garble,   // answers, with fewer bytes than the request asked for
     };
 
     // A panel, scripted per read.
@@ -108,7 +109,10 @@ namespace
                 break;
             }
 
-            if (what == Does::Answer)
+            if (what == Does::Garble)
+                body.resize(body.size() / 4);
+
+            if (what == Does::Answer || what == Does::Garble)
                 t.reply(ack(r, s.invoke_id, body));
             else if (what == Does::Refuse)
                 t.reply(refusal(s.invoke_id));
@@ -121,14 +125,24 @@ namespace
         InputsPageRead read;
     };
 
-    void run(const Panel& panel, Run& out, ProductClassId product = ProductClassId::Cm5)
+    // A device a scan found at that address this session, unless `identity`
+    // says otherwise.
+    void run(const Panel& panel, Run& out, ProductClassId product = ProductClassId::Cm5,
+             Identity identity = Identity::VouchedForByScan)
     {
         out.transport.respond = [&panel](const FakeTransport::Sent& s, size_t, FakeTransport& t)
         {
             panel.respond(s, t);
         };
         uint8_t invoke = 0;
-        out.read = read_inputs_page(out.transport, device_at(), product, kSerial, instant(), invoke);
+        out.read = read_inputs_page(out.transport, device_at(), product, kSerial, identity, instant(), invoke);
+    }
+
+    // A device known only from the saved list: no scan has found it since
+    // T5000 started.
+    void run_restored(const Panel& panel, Run& out)
+    {
+        run(panel, out, ProductClassId::Cm5, Identity::MustConfirm);
     }
 
     // The commands sent, in order, one letter each: S settings, U units,
@@ -203,6 +217,7 @@ namespace
         check(has(r.read.error, "999") && has(r.read.error, std::to_string(kSerial).c_str()),
               "the error gives both serials");
         check(has(r.read.error, "scan again"), "and says what to do");
+        check(!has(r.read.error, "saved list"), "a device the scan found is not said to come from the saved list");
     }
 
     void test_a_zero_serial_is_read_but_said()
@@ -341,6 +356,101 @@ namespace
         check(!has(r.read.error, "firewall"), "not that nothing ever answered");
     }
 
+    // ---------------------------------------- a device from the saved list
+
+    void test_settings_that_cannot_be_used_are_noted_for_a_scanned_device()
+    {
+        section("settings that come back short are noted, and the inputs read, for a device the scan found");
+
+        Panel p;
+        p.settings = Does::Garble;
+        Run r;
+        run(p, r);
+
+        check(r.read.ok, "the page is read");
+        check(!r.read.panel.settings_known, "without the settings");
+        check(sequence(r.transport) == "SUTTIIIIIII", "the names and inputs are still asked for");
+        check(has(r.read.panel.note, "T3000 treats"), "and the note says T3000 would have shown nothing");
+    }
+
+    void test_a_restored_device_is_read_once_its_serial_is_confirmed()
+    {
+        section("a device from the saved list whose settings give its saved serial is read in full");
+
+        Panel p;
+        Run r;
+        run_restored(p, r);
+
+        check(r.read.ok, "the page is read");
+        check(sequence(r.transport) == "SUTTIIIIIII", "settings, units, tables, inputs, as for any other");
+        check(r.read.panel.settings_known, "with the settings");
+        check(r.read.panel.note.empty(), "and nothing to explain");
+    }
+
+    void test_a_restored_device_whose_serial_cannot_be_confirmed_is_not_read()
+    {
+        section("a device from the saved list whose serial cannot be confirmed has nothing more read");
+
+        const std::string serial = std::to_string(kSerial);
+        {
+            Panel p;
+            p.settings = Does::Refuse;
+            Run r;
+            run_restored(p, r);
+            check(!r.read.ok, "settings refused: nothing is shown");
+            check(sequence(r.transport) == "S", "  and nothing more is asked for");
+            check_eq(r.read.requests_sent, 1, "  one request in all");
+            check(has(r.read.error, "refused"), "  the error gives the refusal");
+            check(has(r.read.error, serial.c_str()), "  and the serial it could not confirm");
+            check(has(r.read.error, "saved list") && has(r.read.error, "Scan"),
+                  "  and says why, and to scan first");
+        }
+        {
+            Panel p;
+            p.settings = Does::Garble;
+            Run r;
+            run_restored(p, r);
+            check(!r.read.ok, "settings that come back short: nothing is shown");
+            check(sequence(r.transport) == "S", "  and nothing more is asked for");
+            check_eq(r.read.requests_sent, 1, "  one request in all");
+            check(has(r.read.error, "does not match"), "  the error says what was wrong with the reply");
+            check(has(r.read.error, "Scan"), "  and to scan first");
+        }
+        {
+            Panel p;
+            p.serial = 0;
+            Run r;
+            run_restored(p, r);
+            check(!r.read.ok, "settings with no serial: nothing is shown");
+            check(sequence(r.transport) == "S", "  and nothing more is asked for");
+            check(has(r.read.error, "no serial number") && has(r.read.error, serial.c_str()),
+                  "  the error says there was none to check against the saved one");
+            check(has(r.read.error, "Scan"), "  and to scan first");
+        }
+        {
+            Panel p;
+            p.serial = 999;
+            Run r;
+            run_restored(p, r);
+            check(!r.read.ok, "another serial: nothing is shown");
+            check(sequence(r.transport) == "S", "  and nothing more is asked for");
+            check(has(r.read.error, "999") && has(r.read.error, "saved for this device"),
+                  "  the error gives both serials, the expected one as the saved one");
+            check(!has(r.read.error, "the scan found"), "  not as one a scan found");
+            check(has(r.read.error, "Scan"), "  and says to scan first");
+        }
+        {
+            Panel p;
+            p.settings = Does::Silent;
+            Run r;
+            run_restored(p, r);
+            check(!r.read.ok, "settings unanswered: nothing is shown");
+            check(sequence(r.transport) == "SS", "  asked for twice, as for any other device");
+            check(has(r.read.error, "No answer"), "  the error is the one for silence");
+            check(!has(r.read.error, "did not give settings"), "  not the one for a reply that could not be used");
+        }
+    }
+
     // ------------------------------------------------------------ the payload
 
     std::vector<w::InputPoint> digital_inputs(int n)
@@ -451,6 +561,9 @@ int run_inputs_read_tests()
     test_esp32_reads_its_own_count();
     test_names_that_do_not_come_back();
     test_silent_inputs_after_answered_settings();
+    test_settings_that_cannot_be_used_are_noted_for_a_scanned_device();
+    test_a_restored_device_is_read_once_its_serial_is_confirmed();
+    test_a_restored_device_whose_serial_cannot_be_confirmed_is_not_read();
     test_the_payload_leaves_out_the_rows_t3000_blanks();
     test_the_payload_uses_the_panel_type();
     test_the_payload_uses_the_names();
