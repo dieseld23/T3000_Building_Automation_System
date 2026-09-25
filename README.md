@@ -27,7 +27,7 @@ What it does so far:
 
 * **Scans** the network interface you pick with T3000's discovery broadcast, and lists what answers. The scan is read-only. A problem it notices, such as two devices on one Modbus id or a device with no serial number, is shown as a repair for someone to approve later, and is never written.
 * **Keeps a device list** in `T5000.db` between runs, with a name, building, floor and room for each device, grouped by them.
-* **New: adds devices by hand.** A device no scan has found can be added with its product and serial number, then named and placed. That covers a device on a network you are not on, or one not installed yet. Nothing is sent to it. When a scan finds a device with that serial, the device takes the entry's place in the list, keeping its name and location.
+* **New: adds devices by hand.** A device no scan has found can be added with its model and serial number, then named and placed. The models are T3000's: T3-BB, T3-OEM, TSTAT10 and the rest of its Add virtual device list, then the other products. That covers a device on a network you are not on, or one not installed yet. Nothing is sent to it. When a scan finds a device with that serial, the device takes the entry's place in the list, keeping its name and location.
 * **Reads a controller's Inputs** over BACnet/IP (CM5, MiniPanel, MiniPanel ARM, ESP32 T3 and TSTAT10), laid out column for column as T3000 shows them.
 
 Being designed now:
