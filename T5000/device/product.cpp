@@ -187,22 +187,22 @@ namespace t5000::device
         // outside them, and called nine types unimplemented that are not.
         switch (type)
         {
-        // --- Row-mask variants of a PM_TSTAT10. -------------------------
+        // --- Variants of a PM_TSTAT10, with some inputs on a fixed range. -
         // BacnetInput.cpp:1662-1683. These have no counts of their own and
         // never appear in the init chains, which is correct rather than
         // missing - they are one product wearing four labels.
         case MiniType::Oem:
-            return { MiniTypeSupport::RowMaskOnTstat10, 13, 17,
-                     "a PM_TSTAT10 with rows 13-17 hidden" };
+            return { MiniTypeSupport::VariantOfTstat10, 13, 17,
+                     "a PM_TSTAT10 whose inputs 14-18 (rows 13-17) have a fixed range" };
         case MiniType::Oem12I:
-            return { MiniTypeSupport::RowMaskOnTstat10, 17, 21,
-                     "a PM_TSTAT10 with rows 17-21 hidden" };
+            return { MiniTypeSupport::VariantOfTstat10, 17, 21,
+                     "a PM_TSTAT10 whose inputs 18-22 (rows 17-21) have a fixed range" };
         case MiniType::Tstat10:
-            return { MiniTypeSupport::RowMaskOnTstat10, 9, 12,
-                     "a PM_TSTAT10 with rows 9-12 hidden" };
+            return { MiniTypeSupport::VariantOfTstat10, 9, 12,
+                     "a PM_TSTAT10 whose inputs 10-13 (rows 9-12) have a fixed range" };
         case MiniType::Tstat11:
-            return { MiniTypeSupport::RowMaskOnTstat10, 9, 12,
-                     "a PM_TSTAT10 with rows 9-12 hidden, same mask as TSTAT10" };
+            return { MiniTypeSupport::VariantOfTstat10, 9, 12,
+                     "a PM_TSTAT10 whose inputs 10-13 (rows 9-12) have a fixed range, as on a TSTAT10" };
 
         // --- One direction only. ----------------------------------------
         case MiniType::FanModule:

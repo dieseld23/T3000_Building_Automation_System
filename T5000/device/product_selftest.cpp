@@ -204,34 +204,35 @@ namespace
         }
     }
 
-    void test_tstat10_variants_are_masks_not_products()
+    void test_tstat10_variants_are_variants_not_products()
     {
-        section("the TSTAT10 variants are row masks, not separate products");
+        section("the TSTAT10 variants are one product with some ranges fixed, not separate products");
 
         // This is the finding that four "unimplemented" verdicts were wrong
         // about. T3_OEM, T3_OEM_12I, T3_TSTAT10 and T3_TSTAT11 have no point
         // counts and appear in neither init chain - not because they are
-        // unfinished, but because they are one PM_TSTAT10 with rows hidden
-        // (BacnetInput.cpp:1662-1683).
+        // unfinished, but because they are one PM_TSTAT10 on which some
+        // inputs' ranges cannot be edited (BacnetInput.cpp:1662-1683, in the
+        // grid's click handler). Those rows are still shown.
         struct Variant { MiniType type; int first; int last; const char* what; };
         const Variant variants[] = {
-            { MiniType::Oem,     13, 17, "T3_OEM hides rows 13-17" },
-            { MiniType::Oem12I,  17, 21, "T3_OEM_12I hides rows 17-21" },
-            { MiniType::Tstat10,  9, 12, "T3_TSTAT10 hides rows 9-12" },
-            { MiniType::Tstat11,  9, 12, "T3_TSTAT11 hides rows 9-12" },
+            { MiniType::Oem,     13, 17, "T3_OEM fixes the range of rows 13-17" },
+            { MiniType::Oem12I,  17, 21, "T3_OEM_12I fixes rows 17-21" },
+            { MiniType::Tstat10,  9, 12, "T3_TSTAT10 fixes rows 9-12" },
+            { MiniType::Tstat11,  9, 12, "T3_TSTAT11 fixes rows 9-12" },
         };
 
         for (const auto& v : variants)
         {
             const auto info = mini_type_info(v.type);
-            check(info.support == MiniTypeSupport::RowMaskOnTstat10, v.what);
-            check_eq(info.hidden_row_first, v.first, "first hidden row");
-            check_eq(info.hidden_row_last, v.last, "last hidden row");
+            check(info.support == MiniTypeSupport::VariantOfTstat10, v.what);
+            check_eq(info.fixed_range_first, v.first, "first row with a fixed range");
+            check_eq(info.fixed_range_last, v.last, "last row with a fixed range");
 
             // They must NOT have their own counts - if one ever gains them,
-            // the mask model is wrong for it and this needs revisiting.
+            // the variant model is wrong for it and this needs revisiting.
             check(!point_counts(v.type).known,
-                  "a masked variant has no counts of its own");
+                  "a variant has no counts of its own");
         }
     }
 
@@ -330,7 +331,7 @@ int run_product_tests()
     test_counts_match_the_header();
     test_screens_exclude_graphics_everywhere();
     test_every_entry_is_presentable();
-    test_tstat10_variants_are_masks_not_products();
+    test_tstat10_variants_are_variants_not_products();
     test_unimplemented_types_are_named_honestly();
     test_partial_types_say_which_half_works();
     test_unconfigured_panel_does_not_borrow_cm5_counts();

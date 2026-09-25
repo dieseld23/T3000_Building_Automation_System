@@ -7,7 +7,13 @@ namespace t5000::bacnet
         switch (c)
         {
         case ReadCommand::Inputs:
-            return "read inputs";
+            return "inputs";
+        case ReadCommand::CustomUnits:
+            return "custom digital ranges";
+        case ReadCommand::AnalogCustomTables:
+            return "custom analog tables";
+        case ReadCommand::Settings:
+            return "panel settings";
         }
         return "unknown read command";
     }

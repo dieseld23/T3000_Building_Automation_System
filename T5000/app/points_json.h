@@ -9,7 +9,10 @@
 #include <string>
 #include <vector>
 
+#include "../device/product.h"
 #include "../device/read_path.h"
+#include "../display/custom_ranges.h"
+#include "../wire/panel.h"
 #include "../wire/points.h"
 
 namespace t5000::app
@@ -43,14 +46,32 @@ namespace t5000::app
         std::string address;           // where it was read from, when it was
     };
 
+    // The panel the inputs came from, as far as it was read.
+    struct InputsPanel
+    {
+        bool                   known = false;   // its settings were read
+        wire::PanelSettings    settings;
+        device::ProductClassId product = device::ProductClassId::Unknown;
+        display::CustomRanges  ranges;
+
+        // What the read found worth saying. The row limit adds to it.
+        std::string note;
+    };
+
     // The whole payload: which device, how it was read (and why), and the points.
     //
     // The read-path decision travels WITH the data deliberately. A grid that is
     // empty because the firmware predates the PTP tunnel must be able to say so
     // on the page; that is the failure this project exists to stop repeating.
+    //
+    // Only the rows T3000 shows with anything in them are included: a model
+    // with 8 inputs has rows 9-64 blank in T3000, and here they are left out,
+    // with the panel note saying so. Each row keeps its own index and input
+    // number.
     std::string build_inputs_json(const DeviceInfo& device,
                                   const device::Decision& decision,
-                                  const std::vector<wire::InputPoint>& points);
+                                  const std::vector<wire::InputPoint>& points,
+                                  const InputsPanel& panel = InputsPanel());
 
     // The payload for a device the tool has FOUND but cannot read.
     //

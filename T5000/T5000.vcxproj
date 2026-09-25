@@ -102,6 +102,8 @@
     <ClCompile Include="app\fixture.cpp" />
     <ClCompile Include="app\inputs_plan.cpp" />
     <ClCompile Include="app\inputs_plan_selftest.cpp" />
+    <ClCompile Include="app\inputs_read.cpp" />
+    <ClCompile Include="app\inputs_read_selftest.cpp" />
     <ClCompile Include="app\points_json.cpp" />
     <ClCompile Include="app\product_json.cpp" />
     <ClCompile Include="app\scan_json.cpp" />
@@ -127,10 +129,15 @@
     <ClCompile Include="display\input_text.cpp" />
     <ClCompile Include="display\input_text_selftest.cpp" />
     <ClCompile Include="display\tables_guard_selftest.cpp" />
+    <ClCompile Include="display\custom_ranges.cpp" />
+    <ClCompile Include="display\custom_ranges_selftest.cpp" />
+    <ClCompile Include="display\device_text.cpp" />
     <ClCompile Include="device\connection.cpp" />
     <ClCompile Include="device\connection_selftest.cpp" />
     <ClCompile Include="device\product.cpp" />
     <ClCompile Include="device\product_selftest.cpp" />
+    <ClCompile Include="device\input_rows.cpp" />
+    <ClCompile Include="device\input_rows_selftest.cpp" />
     <ClCompile Include="device\registry.cpp" />
     <ClCompile Include="device\registry_selftest.cpp" />
     <ClCompile Include="device\read_path.cpp" />
@@ -147,11 +154,15 @@
     <ClCompile Include="selftest_main.cpp" />
     <ClCompile Include="wire\decode.cpp" />
     <ClCompile Include="wire\decode_selftest.cpp" />
+    <ClCompile Include="wire\panel.cpp" />
+    <ClCompile Include="wire\panel_guard.cpp" />
+    <ClCompile Include="wire\panel_selftest.cpp" />
     <ClCompile Include="wire\wire_guard.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app\fixture.h" />
     <ClInclude Include="app\inputs_plan.h" />
+    <ClInclude Include="app\inputs_read.h" />
     <ClInclude Include="app\points_json.h" />
     <ClInclude Include="app\product_json.h" />
     <ClInclude Include="app\scan_json.h" />
@@ -161,6 +172,9 @@
     <ClInclude Include="device\bacnet_link.h" />
     <ClInclude Include="display\input_text.h" />
     <ClInclude Include="display\tables.h" />
+    <ClInclude Include="display\custom_ranges.h" />
+    <ClInclude Include="display\device_text.h" />
+    <ClInclude Include="device\input_rows.h" />
     <ClInclude Include="device\connection.h" />
     <ClInclude Include="device\registry.h" />
     <ClInclude Include="device\read_path.h" />
@@ -170,10 +184,12 @@
     <ClInclude Include="http\server.h" />
     <ClInclude Include="json\read.h" />
     <ClInclude Include="testing\check.h" />
+    <ClInclude Include="testing\fake_transport.h" />
     <ClInclude Include="web\devices_page.h" />
     <ClInclude Include="web\inputs_page.h" />
     <ClInclude Include="wire\cm5_header.h" />
     <ClInclude Include="wire\decode.h" />
+    <ClInclude Include="wire\panel.h" />
     <ClInclude Include="wire\points.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

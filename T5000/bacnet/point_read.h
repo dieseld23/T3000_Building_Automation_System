@@ -95,6 +95,13 @@ namespace t5000::bacnet
         int requests_sent     = 0;
         int replies_accepted  = 0;
         int datagrams_ignored = 0;   // other traffic on the port; not an error
+
+        // Set when the read stopped because nothing answered - silence, as
+        // opposed to a refusal or a reply that did not fit. A caller reading
+        // several things in turn treats the two differently: a device that
+        // refuses one read may well answer the next, and one that has gone
+        // quiet will not.
+        bool no_answer = false;
     };
 
     // Reads entities [0, count) in groups of group_size, one request per
@@ -112,6 +119,13 @@ namespace t5000::bacnet
                               ReadCommand command, int count, int group_size,
                               uint16_t entity_size, const ReadSettings& settings,
                               uint8_t& next_invoke_id);
+
+    // The same, for entities [first, first + count). T3000 reads the custom
+    // analog tables as 0-3 and then 4 on its own (BacnetView.cpp:6563-6565).
+    ReadOutcome read_entities_from(ReadTransport& transport, const Endpoint& device,
+                                   ReadCommand command, int first, int count, int group_size,
+                                   uint16_t entity_size, const ReadSettings& settings,
+                                   uint8_t& next_invoke_id);
 
     // ------------------------------------------------------------ the real one
 
@@ -182,6 +196,10 @@ namespace t5000::bacnet
     // so a reply from that address is from that device unless it has been
     // replaced or renumbered since - a window the operator controls by
     // rescanning, and which the page states rather than hides.
+    //
+    // count is 64 except on an ESP32 T3 that sizes its inputs from its
+    // settings (device/input_rows.h), which can have up to 255.
     InputsRead read_inputs(ReadTransport& transport, const Endpoint& device,
-                           const ReadSettings& settings, uint8_t& next_invoke_id);
+                           const ReadSettings& settings, uint8_t& next_invoke_id,
+                           int count = kInputCount);
 }

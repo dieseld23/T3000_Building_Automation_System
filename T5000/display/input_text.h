@@ -4,25 +4,31 @@
 //
 // A port of the loop in BacnetInput.cpp:951-1237, producing the same text
 // from the same struct. Where T3000 would show something T5000 cannot - a
-// custom range whose names are stored on the device and not read yet, or a
-// cell T3000 leaves holding the previous row's text - the text says what
-// T5000 knows, and `note` says why it differs.
+// custom range whose names the panel did not send, or a cell T3000 leaves
+// holding the previous row's text - the text says what T5000 knows, and
+// `note` says why it differs.
 
 #include <string>
 
+#include "custom_ranges.h"
 #include "../device/product.h"
 #include "../wire/points.h"
 
 namespace t5000::display
 {
-    // What T3000 calls bacnet_device_type: for a private-data panel, the
-    // mini_type from its settings (BacnetInput.cpp:1305-1306). T5000 does
-    // not read the settings yet, so for now it is never known - and the one
-    // per-model branch below (RMC1232) is then not taken, rather than guessed.
+    // What T3000 knows about the panel when it fills the grid.
     struct PanelContext
     {
+        // What T3000 calls bacnet_device_type: the mini_type from the panel's
+        // settings (global_function.cpp:5270). Not known when the settings
+        // were not read - and the one per-model branch below (RMC1232) is
+        // then not taken, rather than guessed.
         bool             known = false;
         device::MiniType type  = device::MiniType::NotSet;
+
+        // The names the panel stores for its custom ranges, where they were
+        // read.
+        CustomRanges ranges;
     };
 
     struct InputText

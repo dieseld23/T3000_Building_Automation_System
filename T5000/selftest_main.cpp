@@ -9,6 +9,7 @@
 #include <windows.h>
 
 int run_wire_tests();
+int run_panel_wire_tests();
 int run_read_path_tests();
 int run_bacnet_link_tests();
 int run_connection_tests();
@@ -24,6 +25,9 @@ int run_point_read_tests();
 int run_inputs_plan_tests();
 int run_tables_guard_tests();
 int run_input_text_tests();
+int run_custom_ranges_tests();
+int run_input_rows_tests();
+int run_inputs_read_tests();
 
 namespace
 {
@@ -66,6 +70,8 @@ int run_selftests(int argc, char** argv)
     printf("\n");
     run_wire_tests();
     printf("\n");
+    run_panel_wire_tests();
+    printf("\n");
     run_read_path_tests();
     printf("\n");
     run_bacnet_link_tests();
@@ -93,6 +99,12 @@ int run_selftests(int argc, char** argv)
     run_tables_guard_tests();
     printf("\n");
     run_input_text_tests();
+    printf("\n");
+    run_custom_ranges_tests();
+    printf("\n");
+    run_input_rows_tests();
+    printf("\n");
+    run_inputs_read_tests();
 
     const int failures = t5000::testing::g_failures;
     const int checks   = t5000::testing::g_checks;

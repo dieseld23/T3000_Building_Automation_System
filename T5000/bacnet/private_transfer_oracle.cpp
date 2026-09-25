@@ -167,16 +167,35 @@ namespace
         dest.net = 0;
         dest.len = 0;
 
-        struct Case { uint8_t first, last; };
-        const Case cases[] = { { 0, 9 }, { 10, 19 }, { 60, 63 }, { 5, 5 } };
+        // Every read T5000 sends, in the shapes it sends them - which are
+        // T3000's own calls (BacnetView.cpp:5905, :6472, :6563-6565). The
+        // Settings read is the first whose entity size needs its high byte:
+        // 400 is 0x0190, so a header that dropped or swapped a byte would
+        // pass every Inputs case and fail only here.
+        struct Case
+        {
+            ReadCommand ours;
+            uint8_t     theirs;
+            uint8_t     first, last;
+            int16_t     entity_size;
+        };
+        const Case cases[] = {
+            { ReadCommand::Inputs, READINPUT_T3000, 0, 9, (int16_t)sizeof(Str_in_point) },
+            { ReadCommand::Inputs, READINPUT_T3000, 10, 19, (int16_t)sizeof(Str_in_point) },
+            { ReadCommand::Inputs, READINPUT_T3000, 60, 63, (int16_t)sizeof(Str_in_point) },
+            { ReadCommand::Inputs, READINPUT_T3000, 5, 5, (int16_t)sizeof(Str_in_point) },
+            { ReadCommand::Settings, READ_SETTING_COMMAND, 0, 0, (int16_t)sizeof(Str_Setting_Info) },
+            { ReadCommand::CustomUnits, READUNIT_T3000, 0, 7, (int16_t)sizeof(Str_Units_element) },
+            { ReadCommand::AnalogCustomTables, READANALOG_CUS_TABLE_T3000, 0, 3, (int16_t)sizeof(Str_table_point) },
+            { ReadCommand::AnalogCustomTables, READANALOG_CUS_TABLE_T3000, 4, 4, (int16_t)sizeof(Str_table_point) },
+        };
 
         for (const Case& c : cases)
         {
             char label[96];
-            snprintf(label, sizeof(label), "points %d-%d", c.first, c.last);
+            snprintf(label, sizeof(label), "command %d, points %d-%d", c.theirs, c.first, c.last);
 
-            const int invoke = send_like_t3000(dest, READINPUT_T3000, c.first, c.last,
-                                               (int16_t)sizeof(Str_in_point));
+            const int invoke = send_like_t3000(dest, c.theirs, c.first, c.last, c.entity_size);
             if (!require(invoke >= 0, "Send_ConfirmedPrivateTransfer accepted the request"))
             {
                 printf("        %s: it returned %d\n", label, invoke);
@@ -189,10 +208,10 @@ namespace
                 continue;
 
             ReadRequest request;
-            request.command     = ReadCommand::Inputs;
+            request.command     = c.ours;
             request.first       = c.first;
             request.last        = c.last;
-            request.entity_size = (uint16_t)sizeof(Str_in_point);
+            request.entity_size = (uint16_t)c.entity_size;
 
             uint8_t ours[kReadRequestLength];
             const size_t len = encode_read_request(request, (uint8_t)invoke, ours, sizeof(ours));

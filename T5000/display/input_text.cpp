@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 
+#include "device_text.h"
 #include "tables.h"
 
 namespace t5000::display
@@ -23,16 +24,16 @@ namespace t5000::display
         constexpr int kFirstCustomAnalogRange = 20;
         constexpr int kLastCustomAnalogRange  = 24;
 
-        // "Off/On" -> "Off", "On". T3000 shows a state only when the split
-        // gives exactly two parts (BacnetInput.cpp:1162-1163).
-        bool split_states(const char* pair, std::string& off, std::string& on)
+        // "Off/On" -> "Off", "On", split as T3000's SplitCStringA splits it.
+        // T3000 shows a state only when the split gives exactly two parts
+        // (BacnetInput.cpp:1162-1163).
+        bool split_states(const std::string& pair, std::string& off, std::string& on)
         {
-            const std::string s(pair);
-            const size_t slash = s.find('/');
-            if (slash == std::string::npos || s.find('/', slash + 1) != std::string::npos)
+            const std::vector<std::wstring> parts = split_like_t3000(utf8_to_wide(pair), L'/');
+            if (parts.size() != 2)
                 return false;
-            off = s.substr(0, slash);
-            on  = s.substr(slash + 1);
+            off = wide_to_utf8(parts[0]);
+            on  = wide_to_utf8(parts[1]);
             return true;
         }
 
@@ -52,10 +53,18 @@ namespace t5000::display
             {
                 // Analog_Custom_Units[range - 20]: the unit name the device
                 // stores for one of its five custom tables.
-                add_note(t.note, "Range " + std::to_string(range) + " is the device's custom table " +
-                                     std::to_string(range - kFirstCustomAnalogRange + 1) +
-                                     ". Its unit name is stored on the device, and T5000 "
-                                     "does not read it yet.");
+                const int table = range - kFirstCustomAnalogRange;
+                if (panel.ranges.analog_known[table])
+                {
+                    t.units = panel.ranges.analog[table];
+                }
+                else
+                {
+                    add_note(t.note, "Range " + std::to_string(range) + " is the device's custom table " +
+                                         std::to_string(table + 1) +
+                                         ". Its unit name is stored on the device, and the device did "
+                                         "not send it.");
+                }
             }
             else if ((size_t)range < count(kInputAnalogUnits))
             {
@@ -102,9 +111,10 @@ namespace t5000::display
             t.sign        = p.calibration_sign == 0 ? "+" : "-";
         }
 
-        void digital(const wire::InputPoint& p, InputText& t)
+        void digital(const wire::InputPoint& p, const PanelContext& panel, InputText& t)
         {
             const int range = p.range;
+            const bool custom = range >= kFirstCustomDigitalRange && range <= kLastCustomDigitalRange;
 
             // :1117 clears Calibration for a digital point but never writes
             // Sign, which keeps the previous row's. Both are empty here.
@@ -119,16 +129,20 @@ namespace t5000::display
             {
                 t.range = kDigitalUnits[range];
             }
-            else if (range >= kFirstCustomDigitalRange && range <= kLastCustomDigitalRange)
+            else if (custom && panel.ranges.digital_known)
             {
-                // Custom_Digital_Range[range - 23], which T3000 fills from the
-                // device. Until it has, T3000 shows "Unused" here, and the
+                // Custom_Digital_Range[range - 23], as the device sent it.
+                t.range = panel.ranges.digital[range - kFirstCustomDigitalRange].text;
+            }
+            else if (custom)
+            {
+                // Until T3000 has the names, it shows "Unused" here, and the
                 // Value cell keeps the previous row's text (:1156-1162).
                 const int which = range - kFirstCustomDigitalRange + 1;
                 t.range = "custom range " + std::to_string(which);
                 add_note(t.note, "Range " + std::to_string(range) + " is the device's custom digital range " +
                                      std::to_string(which) + ". Its state names are stored on the device, and "
-                                     "T5000 does not read them yet, so the state is shown as 0 or 1.");
+                                     "the device did not send them, so the state is shown as 0 or 1.");
             }
             else
             {
@@ -143,7 +157,22 @@ namespace t5000::display
                 if (split_states(kDigitalUnits[range], off, on))
                     t.value = p.control == 0 ? off : on;
             }
-            else if (range >= kFirstCustomDigitalRange && range <= kLastCustomDigitalRange)
+            else if (custom && panel.ranges.digital_known)
+            {
+                const DigitalRange& r = panel.ranges.digital[range - kFirstCustomDigitalRange];
+                if (r.has_states)
+                {
+                    t.value = p.control == 0 ? r.off : r.on;
+                }
+                else
+                {
+                    add_note(t.note, "The device's names for custom digital range " +
+                                         std::to_string(range - kFirstCustomDigitalRange + 1) +
+                                         " do not split into two states, so T3000 shows no value; its "
+                                         "Value cell keeps the previous row's text.");
+                }
+            }
+            else if (custom)
             {
                 t.value = p.control == 0 ? "0" : "1";
             }
@@ -181,7 +210,7 @@ namespace t5000::display
         }
         else if (p.digital_analog == 0)
         {
-            digital(p, t);
+            digital(p, panel, t);
         }
         else
         {
