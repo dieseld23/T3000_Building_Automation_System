@@ -143,6 +143,43 @@ namespace t5000::device
               "GetPrivateData_Blocking refuses outright" },
         };
 
+        // T3000's Add virtual device list, init_product_list at
+        // global_function.cpp:11980-12199, in its order. Each entry's pid is
+        // the product and its sub_pid the panel type; the line is its
+        // cs_name's. The names are Getminitypename's
+        // (BacnetSetting.cpp:148-218), which is what T3000's Settings page
+        // shows for a panel. The list spells some differently: Tstat10,
+        // T3_OEM_12I, T3-RMC1216, T3-RMC1232, T3-NG2-TYPE2, T3_3IIC.
+        //
+        // Not here:
+        //   - the list's "Custom Device" (pid 254, :11984), a third-party
+        //     device, which cannot be added by hand; add_device says why;
+        //   - T3-TB-11I and the Asix MiniPanels' types, which Getminitypename
+        //     names but the list does not pair with a product.
+        constexpr Model kModels[] = {
+            { "T3-BB",         ProductClassId::MiniPanelArm,  MiniType::MiniPanelArm },   // :11995
+            { "T3-LB",         ProductClassId::MiniPanelArm,  MiniType::MiniPanelArmLb }, // :12006
+            { "T3-TB",         ProductClassId::MiniPanelArm,  MiniType::MiniPanelArmTb }, // :12017
+            { "T3-Nano",       ProductClassId::MiniPanelArm,  MiniType::MiniPanelArmNb }, // :12028
+            { "T3-ESP-LW",     ProductClassId::Esp32T3Series, MiniType::EspLw },          // :12039
+            { "T3-FAN-MODULE", ProductClassId::MiniPanelArm,  MiniType::FanModule },      // :12050
+            { "T3-RMC",        ProductClassId::Esp32T3Series, MiniType::EspRmc },         // :12061
+            { "T3-RMC-1232",   ProductClassId::Esp32T3Series, MiniType::Rmc1232 },        // :12072
+            { "T3-BMS",        ProductClassId::Esp32T3Series, MiniType::Bms },            // :12083
+            { "T3-NG2",        ProductClassId::Esp32T3Series, MiniType::Ng3 },            // :12094
+
+            // The list gives this one sub_pid T3_NG3 (:12113), the entry
+            // above's, beside an ao_count of T3_3IIC_IN_A (:12109): a copy of
+            // the entry above, finished only in part. Its panel type is
+            // T3_3IIC, the one Getminitypename names T3-3IIC.
+            { "T3-3IIC",       ProductClassId::Esp32T3Series, MiniType::ThreeIic },       // :12105
+
+            { "TSTAT10",       ProductClassId::Tstat10,       MiniType::Tstat10 },        // :12116
+            { "T3-OEM",        ProductClassId::Tstat10,       MiniType::Oem },            // :12127
+            { "T3-OEM-12I",    ProductClassId::Tstat10,       MiniType::Oem12I },         // :12138
+            { "TSTAT11",       ProductClassId::Esp32T3Series, MiniType::Tstat11 },        // :12150
+        };
+
         // Returned for anything not in the table. Deliberately has no screens
         // and no data path: an unrecognised device must present as "not
         // supported yet", never as a default product read with a guessed
@@ -340,5 +377,38 @@ namespace t5000::device
         case MiniType::T36CTA:          return "T36CTA";
         }
         return "unrecognised panel type";
+    }
+
+    ModelTable known_models()
+    {
+        return ModelTable{ kModels, (int)(sizeof(kModels) / sizeof(kModels[0])) };
+    }
+
+    const Model* find_model(ProductClassId product, int raw_mini_type)
+    {
+        // Compared whole, not cut to a byte, so 267 is not panel type 11.
+        // Nothing matches 0, which no model has: it is CM5's panel type, and
+        // "not set" on every other product (resolve_panel).
+        for (const auto& m : kModels)
+            if (m.product == product && static_cast<int>(m.type) == raw_mini_type)
+                return &m;
+        return nullptr;
+    }
+
+    const char* panel_name(ProductClassId product, MiniType type)
+    {
+        if (const Model* m = find_model(product, static_cast<int>(type)))
+            return m->name;
+        return to_string(type);
+    }
+
+    PanelResolution resolve_chosen_panel(ProductClassId product, int raw_mini_type)
+    {
+        PanelResolution r = resolve_panel(product, raw_mini_type);
+        r.reason = r.resolved
+                       ? "chosen when this entry was added by hand - no device has been read"
+                       : "no model was chosen when this entry was added by hand, and no device has "
+                         "been read";
+        return r;
     }
 }

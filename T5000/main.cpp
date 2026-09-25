@@ -503,12 +503,20 @@ int main(int argc, char** argv)
         return http::Response::json(app::build_products_json());
     });
 
+    // What a device can be added by hand as: the models T3000 names, then
+    // the other products. The Add device list, from the same table
+    // add_device checks against.
+    server.route("/api/models", [](const http::Request&) {
+        return http::Response::json(app::build_models_json());
+    });
+
     // The selected device, resolved through the product model. Falls back to
     // the fixture only when nothing real is selected.
     server.route("/api/device", [](const http::Request&) {
         if (const device::DeviceRecord* d = g_registry.selected())
             return http::Response::json(
-                app::build_product_json((int)static_cast<uint8_t>(d->product), d->mini_type));
+                app::build_product_json((int)static_cast<uint8_t>(d->product), d->mini_type,
+                                        d->provenance == device::Provenance::ManuallyAdded));
 
         const app::DeviceInfo d = fixture_device();
         return http::Response::json(app::build_product_json(d.product_id, /*mini_type*/ 0));

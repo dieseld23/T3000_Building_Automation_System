@@ -2,6 +2,11 @@
 #include "points_json.h"
 #include "../device/product.h"
 
+#include <string.h>
+
+#include <algorithm>
+#include <vector>
+
 namespace t5000::app
 {
     namespace
@@ -88,7 +93,77 @@ namespace t5000::app
         return out;
     }
 
-    std::string build_product_json(int product_class_id, int mini_type)
+    std::string build_models_json()
+    {
+        const ModelTable models   = known_models();
+        const CapabilityTable all = known_products();
+
+        auto append_model = [](std::string& out, const char* name, ProductClassId product, int mini_type) {
+            out += "{\"name\":\"" + json_escape(name) + "\"";
+            out += ",\"productId\":" + std::to_string((int)static_cast<uint8_t>(product));
+            out += ",\"miniType\":" + std::to_string(mini_type) + "}";
+        };
+
+        // The products that have models, in the order the table first names
+        // them, which is T3000's.
+        std::vector<ProductClassId> grouped;
+        for (int i = 0; i < models.count; i++)
+            if (std::find(grouped.begin(), grouped.end(), models.entries[i].product) == grouped.end())
+                grouped.push_back(models.entries[i].product);
+
+        std::string out = "{\"groups\":[";
+        bool first_group = true;
+        for (const ProductClassId product : grouped)
+        {
+            if (!first_group) out += ',';
+            first_group = false;
+
+            out += "{\"label\":\"" + json_escape(capabilities(product).name) + "\"";
+            out += ",\"productId\":" + std::to_string((int)static_cast<uint8_t>(product));
+            out += ",\"models\":[";
+            for (int i = 0; i < models.count; i++)
+            {
+                const Model& m = models.entries[i];
+                if (m.product != product)
+                    continue;
+                append_model(out, m.name, m.product, static_cast<int>(m.type));
+                out += ',';
+            }
+
+            // Kept, so a device can still be added knowing only its product.
+            // Panel type 0, which on these products is "not set".
+            append_model(out, "Model not known", product, 0);
+            out += "]}";
+        }
+
+        // Every other product, as itself, by name as the list was before
+        // models. None has a model T3000 names, so each is panel type 0.
+        std::vector<const Capabilities*> others;
+        for (int i = 0; i < all.count; i++)
+        {
+            const Capabilities& c = all.entries[i];
+            if (c.id == ProductClassId::ThirdPartyDevice)
+                continue;
+            if (std::find(grouped.begin(), grouped.end(), c.id) != grouped.end())
+                continue;
+            others.push_back(&c);
+        }
+        std::sort(others.begin(), others.end(), [](const Capabilities* a, const Capabilities* b) {
+            return strcmp(a->name, b->name) < 0;
+        });
+
+        if (!first_group) out += ',';
+        out += "{\"label\":\"Other products\",\"productId\":null,\"models\":[";
+        for (size_t i = 0; i < others.size(); i++)
+        {
+            if (i) out += ',';
+            append_model(out, others[i]->name, others[i]->id, 0);
+        }
+        out += "]}]}";
+        return out;
+    }
+
+    std::string build_product_json(int product_class_id, int mini_type, bool added_by_hand)
     {
         const auto id = static_cast<ProductClassId>(product_class_id & 0xFF);
         const auto& c = capabilities(id);
@@ -101,12 +176,12 @@ namespace t5000::app
         // resolve_panel rather than read directly, because mini_type 0 means
         // either "CM5" or "unconfigured" and only the hardware id can tell
         // them apart - see the note on resolve_panel.
-        const auto r     = resolve_panel(id, mini_type);
+        const auto r     = added_by_hand ? resolve_chosen_panel(id, mini_type) : resolve_panel(id, mini_type);
         const auto info  = mini_type_info(r.type);
         const auto count = r.counts;
 
         out += ",\"panel\":{\"miniType\":" + std::to_string(mini_type);
-        out += ",\"name\":\"" + json_escape(to_string(r.type)) + "\"";
+        out += ",\"name\":\"" + json_escape(panel_name(id, r.type)) + "\"";
         out += ",\"resolved\":";
         out += r.resolved ? "true" : "false";
         out += ",\"reason\":\"" + json_escape(r.reason) + "\"";
