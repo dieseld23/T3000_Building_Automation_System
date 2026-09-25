@@ -1,4 +1,4 @@
-name: Build
+name: T3000 installer (Temco only)
 
 on: workflow_dispatch
 
@@ -16,6 +16,9 @@ permissions:
 
 jobs:
   build:
+    # Temco's signed T3000 installer, run by hand. It needs their SignPath
+    # project and secrets, so it runs in Temco's repository only.
+    if: github.repository == 'temcocontrols/T3000_Building_Automation_System'
     runs-on: windows-latest
     environment: webview_build
     env:

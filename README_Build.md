@@ -79,7 +79,7 @@ The repository declares one active submodule, `T3000Webview`, the source of the 
 git submodule update --init T3000Webview
 ```
 
-CI checks out submodules anyway; `scripts/ci-local.ps1` skips them, and checks on each run that the solution still does not reference one.
+T5000's CI and `scripts/ci-local.ps1` skip them, and `ci-local.ps1` checks on each run that the solution still does not reference one. Only `T3000.yml`, the full T3000 build run by hand, checks them out.
 
 `.gitmodules` also lists `T3000_CrossPlatform` and `PartsAndVendors`, but neither has a corresponding entry in the index, so git ignores them. This is harmless.
 
@@ -111,7 +111,7 @@ That project, `T5000Conformance`, is in `T3000 - VS2019.sln`. The solution build
 & "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" "T3000 - VS2019.sln" -t:T5000Conformance -p:Platform=x86 -p:Configuration=Release
 ```
 
-This builds the stack too, which needs MFC. T5000's own build does not run these checks. Run them, or `scripts/ci-local.ps1`, before pushing a change to any of these files:
+This builds the stack too, which needs MFC, and nothing else of T3000's. T5000's own build does not run these checks; CI's `conformance` job does, on every push or pull request that touches `T5000\` or a T3000 file they read. Run them, or `scripts/ci-local.ps1`, before pushing a change to any of these files:
 
 * `T5000\wire\`
 * `T5000\bacnet\command.h`
@@ -125,36 +125,38 @@ Building a clean checkout, as CI does
 
 `scripts/ci-local.ps1` builds a throwaway git worktree of a ref with the same commands CI runs, so a file that was never committed fails here rather than in CI. Run it with PowerShell 7; under Windows PowerShell 5, git's progress output on stderr is treated as an error.
 
-It runs both of CI's jobs:
+By default it runs both jobs of `T5000.yml`:
 
-* **`t5000`** copies only the checkout's `T5000\` folder somewhere else and builds `T5000\T5000.sln` there, as CI checks out only that folder.
-* **`build`** builds `T3000 - VS2019.sln`.
+* **`selftest`** copies only the checkout's `T5000\` folder somewhere else and builds `T5000\T5000.sln` there, as CI checks out only that folder.
+* **`conformance`** builds `T3000 - VS2019.sln` with `-t:T5000Conformance`: the conformance checks and the BACnet stack they link.
 
-It fails if either job fails, or if either produces no test summary.
+It fails if either job fails, or if either produces no test summary. `-Only T3000` instead builds all of `T3000 - VS2019.sln`, as `T3000.yml` does when it is run by hand.
 
 ```
 pwsh -NoProfile -File scripts/ci-local.ps1
 pwsh -NoProfile -File scripts/ci-local.ps1 -Only T5000
+pwsh -NoProfile -File scripts/ci-local.ps1 -Only Conformance
+pwsh -NoProfile -File scripts/ci-local.ps1 -Only T3000
 pwsh -NoProfile -File scripts/ci-local.ps1 -Ref origin/master -Parallel
 ```
 
 | Parameter | Default | Does |
 | --- | --- | --- |
 | `-Ref` | `HEAD` | What to build: a branch, tag or SHA |
-| `-Only` | `All` | `T5000` or `T3000` runs just that job |
+| `-Only` | `All` | `All` is both T5000 jobs. `T5000` or `Conformance` runs just that job; `T3000` builds the whole T3000 solution |
 | `-WorktreePath` | `C:\t3000-ci` | Where the worktree goes. Keep it short; deep MFC paths hit `MAX_PATH` |
 | `-T5000Path` | `C:\t5000-ci` | Where the `T5000\` folder is copied to be built on its own |
 | `-Parallel` | off | Adds `/m`. Faster, but no longer the exact CI command |
 | `-Keep` | off | Leaves the checkouts in place afterwards |
 
-Before building the T3000 solution, it checks for MFC for v143 and the .NET 4.5.2 reference assemblies, and stops with the reason if either is missing.
+Before the conformance job it checks for MFC for v143, and before the full T3000 build for the .NET 4.5.2 reference assemblies too. It stops with the reason if one is missing.
 
 What to do if CI or local build fails with a build error
 -----------------------------------------------------------
 * If the above fails this is mostly due to:
    * Compilation errors in one or more CPP files
    * Developer _forgot_ to add new files to the project: the `.vcxproj` the file belongs to, such as `T3000\T3000_VS2019.vcxproj` or `T5000\T5000.vcxproj`. The build uses MSBuild and the project files; the `CMakeLists.txt` files in the tree are not part of it.
-   * For T5000, a self-test failure, or in the T3000 solution a conformance failure: a T5000 copy that no longer matches T3000. The build log lists each failed check. A layout, command-code or product-code mismatch is a `static_assert`, so it shows as a compile error in `T5000\conformance\`.
+   * For T5000, a self-test failure, or a conformance failure: a T5000 copy that no longer matches T3000. The build log lists each failed check. A layout, command-code or product-code mismatch is a `static_assert`, so it shows as a compile error in `T5000\conformance\`.
 
 Common first-time failures and what they mean:
 
@@ -167,6 +169,17 @@ Common first-time failures and what they mean:
 
 ### CI
 
-`.github/workflows/BuildTest.yml` builds the solution on GitHub's `windows-latest` runner. Since around 2026-06-10 that image has carried Visual Studio 2026 without `C++ MFC for v143` or the .NET Framework 4.5.2 targeting pack, which failed the build at `MSB8041` and `MSB3644`. The workflow now installs MFC for v143 and supplies the 4.5.2 reference assemblies itself before building (since 2026-09-18), and it passes. That solution build also runs T5000's conformance checks.
+The checks on a push or pull request are T5000's, and T3000 is no longer built on each one.
 
-A second job, `t5000`, checks out only `T5000/` and builds `T5000\T5000.sln`, which runs T5000's self-test. It installs nothing, because T5000 needs neither MFC nor .NET. Any path T5000 reaches outside its own folder is absent there, so this job is what keeps the two separate.
+| Workflow | Runs | Builds |
+| --- | --- | --- |
+| `.github/workflows/T5000.yml` | On a push to, or pull request against, `master` that touches `T5000/`, the workflow itself, `T3000 - VS2019.sln`, or a T3000 file the conformance checks read (`T3000/ProductModel.h`, `T3000/global_define.h`, `T3000/CM5/`, `BacNetDllforVc/`). Also by hand. | Two jobs, below |
+| `.github/workflows/T3000.yml` | By hand only: in the Actions tab, "T3000 (run by hand)", then Run workflow | All of `T3000 - VS2019.sln`. It was `BuildTest.yml`, which ran on every push |
+| `.github/workflows/Build.yml`, `Release.yml` | By hand, or on a published release, and only in `temcocontrols/T3000_Building_Automation_System` | Temco's signed T3000 installer and release. They need Temco's SignPath project and secrets, so they are skipped in a fork |
+
+`T5000.yml`'s jobs:
+
+* **`selftest`** checks out only `T5000/` and builds `T5000\T5000.sln`, which runs T5000's self-test. It installs nothing, because T5000 needs neither MFC nor .NET. Any path T5000 reaches outside its own folder is absent there, so this job is what keeps the two separate.
+* **`conformance`** builds `T3000 - VS2019.sln` with `-t:T5000Conformance`, which builds the conformance checks and the BACnet stack they link, and runs the checks. Nothing else of T3000's is built. The stack needs MFC for v143, which GitHub's `windows-latest` image has lacked since it moved to Visual Studio 2026 around 2026-06-10 (the build stops at `MSB8041`), so the job installs it first. It needs no .NET.
+
+`T3000.yml` installs MFC for v143 and the .NET Framework 4.5.2 reference assemblies before building, since the same image lacks both; without them the build stops at `MSB8041` and `MSB3644`.
