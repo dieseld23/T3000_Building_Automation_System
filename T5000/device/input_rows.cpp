@@ -2,9 +2,9 @@
 
 #include "../bacnet/point_read.h"
 
-// ProductModel.h has no includes and is safe to include anywhere; it pins the
-// PM_* codes the row chain uses.
-#include "../../T3000/ProductModel.h"
+// The row chain mixes MiniType and PM_* product codes (see below). Both are
+// T5000's own enums; conformance/product_guard.cpp and tables_guard.cpp check
+// their values against T3000's headers.
 
 namespace t5000::device
 {
@@ -12,18 +12,6 @@ namespace t5000::device
     {
         constexpr int t3(MiniType t) { return static_cast<int>(t); }
         constexpr int pm(ProductClassId p) { return static_cast<int>(p); }
-
-        static_assert(pm(ProductClassId::PwmTransducer) == PWM_TRANSDUCER, "PWM_TRANSDUCER");
-        static_assert(pm(ProductClassId::T3Lc) == PM_T3_LC, "PM_T3_LC");
-        static_assert(pm(ProductClassId::Stm32Co2Net) == STM32_CO2_NET, "STM32_CO2_NET");
-        static_assert(pm(ProductClassId::Stm32Co2Rs485) == STM32_CO2_RS485, "STM32_CO2_RS485");
-        static_assert(pm(ProductClassId::Stm32HumNet) == STM32_HUM_NET, "STM32_HUM_NET");
-        static_assert(pm(ProductClassId::Stm32HumRs485) == STM32_HUM_RS485, "STM32_HUM_RS485");
-        static_assert(pm(ProductClassId::Stm32PressureNet) == STM32_PRESSURE_NET, "STM32_PRESSURE_NET");
-        static_assert(pm(ProductClassId::MultiSensor) == PM_MULTI_SENSOR, "PM_MULTI_SENSOR");
-        static_assert(pm(ProductClassId::TstatAq) == PM_TSTAT_AQ, "PM_TSTAT_AQ");
-        static_assert(pm(ProductClassId::AirlabEsp32) == PM_AIRLAB_ESP32, "PM_AIRLAB_ESP32");
-        static_assert(pm(ProductClassId::Esp32T3Series) == PM_ESP32_T3_SERIES, "PM_ESP32_T3_SERIES");
     }
 
     int bacnet_device_type(const wire::PanelSettings& settings)

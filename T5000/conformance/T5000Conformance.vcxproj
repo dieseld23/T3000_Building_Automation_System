@@ -1,0 +1,121 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    The checks that hold T5000 to T3000: T5000's copies of T3000's wire
+    layouts, command codes, product codes and display tables against the
+    headers they were taken from, and its BACnet codec against T3000's stack.
+    main.cpp lists them.
+
+    Built by "T3000 - VS2019.sln", after BACnet_Stack_Library, and run by the
+    post-build event below, so a check that fails fails that build. It is
+    not in T5000.sln: T5000 builds and tests with nothing of T3000's present,
+    and this is the one place the two are compiled together.
+  -->
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{156B975E-E47D-49EC-A061-E2F46B2E491A}</ProjectGuid>
+    <RootNamespace>T5000Conformance</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <!--
+    Beside T5000's own output, not in "T3000 Output\release", which T3000's
+    release workflows zip whole into its update package.
+
+    StackOutDir is where BACnet_Stack_Library's project puts its import
+    library and DLL.
+  -->
+  <PropertyGroup>
+    <OutDir>$(ProjectDir)..\bin\conformance\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)..\obj\conformance\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+    <StackOutDir>$(ProjectDir)..\..\T3000 Output\debug\</StackOutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <StackOutDir>$(ProjectDir)..\..\T3000 Output\release\</StackOutDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <!-- As T5000.vcxproj: C++17, standard rules, and no MFC. -->
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <ConformanceMode>true</ConformanceMode>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <!--
+        The stack is a DLL, so its import library is all this links. Its
+        UseOfMfc=Static applies inside BACnet_Stack_Library.dll and does not
+        reach this process.
+      -->
+      <AdditionalDependencies>BACnet_Stack_Library.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(StackOutDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+    <PostBuildEvent>
+      <!--
+        The DLL is copied beside the exe so that the run below loads the one
+        this build made, whatever PATH holds. "$(ProjectDir)..\.." is the
+        repository root, where the checks find T3000's source.
+      -->
+      <Command>copy /Y "$(StackOutDir)BACnet_Stack_Library.dll" "$(OutDir)BACnet_Stack_Library.dll" &gt;NUL
+"$(TargetPath)" --source-root "$(ProjectDir)..\.."</Command>
+      <Message>Running the T5000 conformance checks against T3000</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="command_guard.cpp" />
+    <ClCompile Include="panel_guard.cpp" />
+    <ClCompile Include="product_guard.cpp" />
+    <ClCompile Include="tables_guard.cpp" />
+    <ClCompile Include="wire_guard.cpp" />
+    <!--
+      The one file that includes the BACnet stack's own headers, so every
+      structure it hands the DLL has the layout the DLL was built with. The
+      stack's include paths and PRINT_ENABLED are set here and nowhere else,
+      so no other file can pick up config.h or ud_str.h from the stack by
+      accident - its ud_str.h is the stale copy of the wire format.
+    -->
+    <ClCompile Include="private_transfer_oracle.cpp">
+      <AdditionalIncludeDirectories>..\..\BacNetDllforVc\;..\..\BacNetDllforVc\MainCpp\;..\..\BacNetDllforVc\include\;..\..\BacNetDllforVc\object\;..\..\BacNetDllforVc\handler\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>PRINT_ENABLED=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <!-- The T5000 code the checks run, compiled here as T5000 compiles it. -->
+    <ClCompile Include="..\bacnet\private_transfer.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="cm5_header.h" />
+    <ClInclude Include="source_root.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

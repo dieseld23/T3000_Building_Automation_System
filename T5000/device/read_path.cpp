@@ -2,14 +2,19 @@
 
 #include <string>
 
-// Both of these are standalone: ProductModel.h has no includes at all, and the
-// protocol constants live among plain `const int`s. Using the real headers
-// rather than vendoring the numbers means a renumbered product cannot silently
-// desynchronise this file from the application.
-#include "../../T3000/ProductModel.h"
+// The product codes are T5000's own (product.h). conformance/product_guard.cpp
+// asserts every one against T3000/ProductModel.h, so a renumbered product
+// still fails a build - T3000's, which runs those checks - rather than
+// silently desynchronising this file from the application.
+#include "product.h"
 
 namespace t5000::device
 {
+    namespace
+    {
+        constexpr int pm(ProductClassId p) { return static_cast<int>(p); }
+    }
+
     // Transcribed from T3000/global_define.h:251-267 rather than included,
     // because global_define.h itself is not standalone. These are the only
     // protocol values this decision needs.
@@ -22,11 +27,11 @@ namespace t5000::device
 
     bool is_private_data_device(int product_id)
     {
-        return product_id == PM_CM5            ||
-               product_id == PM_MINIPANEL      ||
-               product_id == PM_MINIPANEL_ARM  ||
-               product_id == PM_ESP32_T3_SERIES||
-               product_id == PM_TSTAT10;
+        return product_id == pm(ProductClassId::Cm5)           ||
+               product_id == pm(ProductClassId::MiniPanel)     ||
+               product_id == pm(ProductClassId::MiniPanelArm)  ||
+               product_id == pm(ProductClassId::Esp32T3Series) ||
+               product_id == pm(ProductClassId::Tstat10);
     }
 
     bool is_refused_by_private_data(int protocol)
@@ -40,7 +45,7 @@ namespace t5000::device
     {
         // BacnetView.cpp:7736 - note the ESP32 branch is unconditional and does
         // not consult the firmware version at all.
-        if (product_id == PM_ESP32_T3_SERIES)
+        if (product_id == pm(ProductClassId::Esp32T3Series))
             return true;
 
         return is_private_data_device(product_id) &&

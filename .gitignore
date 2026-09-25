@@ -5,6 +5,9 @@
 
 /T3000 Output
 /T3000 Output_VS2015
+# T5000 builds into its own folders (T5000.vcxproj, conformance/T5000Conformance.vcxproj)
+/T5000/bin/
+/T5000/obj/
 # /.vs  <Need .vs in the repo for changes to the Visual Studio project files. 
 **/Thumbs.db
 

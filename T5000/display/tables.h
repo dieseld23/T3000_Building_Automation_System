@@ -5,9 +5,9 @@
 //
 // Copied, not included: that header declares these as CString arrays and
 // cannot compile outside MFC. The copy is checked rather than trusted, the way
-// wire/points.h is - tables_guard_selftest.cpp parses the real header on every
-// build and fails it if an entry, or the number of entries, differs. Treat that
-// test as part of this file.
+// wire/points.h is - conformance/tables_guard.cpp parses the real header on
+// every build of T3000's solution and fails it if an entry, or the number of
+// entries, differs. Treat that check as part of this file.
 //
 // The COUNT of each table is behaviour, not just size. T3000 picks between
 // branches with sizeof(table)/sizeof(table[0]) - an analog input on range 37

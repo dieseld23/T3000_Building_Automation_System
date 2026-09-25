@@ -20,8 +20,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "../wire/cm5_header.h"
-#include "command.h"
+#include "cm5_header.h"
+#include "../bacnet/command.h"
 
 namespace
 {

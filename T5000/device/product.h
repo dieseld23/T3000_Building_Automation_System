@@ -55,7 +55,8 @@
 
 namespace t5000::device
 {
-    // What the hardware reports as product_class_id. From T3000/ProductModel.h.
+    // What the hardware reports as product_class_id. From T3000/ProductModel.h,
+    // and conformance/product_guard.cpp checks every value against it.
     // The full list is here so that no real device is unrepresentable; the
     // capability table below is populated for the ones we actually handle.
     enum class ProductClassId : uint8_t

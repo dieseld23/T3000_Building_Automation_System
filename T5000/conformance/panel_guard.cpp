@@ -15,7 +15,7 @@
 #include <stdint.h>
 
 #include "cm5_header.h"
-#include "panel.h"
+#include "../wire/panel.h"
 
 namespace
 {
