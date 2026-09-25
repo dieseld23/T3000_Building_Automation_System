@@ -172,7 +172,7 @@ Each ships on its own. Ordered by dependency, not by difficulty.
 
 | Stage | Delivers | Changed by all-products? | State, 2026-09-25 |
 |---|---|---|---|
-| **0** | Discovery, selection, firmware detection, **product-identity model** | **Larger** — two id axes, capability table | Done (#9, #12, #13, #15). The device list is saved between runs (#19) |
+| **0** | Discovery, selection, firmware detection, **product-identity model** | **Larger** — two id axes, capability table | Done (#9, #12, #13, #15). The device list is saved between runs (#19), and takes devices added by hand |
 | **1** | Inputs + Outputs + Variables read | Unchanged — one shared layout | Inputs done (#14, #16, #17), except the Panel and Type columns. Outputs and Variables not started |
 | **2** | Write support for points, then Arrays, PVar | Unchanged | Not started |
 | **3** | Device settings, user login | Slightly larger — per-product field ranges | Not started. The settings block is already read and guarded, for Inputs |
@@ -215,8 +215,13 @@ reproduce](#what-the-write-path-must-not-reproduce).
 
 In order:
 
-1. **Virtual devices,** and then **importing T3000's building database.** The
-   next two parts of [the device list](#the-device-list-and-virtual-devices).
+1. **Devices added by hand and virtual devices,** then **importing T3000's
+   building database.** Parts 2 and 3 of [the device
+   list](#the-device-list-and-virtual-devices). Adding a device by hand is
+   built. Configuring one offline waits on the owner's decisions A to E
+   there: where the configuration lives, what must be entered, how it is
+   compared with the device before a write, how a device on another subnet
+   is found, and what a virtual device is.
 2. **Finish Inputs:** the Panel and Type columns.
 3. **Outputs and Variables.** Same struct path as Inputs, and their structs
    are already guarded. T3000 also reads multi-state ranges
@@ -233,9 +238,9 @@ In order:
 
    Later, when there is a Modbus device on firmware below 525 to try, the
    firmware gate (see the end of Risks).
-5. **Stage 2, writes,** as above. Editing a virtual device's points comes
-   first: it changes a file, not a controller, so it can build the edit
-   screens before there is a write transport.
+5. **Stage 2, writes,** as above. Editing a device's points offline comes
+   first. It changes the saved configuration, not a controller, so the edit
+   screens can be built before there is a write transport.
 6. **The register path** for Tstats and the Modbus modules, starting with the
    guard on the Tstat registers described under Risks.
 
@@ -285,8 +290,118 @@ list and the file and does nothing to the device.
   T5000 wrote, is refused and left as it was. T5000 then runs with the list in
   memory, and the page says it is not being saved.
 
-**2. Virtual devices.** Next. What T3000 does, from
-`BacnetAddVirtualDevice.cpp` and `global_function.cpp`:
+**2. Devices added by hand, and virtual devices.** One design for both: a
+device in the list that T5000 has not reached, with a configuration prepared
+before anyone can reach it. A device added by hand stands for a real device
+and is keyed on that device's serial. A virtual device stands for none.
+
+*Built: adding a device by hand.* The operator gives the product and the
+serial, both required, and a name and location if they like. The product comes
+from the capability table, less the third-party entry, whose serial no scan
+reports. The device is saved (schema 2 of `T5000.db` adds `added_by_hand`) and
+listed as "added by hand". Nothing is sent to it: its Inputs page says there is
+no device to read (`plan_inputs_read`). When a scan finds its serial, that
+device takes the entry's place, keeping the name and location, and is read
+from then on. Adding only ever inserts, so an entry typed in cannot overwrite
+a device a scan found.
+
+What T3000 does:
+
+- **Add Remote Device** (`ARDDlg.cpp`) needs the device online. It connects
+  (`:206-258`) and reads the serial and product off it; both fields are
+  read-only (`:58-59`). If it cannot connect it refuses (`:374`). It then
+  deletes any row with that serial and inserts a new one on `floor1`, `room1`
+  (`:343-358`), so adding a device again loses where it was.
+- **Load File** (`MainFrm.cpp:15900`) reads a `.prog` into memory
+  (`LoadBacnetBinaryFile`, `global_function.cpp:10506`), checking only the
+  `55 FF` and the version. It then writes every section to whichever device
+  is open (`Send_Set_Config_Command_Thread`, `MainFrm.cpp:5166`): inputs
+  (`:5364`), outputs, variables, programs, PID loops, screens, holidays and
+  schedules. Last comes the settings block (`WRITE_SETTING_COMMAND`, `:5764`),
+  which holds the serial, IP address and panel number. It reads nothing first
+  and nothing back, so loading one panel's file onto another gives the second
+  panel the first one's identity.
+- **A virtual device** (`BacnetAddVirtualDevice.cpp:187-220`) gets a random
+  serial and a `.prog` file in `Database\temp`. Nothing writes one to
+  hardware.
+
+**Decisions for the owner.** The rest of part 2 waits on these.
+
+*A. Where the offline configuration lives.*
+
+1. `.prog` files, one per device, as T3000 keeps them. T3000 can open them,
+   and their layout is already guarded. But a `.prog` holds a value for every
+   field, so it cannot say which ones the operator changed, which C3 needs.
+   And T3000 leaves the file behind when the device is deleted.
+2. `T5000.db`. Each point is kept as the `ud_str.h` bytes it goes to the
+   device as, with what the operator changed and what the device held when
+   last read. One file, saved in transactions, that can say what changed.
+   T3000 cannot read it.
+3. **Recommended:** 2, with import and export of `.prog` files. An imported
+   file is matched to a device by the serial in its settings block, and an
+   export is for T3000.
+
+*B. What must be entered.* Product and serial, as built. The panel type
+(`mini_type`) is the question. It decides how many points a MiniPanel,
+MiniPanel ARM or ESP32 T3 has, so there is no knowing what to configure
+without it.
+**Recommended:** optional to add a device, required before its points can be
+edited offline.
+
+*C. How the offline configuration is compared with the device before any
+write.* Every option goes through Stage 2's write path: a transport of its
+own, and first the identity check (the settings give the entry's serial, and
+the product matches). Then approval for each action, and a read-back. None
+writes the identity fields of the settings block (serial, IP address, panel
+number, Modbus id) from an offline configuration.
+
+1. Write everything, as T3000's Load File does. Simplest, but it overwrites
+   anything changed at the device since, by anyone.
+2. Read the device, show every difference, and write the ones approved.
+3. **Recommended:** only what was changed offline, three ways. For each
+   field the operator changed, compare the device's value now with the value
+   the change started from (the default, for a device never read).
+   - If they match, the change is written.
+   - If the device has moved as well, both are shown and the operator picks.
+   - A field not changed offline is never written.
+
+   It writes the least, and never undoes a change made at the device.
+4. Never from T5000: export a `.prog` and load it with T3000.
+
+*D. A device on another subnet.* Broadcast does not cross subnets, so a scan
+never finds a device added by hand on another subnet, and it never becomes
+readable.
+
+1. Leave it so.
+2. **Recommended:** let the operator give an address and find the device
+   there: the same discovery query, sent to that one address instead of
+   broadcast. That is the scan path, read-only by construction, and the
+   device is matched by the serial in its answer.
+   `Provenance::BacnetUnicast` exists for this.
+3. Read it at the address given, under `Identity::MustConfirm`, without a
+   scan.
+
+*E. Virtual devices.*
+
+1. **Recommended:** a virtual device is a configuration with no device
+   behind it. It has kind `'virtual'` (the column allows it) and a serial
+   from a range T5000 hands out and checks, and a scan never matches it. It
+   reaches a real device only by copying its configuration to that device's
+   entry, which then goes through C.
+2. As T3000 does it: a random serial, matched like any other.
+
+Once these are settled, the order is:
+
+1. B's panel type.
+2. A's storage, with editing Inputs offline.
+3. Import and export.
+4. D.
+5. E.
+6. C, the apply, once Stage 2's write transport and the first hardware check
+   exist.
+
+What T3000's virtual devices are, from `BacnetAddVirtualDevice.cpp` and
+`global_function.cpp`:
 
 - The product list is `init_product_list` (`global_function.cpp:11980`), 16
   entries of name, product id, `mini_type` and point counts. Only products 74
@@ -311,15 +426,19 @@ list and the file and does nothing to the device.
   from its input count.
 
 The saved list's `kind` column already allows `'virtual'`, so the table does
-not have to be rebuilt for this.
+not have to be rebuilt for this. A device added by hand is kind `'scanned'`,
+with `added_by_hand` set. It is a real device a scan can find, and it must stay
+one row with that device, which `UNIQUE (kind, serial)` holds only while both
+are the same kind.
 
 **3. Importing T3000's building database.** Read-only: T5000 reads the
 `ALL_NODE` rows into its own list and never writes T3000's file. `ALL_NODE`
 reuses columns (the IP address is in `Bautrate`, the port in `Com_Port`, and
 `Screen_Name` holds the virtual flag), so each needs mapping, not copying.
 
-**4. Editing a virtual device's points.** The first edit screens, against a
-file rather than a controller. See Next.
+**4. Editing a device's points offline**, for a device added by hand or a
+virtual one. These are the first edit screens, working against the saved
+configuration rather than a controller. See A above and Next.
 
 ---
 
