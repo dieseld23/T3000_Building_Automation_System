@@ -29,7 +29,7 @@ synthetic devices on loopback.
 | --- | --- |
 | Scan | Done. Broadcasts T3000's discovery query on a chosen interface and lists what answers. |
 | Device list | Done. Identifies each product and flags problems the scan noticed, as repairs for someone to approve later. Nothing is written. |
-| Inputs | Done for the five BACnet private-data products (CM5, MiniPanel, MiniPanel ARM, ESP32 T3, TSTAT10) over BACnet/IP. The grid matches T3000's column by column. Reading the panel's settings and custom range names first is PR #17, still open. The Panel and Type columns are not done. |
+| Inputs | Done for the five BACnet private-data products (CM5, MiniPanel, MiniPanel ARM, ESP32 T3, TSTAT10) over BACnet/IP. The grid matches T3000's column by column, including the panel's own custom range names and its row count per model. The Panel and Type columns are not done. |
 | Outputs, Variables | Not started. They use the same point-struct path as Inputs, and their structs are already guarded. |
 | Every other screen | Not started. See the migration plan's stages. |
 | Writes | Not started. They will come as a separate transport, with per-action approval and a read-back that confirms each one. |

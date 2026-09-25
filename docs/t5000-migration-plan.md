@@ -15,9 +15,9 @@ those surveys, made by opening the files.
 source-against-source, except the struct sizes, which the compiler asserts.
 
 **Where it stands, 2026-09-24:** Stage 0 is done. In Stage 1, Inputs are read
-and shown as T3000 shows them. Reading each panel's settings and custom range
-names first is PR #17, still open, and the Panel and Type columns are still to
-do. Outputs and Variables are not started. The stage table below has each
+and shown as T3000 shows them, after each panel's settings and custom range
+names (#17). The Panel and Type columns are still to do, and Outputs and
+Variables are not started. The stage table below has each
 stage's state, and [Next](#next) is the list of what comes after.
 [`T5000/README.md`](../T5000/README.md) describes the tool as it is today.
 
@@ -163,7 +163,7 @@ Each ships on its own. Ordered by dependency, not by difficulty.
 | Stage | Delivers | Changed by all-products? | State, 2026-09-24 |
 |---|---|---|---|
 | **0** | Discovery, selection, firmware detection, **product-identity model** | **Larger** — two id axes, capability table | Done (#9, #12, #13, #15) |
-| **1** | Inputs + Outputs + Variables read | Unchanged — one shared layout | Inputs done (#14, #16; settings and custom ranges in #17, open). Outputs and Variables not started |
+| **1** | Inputs + Outputs + Variables read | Unchanged — one shared layout | Inputs done (#14, #16, #17), except the Panel and Type columns. Outputs and Variables not started |
 | **2** | Write support for points, then Arrays, PVar | Unchanged | Not started |
 | **3** | Device settings, user login | Slightly larger — per-product field ranges | Not started. The settings block is already read and guarded, for Inputs |
 | **4** | PID loops, then Tstat | **Larger** — Tstat is a second data model | Not started |
@@ -204,14 +204,12 @@ reproduce](#what-the-write-path-must-not-reproduce).
 
 In order:
 
-1. **Merge #17**, which reads each panel's settings and custom range names
-   before its inputs.
-2. **Finish Inputs:** the Panel and Type columns.
-3. **Outputs and Variables.** Same struct path as Inputs, and their structs
+1. **Finish Inputs:** the Panel and Type columns.
+2. **Outputs and Variables.** Same struct path as Inputs, and their structs
    are already guarded. T3000 also reads multi-state ranges
    (`READ_MSV_COMMAND`) and variable units (`READVARUNIT_T3000`) when it
    connects (`BacnetView.cpp:6483-6575`); the port will need both.
-4. **The first hardware check,** once a controller is available and the owner
+3. **The first hardware check,** once a controller is available and the owner
    agrees. Two things above all:
    - the serial check: the settings' `n_serial_number` must equal the serial
      in the scan response, or the page refuses the panel;
@@ -221,8 +219,8 @@ In order:
 
    Later, when there is a Modbus device on firmware below 525 to try, the
    firmware gate (see the end of Risks).
-5. **Stage 2, writes,** as above.
-6. **The register path** for Tstats and the Modbus modules, starting with the
+4. **Stage 2, writes,** as above.
+5. **The register path** for Tstats and the Modbus modules, starting with the
    guard on the Tstat registers described under Risks.
 
 Smaller loose ends:
