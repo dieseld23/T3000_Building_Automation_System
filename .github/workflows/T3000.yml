@@ -1,52 +1,18 @@
-# Two jobs:
-#   t5000  T5000/T5000.sln, from a checkout of the T5000 folder alone, so it
-#          proves T5000 builds and passes its self-test with nothing of
-#          T3000's present. It needs no MFC and no .NET.
-#   build  "T3000 - VS2019.sln": T3000, its tools, the BACnet stack, and
-#          T5000/conformance, which checks T5000 against T3000's headers,
-#          tables and stack.
-# scripts/ci-local.ps1 runs both locally, against a clean checkout.
+# T3000: "T3000 - VS2019.sln", everything in it, built by hand.
+#
+# It no longer runs on pushes or pull requests. T5000's checks are T5000.yml,
+# which runs on its own and does not wait on this. Run this one from the
+# Actions tab (Run workflow) when you want to know that T3000 still builds.
+#
+# That includes T5000/conformance, which is built here as part of the
+# solution; T5000.yml builds it on its own, with only the BACnet stack.
 
-name: Testing the MSBuild
+name: T3000 (run by hand)
 
-# On master make sure both push and a pull request builds this action
 on:
-  push:
-    branches: [ master ]
-    paths-ignore:
-      - '.github/**'
-  pull_request:
-    branches: [ master ]
-    paths-ignore:
-      - '.github/**'
-  # Lets this workflow be run by hand against a branch. Without it a change to
-  # the workflow itself cannot be tested, because the paths-ignore above skips
-  # any pull request whose whole diff is under .github/.
   workflow_dispatch:
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  t5000:
-    runs-on: windows-latest
-
-    steps:
-      # Only T5000/ (and the files at the root). A path T5000 reaches outside
-      # its own folder - an include, a library, a test that reads T3000's
-      # source - is not there to be found, so it fails here.
-      - name: checkout T5000 only
-        uses: actions/checkout@v4
-        with:
-          sparse-checkout: T5000
-
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
-
-      # The post-build step runs T5000.exe --selftest, so a failing check
-      # fails this step.
-      - name: Build T5000
-        run: |
-          msbuild "T5000\T5000.sln" /p:Platform=x86 /p:Configuration=Release
-
   build:
     runs-on: windows-latest
 

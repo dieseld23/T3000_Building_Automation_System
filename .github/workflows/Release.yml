@@ -1,7 +1,7 @@
 # This workflow builds T3000Controls and BACnetStackLibrary components,
 # signs them via SignPath (with full origin verification), then publishes.
 
-name: Release
+name: T3000 release (Temco only)
 
 on:
   release:
@@ -20,6 +20,11 @@ permissions:
 
 jobs:
   release:
+    # Temco's T3000 release: it signs through their SignPath project and
+    # uploads to their servers, with secrets only their repository has. In a
+    # fork, publishing any release would start it and fail, so it runs in
+    # Temco's repository only.
+    if: github.repository == 'temcocontrols/T3000_Building_Automation_System'
     runs-on: windows-latest
     environment: webview_build
     env:

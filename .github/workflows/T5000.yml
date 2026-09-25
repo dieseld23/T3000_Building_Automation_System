@@ -1,0 +1,145 @@
+# T5000's checks, on their own and apart from T3000's.
+#
+# Two jobs:
+#   selftest     T5000/T5000.sln, from a checkout of the T5000 folder alone. It
+#                proves T5000 builds and passes its self-test with nothing of
+#                T3000's present. No MFC, no .NET. About a minute.
+#   conformance  T5000/conformance, which checks T5000 against T3000's
+#                headers, tables and BACnet stack. It is built through
+#                "T3000 - VS2019.sln" with -t:T5000Conformance, which builds
+#                that project and the BACnet stack it links, and nothing else
+#                of T3000's. The stack is built with MFC, so this job installs
+#                MFC for the v143 toolset; it needs no .NET.
+#
+# It runs when T5000 changes, or when one of the T3000 files the conformance
+# checks read changes. T3000 itself is no longer built on every push: see
+# T3000.yml, which is run by hand.
+#
+# scripts/ci-local.ps1 runs both jobs locally, against a clean checkout.
+
+name: T5000
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'T5000/**'
+      - '.github/workflows/T5000.yml'
+      - 'T3000 - VS2019.sln'
+      - 'T3000/ProductModel.h'
+      - 'T3000/global_define.h'
+      - 'T3000/CM5/**'
+      - 'BacNetDllforVc/**'
+  pull_request:
+    branches: [ master ]
+    paths:
+      - 'T5000/**'
+      - '.github/workflows/T5000.yml'
+      - 'T3000 - VS2019.sln'
+      - 'T3000/ProductModel.h'
+      - 'T3000/global_define.h'
+      - 'T3000/CM5/**'
+      - 'BacNetDllforVc/**'
+  workflow_dispatch:
+
+# A newer push to the same branch or pull request supersedes a run still going.
+concurrency:
+  group: t5000-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  selftest:
+    name: T5000 builds on its own and passes its self-test
+    runs-on: windows-latest
+
+    steps:
+      # Only T5000/ (and the files at the root). A path T5000 reaches outside
+      # its own folder - an include, a library, a test that reads T3000's
+      # source - is not there to be found, so it fails here.
+      - name: checkout T5000 only
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: T5000
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      # The post-build step runs T5000.exe --selftest, so a failing check
+      # fails this step.
+      - name: Build T5000
+        run: |
+          msbuild "T5000\T5000.sln" /p:Platform=x86 /p:Configuration=Release
+
+  conformance:
+    name: T5000 matches T3000's headers, tables and BACnet stack
+    runs-on: windows-latest
+
+    steps:
+      # No submodules: nothing the conformance project builds or reads is in
+      # one.
+      - name: checkout
+        uses: actions/checkout@v4
+
+      # ---------------------------------------------------------------------
+      # The hosted image moved to Visual Studio 2026 in June 2026. It carries
+      # the v143 toolset but not the MFC libraries for it, and the BACnet stack
+      # the conformance checks link is built with MFC. Without this step the
+      # build stops at MSB8041.
+      # ---------------------------------------------------------------------
+      - name: Install MFC for the v143 toolset
+        shell: pwsh
+        run: |
+          $root      = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+          $installer = Join-Path $root 'vs_installer.exe'
+          $vsPath    = & (Join-Path $root 'vswhere.exe') -latest -products * -property installationPath
+          Write-Host "Visual Studio: $vsPath"
+
+          # Deliberately scoped to the v143 toolset (MSVC 14.30-14.44). The image
+          # may already carry MFC for the newer v145 (14.5x); that does not help
+          # these projects and must not be mistaken for success.
+          $mfcGlob = 'C:\Program Files\Microsoft Visual Studio\*\*\VC\Tools\MSVC\14.[34]*\atlmfc\include\afxwin.h'
+          function Get-V143Mfc { Get-ChildItem $mfcGlob -ErrorAction SilentlyContinue }
+
+          # v143 is MSVC 14.44 (VS 17.14), so its MFC component is version-pinned.
+          # The ids are added one at a time: a single modify call naming an id
+          # this image does not offer would fail as a whole and tell us nothing.
+          foreach ($id in @(
+            'Microsoft.VisualStudio.Component.VC.14.44.17.14.MFC',
+            'Microsoft.VisualStudio.Component.VC.ATLMFC'
+          )) {
+            if (Get-V143Mfc) { break }
+            Write-Host "::group::Adding $id"
+            $p = Start-Process -FilePath $installer -Wait -PassThru -ArgumentList @(
+              'modify', '--installPath', "`"$vsPath`"", '--add', $id,
+              '--quiet', '--norestart', '--nocache'
+            )
+            Write-Host "vs_installer exit code: $($p.ExitCode)"
+            Write-Host "::endgroup::"
+          }
+
+          # vs_installer.exe is a launcher and can return before the install has
+          # settled, so confirm by looking for the header rather than trusting it.
+          $deadline = (Get-Date).AddMinutes(5)
+          while (-not (Get-V143Mfc) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 10 }
+
+          $found = Get-V143Mfc
+          if (-not $found) {
+            Write-Host "MSVC toolsets on this image, and whether each carries MFC:"
+            Get-ChildItem 'C:\Program Files\Microsoft Visual Studio\*\*\VC\Tools\MSVC\*' -Directory -ErrorAction SilentlyContinue |
+              ForEach-Object {
+                $hasMfc = Test-Path (Join-Path $_.FullName 'atlmfc\include\afxwin.h')
+                Write-Host ("  {0,-18} MFC={1}" -f $_.Name, $hasMfc)
+              }
+            Write-Error "MFC for v143 still missing after modify. The list above shows the toolset version this image actually has, which is what the component id must be pinned to."
+            exit 1
+          }
+          $found | ForEach-Object { Write-Host "MFC present: $($_.FullName)" }
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      # The post-build step runs the checks against this checkout's T3000
+      # source, so a failing check fails this step.
+      - name: Build and run the conformance checks
+        run: |
+          msbuild "T3000 - VS2019.sln" -t:T5000Conformance /p:Platform=x86 /p:Configuration=Release

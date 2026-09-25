@@ -1,28 +1,35 @@
 <#
 .SYNOPSIS
-    Runs the GitHub "Testing the MSBuild" check locally, against a clean checkout.
+    Runs the GitHub "T5000" check locally, against a clean checkout.
 
 .DESCRIPTION
-    .github/workflows/BuildTest.yml has two jobs:
+    .github/workflows/T5000.yml has two jobs:
 
-      t5000   T5000/T5000.sln, from a checkout of the T5000 folder alone. It
-              proves T5000 builds and passes its self-test with nothing else
-              from the repository present.
-      build   "T3000 - VS2019.sln", everything else. That includes
-              T5000/conformance, which checks T5000 against T3000's headers,
-              tables and BACnet stack, and runs those checks.
+      selftest     T5000/T5000.sln, from a checkout of the T5000 folder alone.
+                   It proves T5000 builds and passes its self-test with nothing
+                   else from the repository present.
+      conformance  T5000/conformance, which checks T5000 against T3000's
+                   headers, tables and BACnet stack, and runs those checks. It
+                   is built through "T3000 - VS2019.sln" with
+                   -t:T5000Conformance, which builds that project and the BACnet
+                   stack it links, and nothing else of T3000's.
 
-    CI spends about half of the build job's ~9 minutes installing MFC for the v143
-    toolset and the .NET Framework 4.5.2 reference assemblies onto a fresh runner
-    image. Both are already installed on this machine, so locally only the builds
-    themselves are left to do. The t5000 job needs neither.
+    Both run by default. -Only T3000 instead builds the whole T3000 solution, as
+    .github/workflows/T3000.yml does when it is run by hand. That one is no longer
+    part of the checks on a push or pull request.
+
+    CI spends a few minutes of the conformance job installing MFC for the v143
+    toolset onto a fresh runner image, which the BACnet stack is built with. It is
+    already installed on this machine, so locally only the builds themselves are
+    left to do. The selftest job needs no MFC. Only the full T3000 build needs the
+    .NET Framework 4.5.2 reference assemblies.
 
     What CI still adds is the CLEAN CHECKOUT: it builds what is committed, so a
     file that was never "git add"ed fails there and not in your working tree. That
     is the part worth reproducing, and it is what this script does - it builds a
     throwaway git worktree at a given ref, never the working tree itself. For the
-    t5000 job it copies that checkout's T5000 folder somewhere with nothing else
-    beside it, as CI's sparse checkout has nothing else beside it.
+    selftest job it copies that checkout's T5000 folder somewhere with nothing
+    else beside it, as CI's sparse checkout has nothing else beside it.
 
     Submodules are deliberately NOT initialised. No project in "T3000 - VS2019.sln"
     lives under, or references, T3000_CrossPlatform, PartsAndVendors or
@@ -33,6 +40,8 @@
 .EXAMPLE
     pwsh scripts/ci-local.ps1
     pwsh scripts/ci-local.ps1 -Only T5000
+    pwsh scripts/ci-local.ps1 -Only Conformance
+    pwsh scripts/ci-local.ps1 -Only T3000
     pwsh scripts/ci-local.ps1 -Ref origin/master -Parallel
 #>
 [CmdletBinding()]
@@ -47,8 +56,10 @@ param(
     # Where the T5000 folder is copied to be built on its own.
     [string] $T5000Path = 'C:\t5000-ci',
 
-    # Which of CI's two jobs to run. T5000 alone takes about a minute.
-    [ValidateSet('All', 'T5000', 'T3000')]
+    # All is both of T5000.yml's jobs. T5000 (the selftest job) alone takes
+    # about a minute. T3000 is the whole T3000 solution, which T3000.yml builds
+    # when it is run by hand.
+    [ValidateSet('All', 'T5000', 'Conformance', 'T3000')]
     [string] $Only = 'All',
 
     # Adds /m. Faster, but then it is no longer the exact command CI runs.
@@ -65,31 +76,36 @@ function Ok($text)   { Write-Host "  ok    $text" -ForegroundColor DarkGreen }
 function Note($text) { Write-Host "  note  $text" -ForegroundColor DarkYellow }
 
 $started = Get-Date
-$runT5000 = $Only -ne 'T3000'
-$runT3000 = $Only -ne 'T5000'
+$runT5000       = $Only -in 'All', 'T5000'
+$runConformance = $Only -in 'All', 'Conformance'
+$runT3000       = $Only -eq 'T3000'
 
 $repo = & git rev-parse --show-toplevel 2>$null
 if (-not $repo) { throw "Not inside a git repository." }
 $repo = $repo.Replace('/', '\')
 
 # -------------------------------------------------------------------- preflight
-# The two steps CI runs before building the T3000 solution. Checked rather than
-# installed: if one is missing the build dies at MSB8041 or MSB3644 with no hint
-# of why, and fixing it is a Visual Studio Installer job, not something to do
-# silently from a script. T5000 alone needs neither.
+# What CI installs before building through the T3000 solution. Checked rather
+# than installed: if one is missing the build dies at MSB8041 or MSB3644 with no
+# hint of why, and fixing it is a Visual Studio Installer job, not something to
+# do silently from a script. The conformance job needs MFC, for the BACnet stack
+# it links; the full T3000 build needs .NET 4.5.2 as well. T5000 alone needs
+# neither.
 Step "Preflight"
 
-if ($runT3000) {
+if ($runConformance -or $runT3000) {
     $mfcGlob = 'C:\Program Files\Microsoft Visual Studio\*\*\VC\Tools\MSVC\14.[34]*\atlmfc\include\afxwin.h'
     $mfc = Get-ChildItem $mfcGlob -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $mfc) {
         Write-Error "MFC for the v143 toolset is missing. In the Visual Studio Installer add the MFC component for v143 build tools; without it the build stops at MSB8041."
     }
     Ok "MFC v143 - $($mfc.FullName)"
+}
 
+if ($runT3000) {
     $refRoot = Join-Path ${env:ProgramFiles(x86)} 'Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5.2'
     if (-not (Test-Path (Join-Path $refRoot 'mscorlib.dll'))) {
-        Write-Error ".NET Framework 4.5.2 reference assemblies are missing, so the managed projects will stop at MSB3644. CI installs the Microsoft.NETFramework.ReferenceAssemblies.net452 NuGet package into $refRoot - see BuildTest.yml."
+        Write-Error ".NET Framework 4.5.2 reference assemblies are missing, so the managed projects will stop at MSB3644. CI installs the Microsoft.NETFramework.ReferenceAssemblies.net452 NuGet package into $refRoot - see T3000.yml."
     }
     Ok ".NET 4.5.2 reference assemblies"
 }
@@ -170,17 +186,22 @@ function Build($name, $solution, $extra, $log) {
 $results = @()
 
 if ($runT5000) {
-    Step "Job t5000: T5000 on its own, at $T5000Path"
+    Step "Job selftest: T5000 on its own, at $T5000Path"
     if (Test-Path $T5000Path) { Remove-Item $T5000Path -Recurse -Force }
     New-Item -ItemType Directory $T5000Path | Out-Null
     Copy-Item (Join-Path $WorktreePath 'T5000') (Join-Path $T5000Path 'T5000') -Recurse
     Ok "only T5000\ copied, as CI checks out only T5000/"
-    $results += Build 't5000' (Join-Path $T5000Path 'T5000\T5000.sln') @() (Join-Path $env:TEMP 't5000-ci.log')
+    $results += Build 'selftest' (Join-Path $T5000Path 'T5000\T5000.sln') @() (Join-Path $env:TEMP 't5000-ci.log')
+}
+
+if ($runConformance) {
+    Step "Job conformance: T5000Conformance, through T3000 - VS2019.sln"
+    $results += Build 'conformance' $sln @('-t:T5000Conformance') (Join-Path $env:TEMP 't5000-conformance-ci.log')
 }
 
 if ($runT3000) {
-    Step "Job build: T3000 - VS2019.sln"
-    $results += Build 'build' $sln @('/p:ProjectVersion=20230804') (Join-Path $env:TEMP 't3000-ci.log')
+    Step "T3000.yml, run by hand: all of T3000 - VS2019.sln"
+    $results += Build 'T3000' $sln @('/p:ProjectVersion=20230804') (Join-Path $env:TEMP 't3000-ci.log')
 }
 
 # ------------------------------------------------------------------------ result
