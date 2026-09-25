@@ -3,6 +3,7 @@
 #include "inputs_plan.h"
 #include "../discovery/scanner.h"
 #include "../testing/check.h"
+#include "../testing/fake_transport.h"
 
 namespace
 {
@@ -257,6 +258,35 @@ namespace
         check(has(none, "Not seen since T5000 started"), "  and the sighting beside it");
         check(!has(none, "the same device"), "  with no claim that it was confirmed");
     }
+
+    void test_the_read_is_held_to_the_plans_identity()
+    {
+        section("a planned read is held to the plan's identity, not one chosen where it is carried out");
+
+        // A panel that refuses every read. The scan vouches for a device it
+        // found, so a refused settings read is noted and the rest is asked
+        // for; a device from the saved list has nothing after it.
+        const auto refuses = [](const FakeTransport::Sent& s, size_t, FakeTransport& t)
+        {
+            t.reply(refusal(s.invoke_id));
+        };
+        uint8_t invoke = 0;
+
+        const DeviceRecord seen = scanned(ProductClassId::Cm5);
+        FakeTransport a;
+        a.respond = refuses;
+        read_planned_inputs(seen, plan_inputs_read(seen), a, instant(), invoke);
+        check(a.sent.size() > 1, "seen this session: the names and inputs are still asked for");
+
+        const DeviceRecord saved = restored();
+        FakeTransport b;
+        b.respond = refuses;
+        const std::string json = read_planned_inputs(saved, plan_inputs_read(saved), b, instant(), invoke);
+        check_eq((long)b.sent.size(), 1, "from the saved list: the settings, and nothing after");
+        check(has(json, "\"unavailable\":true") && has(json, "Scan, and then open Inputs again"),
+              "  and the page is told to scan first");
+        check(has(json, "Not seen since T5000 started"), "  with the sighting");
+    }
 }
 
 int run_inputs_plan_tests()
@@ -272,5 +302,6 @@ int run_inputs_plan_tests()
     test_times_are_shown_to_the_minute();
     test_the_payload_for_a_device_seen_this_session();
     test_the_payload_for_a_restored_device();
+    test_the_read_is_held_to_the_plans_identity();
     return 0;
 }

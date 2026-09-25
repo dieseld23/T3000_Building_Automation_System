@@ -149,8 +149,10 @@ serial, nothing after the settings read is sent. A refusal, a reply that does
 not match the request, and serial 0 all stop the read, as a different serial
 does, and the page says to scan first (`Identity::MustConfirm`,
 `app/inputs_read.h`). A device that has answered a scan since T5000 started
-keeps the rules above: that scan saw the serial answer from that address. It
-counts as seen whichever scan of the session it answered, not only the last.
+is read as the paragraph before this one says: only a different serial stops
+it, and a refusal, a reply that does not match or serial 0 leaves a note and
+the read goes on, because that scan saw the serial answer from that address.
+It counts as seen whichever scan of the session it answered, not only the last.
 The page says when a device has not been seen this session, and when it last
 was (`plan_inputs_read`, `app/inputs_plan.cpp`).
 

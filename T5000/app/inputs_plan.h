@@ -59,4 +59,12 @@ namespace t5000::app
     // read, with build_unavailable_inputs_json.
     std::string inputs_payload(const device::DeviceRecord& device, const InputsPlan& plan,
                                const InputsPageRead& read);
+
+    // Carries out a plan that can_read, over a transport already open to
+    // plan.endpoint: the read, held to the plan's identity, and the payload
+    // from it. Here rather than in main so that the identity reaching the
+    // read is tested, not only the read given one.
+    std::string read_planned_inputs(const device::DeviceRecord& device, const InputsPlan& plan,
+                                    bacnet::ReadTransport& transport, const bacnet::ReadSettings& settings,
+                                    uint8_t& next_invoke_id);
 }

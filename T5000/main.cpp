@@ -194,14 +194,7 @@ namespace
                 (int)d.serial_number, d.address_note, "Nothing was sent. " + error, plan.sighting);
         }
 
-        // The plan says how sure T5000 already is of the panel at the
-        // address; the read holds a device known only from the saved list to
-        // the stricter rule. See app::Identity.
-        const app::InputsPageRead read = app::read_inputs_page(
-            transport, plan.endpoint, d.product, d.serial_number, plan.identity, bacnet::ReadSettings(),
-            g_next_invoke_id);
-
-        return app::inputs_payload(d, plan, read);
+        return app::read_planned_inputs(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id);
     }
 }
 
