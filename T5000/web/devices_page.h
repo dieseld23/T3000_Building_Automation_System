@@ -566,9 +566,11 @@ namespace t5000::web
 
     tr.appendChild(el("td", null, d.productName));
 
-    var panel = el("td", d.panel.resolved ? null : "dim");
-    panel.textContent = d.panel.resolved ? d.panel.name : "unknown";
-    panel.title = d.panel.reason;
+    // The panel type is read from the device, so an entry added by hand has
+    // none to show until a scan finds it, whatever the product would allow.
+    var panel = el("td", d.panel.resolved && !byHand(d) ? null : "dim");
+    panel.textContent = byHand(d) ? "—" : d.panel.resolved ? d.panel.name : "unknown";
+    panel.title = byHand(d) ? "Read from the device once a scan finds it." : d.panel.reason;
     tr.appendChild(panel);
 
     // The address shown is the one the device answered from, which is the
@@ -655,12 +657,23 @@ namespace t5000::web
       return;
     }
     if (!s.hasScanned) {
-      if (devices.length) {
+      // Devices added by hand were never there, as far as T5000 knows, so
+      // they are counted apart from the ones a scan found last time.
+      var typed = devices.filter(byHand).length;
+      var found = devices.length - typed;
+      var more = typed
+        ? "<b>" + typed + "</b> " + (typed === 1 ? "device was" : "devices were") +
+          " added by hand, which no scan has found yet."
+        : "";
+      if (found) {
         setBanner("info",
-          "<b>" + devices.length + "</b> " + (devices.length === 1 ? "device" : "devices") +
-          " from the saved list. Nothing has been scanned since T5000 started, so these " +
-          "are the devices that were there last time - press Scan to see which are there now. " +
-          "Scanning does not write to any device.");
+          "<b>" + found + "</b> " + (found === 1 ? "device" : "devices") +
+          " from the saved list. Nothing has been scanned since T5000 started, so " +
+          (found === 1 ? "this is the device that was" : "these are the devices that were") +
+          " there last time - press Scan to see which are there now. " +
+          (more ? more + " " : "") + "Scanning does not write to any device.");
+      } else if (typed) {
+        setBanner("info", more + " Press Scan to look for them. Scanning does not write to any device.");
       } else {
         setBanner("info",
           "Nothing has been scanned yet. Scanning sends one broadcast and listens - " +
@@ -933,7 +946,11 @@ namespace t5000::web
     try {
       var res = await fetch("/api/products", { cache: "no-store" });
       var data = await res.json();
-      products = (data.products || []).slice().sort(function (a, b) {
+      // Not a third-party device: a scan never reports one's serial, so an
+      // entry for one could never be matched. The server refuses it too.
+      products = (data.products || []).filter(function (p) {
+        return p.id !== 254;
+      }).sort(function (a, b) {
         return a.name.localeCompare(b.name, undefined, { numeric: true });
       });
     } catch (e) {

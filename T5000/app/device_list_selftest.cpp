@@ -573,6 +573,9 @@ namespace
         check(!add_device(reg, db, typed_in(8102, ProductClassId::Tstat5B), status, h, message),
               "a product T5000 has not been taught about is refused");
         check(message.find("Pick one") != std::string::npos, "  and the page is told to pick from the list");
+        check(!add_device(reg, db, typed_in(8102, ProductClassId::ThirdPartyDevice), status, h, message),
+              "a third-party device is refused, though it is in the table");
+        check(message.find("never be matched") != std::string::npos, "  since a scan never reports its serial");
 
         check(!add_device(reg, db, typed_in(8001, ProductClassId::Cm5), status, h, message),
               "a serial already in the list is refused");

@@ -363,6 +363,16 @@ namespace t5000::app
             return false;
         }
 
+        // In the table, but not a Temco device: T5000's scan never reports a
+        // third-party device's serial, so an entry for one could never be
+        // matched to the device it stands for.
+        if (device.product == ProductClassId::ThirdPartyDevice)
+        {
+            message = "A third-party device cannot be added by hand: a scan never reports its "
+                      "serial, so the entry could never be matched to the device.";
+            return false;
+        }
+
         // Refused, not merged. Merging would put the product typed here over
         // the one a device reported, and an entry for a device already listed
         // has nothing to add that Edit does not.
