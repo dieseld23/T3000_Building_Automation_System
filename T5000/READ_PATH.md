@@ -157,6 +157,15 @@ It counts as seen whichever scan of the session it answered, not only the last.
 The page says when a device has not been seen this session, and when it last
 was (`plan_inputs_read`, `app/inputs_plan.cpp`).
 
+**A device added by hand is not read until a scan finds it.** It is an entry
+the operator typed in: its product is their word, and nothing has answered
+from any address for it. `plan_inputs_read` refuses it before anything else,
+and the page says there is no device to read. Nothing is sent. A scan that
+finds its serial replaces the entry with the device, which is read from then
+on under the rules above. `ManuallyAdded` is also the provenance a record gets
+when whoever built it set none, so a record that says nothing about where it
+came from is refused the same way.
+
 **Devices a controller answered for are not read.** A Minipanel or T3 answers
 the scan for the Tstats on its RS485 bus, from its own address, with the
 sub-device's serial and a non-zero parent serial - T3000 deliberately stops

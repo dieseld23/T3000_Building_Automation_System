@@ -30,7 +30,8 @@ synthetic devices on loopback.
 | Scan | Done. Broadcasts T3000's discovery query on a chosen interface and lists what answers. |
 | Device list | Done. Identifies each product and flags problems the scan noticed, as repairs for someone to approve later. Nothing is written to a device. |
 | Saved device list | Done. Every device with a serial number that answers a scan is saved in `T5000.db` and listed again the next time T5000 starts, with when it was last seen. (A device reporting no serial is listed but cannot be saved: there is nothing to know it by next time.) Each can be given a name, building, floor and room, and the list is grouped by them. A device can be forgotten. |
-| Virtual devices | Not started. Next; see the migration plan. |
+| Devices added by hand | First part done. A device no scan has found - on another network, or not installed yet - can be added with its product and serial, named and placed. It is saved and shown as "added by hand", and nothing is sent to it: its Inputs page says there is no device to read. When a scan finds its serial, that device takes its place, keeping the name and location. Configuring one offline is designed but not built; see the migration plan. |
+| Virtual devices | Not started. Designed with devices added by hand; see the migration plan. |
 | Inputs | Done for the five BACnet private-data products (CM5, MiniPanel, MiniPanel ARM, ESP32 T3, TSTAT10) over BACnet/IP. The grid matches T3000's column by column, including the panel's own custom range names and its row count per model. The Panel and Type columns are not done. |
 | Outputs, Variables | Not started. They use the same point-struct path as Inputs, and their structs are already guarded. |
 | Every other screen | Not started. See the migration plan's stages. |
@@ -44,7 +45,8 @@ labelled as such. The Connection dialog saves transport settings to
 device is read at the address its scan response came from, and a device from
 the saved list at the address it answered from last time. A device no scan has
 found since T5000 started has nothing read beyond its settings unless they
-give its saved serial, and the page says when it was last seen.
+give its saved serial, and the page says when it was last seen. A device added
+by hand that no scan has found is sent nothing at all.
 
 ## Safety rules
 
@@ -54,9 +56,9 @@ give its saved serial, and the page says when it was last seen.
   `ReadCommand` whitelist (`bacnet/command.h`). A compile-time guard checks
   the whitelist against T3000's command codes and against a list of codes
   that must never be sent (`conformance/command_guard.cpp`).
-- **The device list is a file on this machine.** Saving it, naming a device
-  and forgetting one change `T5000.db` and nothing else. None of it is sent to
-  a device. T5000 will not write to a database it did not create, such as one
+- **The device list is a file on this machine.** Saving it, naming a device,
+  adding one by hand and forgetting one change `T5000.db` and nothing else.
+  None of it is sent to a device. T5000 will not write to a database it did not create, such as one
   of T3000's.
 - **The UI is bound to loopback, and answers only its own page.** The server
   binds 127.0.0.1 only (`http/server.cpp`). Loopback keeps other machines

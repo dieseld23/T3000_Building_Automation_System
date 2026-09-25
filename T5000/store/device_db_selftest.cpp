@@ -519,7 +519,10 @@ namespace
         check(!db.add_by_hand(typed_in(8101), error), "and not twice");
         check(error.find("added by hand") != std::string::npos, "  and the reason says how it got there");
 
+        error.clear();
         check(!db.add_by_hand(typed_in(0), error), "serial 0 is refused");
+        check(error.find("no serial number") != std::string::npos,
+              "  before the table's own check, in words for the page");
         check(!db.add_by_hand(typed_in(0xFFFFFFFFu), error), "serial 0xFFFFFFFF is refused");
         check_eq((long)load(db).size(), 2, "and nothing else was added");
     }
@@ -630,6 +633,7 @@ namespace
             }
 
             check(db.add_by_hand(typed_in(8101), error), "and a device can now be added by hand");
+            check(db.save_scanned({ scanned(8002) }, error), "and a scanned one saved");
         }
 
         Database raw;
@@ -641,6 +645,8 @@ namespace
                  "the device from version 1 is not taken for one added by hand");
         check_eq((long)single_int(raw, "SELECT added_by_hand FROM devices WHERE serial = 8101"), 1,
                  "the one added since is");
+        check_eq((long)single_int(raw, "SELECT added_by_hand FROM devices WHERE serial = 8002"), 0,
+                 "and the one a scan saved since is not");
         check(!raw.exec("UPDATE devices SET added_by_hand = 2", error), "and the column takes only 0 or 1");
     }
 
