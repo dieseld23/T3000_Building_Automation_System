@@ -146,6 +146,22 @@ namespace t5000::device
     // problem the check exists to catch.
     bool is_uninitialised_serial(unsigned int serial);
 
+    // What the operator has said about a device: what to call it and where it
+    // is. It is kept in T5000's own device list and nowhere else. None of it
+    // is sent to the device.
+    //
+    // T3000 keeps the same four things in its building database, in ALL_NODE's
+    // Product_name, Building_Name, Floor_name and Room_name columns.
+    struct Placement
+    {
+        std::string name;
+        std::string building;
+        std::string floor;
+        std::string room;
+
+        bool empty() const { return name.empty() && building.empty() && floor.empty() && room.empty(); }
+    };
+
     struct Repair
     {
         RepairKind  kind;
@@ -207,6 +223,10 @@ namespace t5000::device
         // passing every check on the way.
         uint32_t parent_serial = 0;
 
+        // The name the panel gives itself in its scan response, trimmed. The
+        // device's own name, unlike placement.name, which is the operator's.
+        std::string panel_name;
+
         // --- Reachability. -----------------------------------------------
         Connection  connection;
         std::string address_note;   // human-readable: "192.168.1.50" or "COM3 id 12"
@@ -252,6 +272,25 @@ namespace t5000::device
         // must leave them alone.
         bool observation_complete = false;
 
+        // --- The saved list. ----------------------------------------------
+        // Set by the operator, through Registry::set_placement. A merge never
+        // takes it from an incoming record: an observation of a device says
+        // nothing about which room it is in.
+        Placement placement;
+
+        // Unix seconds, 0 when not known. first_seen is when the device first
+        // answered a scan that was saved; last_seen is when it last answered
+        // one, in this session or an earlier one.
+        int64_t first_seen = 0;
+        int64_t last_seen  = 0;
+
+        // The scan in this session that it last answered, numbered from 1 by
+        // Registry::begin_scan, or 0 when it has not answered one since T5000
+        // started. A device restored from the saved list starts at 0. That is
+        // how the list tells a device that is there now from one that was
+        // there once.
+        int answered_scan = 0;
+
         // A device with no usable serial cannot be keyed on one. Reported
         // rather than worked around, because every alternative key (IP,
         // Modbus id) is something a person can change.
@@ -288,6 +327,27 @@ namespace t5000::device
         const std::vector<DeviceRecord>& devices() const { return m_devices; }
         int size() const { return (int)m_devices.size(); }
         void clear();
+
+        // Takes one device out of the list, clearing the selection if it was
+        // the selected one. False when the handle resolves to nothing.
+        bool remove(Handle handle);
+
+        // Replaces the operator's name and location for one device. False
+        // when the handle resolves to nothing.
+        bool set_placement(Handle handle, const Placement& placement);
+
+        // --- Scans. -------------------------------------------------------
+        // Starts a scan and returns its number, to be put in answered_scan on
+        // every record the scan produces. Numbers are never reused, clear()
+        // included.
+        int begin_scan() { return ++m_scans; }
+        int scan_count() const { return m_scans; }
+
+        // True when the device answered the most recent scan.
+        bool answered_last_scan(const DeviceRecord& d) const
+        {
+            return m_scans != 0 && d.answered_scan == m_scans;
+        }
 
         // --- Selection. ---------------------------------------------------
         // Every screen needs a selected device, and the selection is held as
@@ -354,6 +414,12 @@ namespace t5000::device
         // Existing duplicate repairs are removed before the new ones are
         // worked out, so a conflict that has been resolved stops being
         // reported instead of accumulating.
+        //
+        // A device known only from the saved list takes no part. The list
+        // spans every building the tool has scanned, over months, and two
+        // devices on id 5 in different buildings are not in conflict. Once a
+        // restored device answers a scan its provenance changes and it counts
+        // again.
         int refresh_duplicate_modbus_ids();
 
     private:
@@ -362,6 +428,7 @@ namespace t5000::device
         std::vector<DeviceRecord> m_devices;
         Handle m_selected    = kNoHandle;
         Handle m_next_handle = to_handle(1);
+        int    m_scans       = 0;
     };
 
     const char* to_string(Provenance p);

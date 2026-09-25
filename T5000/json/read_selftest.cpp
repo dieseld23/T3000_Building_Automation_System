@@ -121,6 +121,100 @@ namespace
     }
 }
 
+namespace
+{
+    void test_a_flat_object_is_read_key_by_key()
+    {
+        section("a flat object is read key by key, with its escapes decoded");
+
+        std::map<std::string, FlatValue> f;
+        std::string error;
+
+        check(parse_flat_object(" { \"a\" : \"x\\ty\" , \"n\": 12 ,\"b\":true,\"z\":null } ", f, error),
+              "an object with spaces and mixed values is read");
+        check(f["a"].is_string && f["a"].text == "x\ty", "a string, its escape decoded");
+        check(!f["n"].is_string && f["n"].text == "12", "a number, kept as its text");
+        check(f["b"].text == "true", "a bool");
+        check(f["z"].text == "null", "and null");
+
+        check(parse_flat_object("{\"n\":-1.5e+3,\"z\":0}", f, error), "numbers in every JSON form are read");
+        check(f["n"].text == "-1.5e+3" && f["z"].text == "0", "as their text");
+
+        check(parse_flat_object("{}", f, error), "an empty object is read");
+        check(f.empty(), "as empty");
+
+        check(parse_flat_object("{\"k\":\"\\u00e9\\u20ac\\ud83d\\ude00\\/\"}", f, error), "unicode escapes are read");
+        check(f["k"].text == "\xC3\xA9\xE2\x82\xAC\xF0\x9F\x98\x80/", "as UTF-8 of one, two and four bytes");
+
+        check(parse_flat_object("{\"k\":\"\xC3\xA9\"}", f, error), "raw UTF-8 passes through");
+        check(f["k"].text == "\xC3\xA9", "unchanged");
+    }
+
+    void test_a_flat_object_refuses_what_it_cannot_read()
+    {
+        section("a flat object that is not one, or is malformed, is refused with a reason");
+
+        std::map<std::string, FlatValue> f;
+        std::string error;
+
+        const char* bad[] = {
+            "",
+            "[1,2]",
+            "{\"a\":\"unclosed}",
+            "{\"a\":{\"b\":1}}",
+            "{\"a\":[1]}",
+            "{\"a\":1,\"a\":2}",
+            "{\"a\":1} trailing",
+            "{\"a\" 1}",
+            "{\"a\":}",
+            "{\"a\":1,}",
+            "{a:1}",
+            "{\"a\":\"\\x\"}",
+            "{\"a\":\"\\u12\"}",
+            "{\"a\":\"\\ud83d\"}",
+            "{\"a\":\"\\ud83dxxdc00\"}",
+            "{\"a\":\"\\ude00\"}",
+            "{\"a\":\"\\ud83d\\u0041\"}",
+            "{\"a\":\"line\nbreak\"}",
+            "{\"a\":1\"b\":2}",
+            "{\"a\":tru}",
+            "{\"a\":01}",
+            "{\"a\":1.}",
+            "{\"a\":-}",
+            "{\"a\":1e}",
+        };
+        for (const char* text : bad)
+        {
+            error.clear();
+            const bool read = parse_flat_object(text, f, error);
+            check(!read, text);
+            check(!error.empty(), "and says why");
+        }
+    }
+}
+
+namespace
+{
+    void test_a_whole_number_is_digits_and_nothing_else()
+    {
+        section("a handle is digits and nothing else, and never wraps");
+
+        unsigned long long n = 7;
+        check(parse_u64("18446744073709551615", n), "the largest 64-bit number is read");
+        check(n == 18446744073709551615ull, "exactly");
+
+        n = 7;
+        check(!parse_u64("18446744073709551616", n), "one more is refused, not clamped");
+        check(!parse_u64("", n), "nothing");
+        check(!parse_u64(" 12", n), "a leading space");
+        check(!parse_u64("+12", n), "a plus sign");
+        check(!parse_u64("-1", n), "a minus sign");
+        check(!parse_u64("12x", n), "trailing rubbish");
+        check(!parse_u64(std::string("12\0" "3", 4), n), "an embedded NUL");
+        check_eq((long)n, 7, "and nothing refused was assigned");
+    }
+}
+
 int run_json_read_tests()
 {
     test_it_reads_the_shapes_it_claims_to();
@@ -128,5 +222,8 @@ int run_json_read_tests()
     test_a_present_but_broken_value_is_refused();
     test_a_negative_handle_is_refused_not_wrapped();
     test_it_admits_what_it_cannot_do();
+    test_a_flat_object_is_read_key_by_key();
+    test_a_flat_object_refuses_what_it_cannot_read();
+    test_a_whole_number_is_digits_and_nothing_else();
     return 0;
 }

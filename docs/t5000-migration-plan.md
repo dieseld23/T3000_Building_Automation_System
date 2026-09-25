@@ -14,11 +14,13 @@ those surveys, made by opening the files.
 **Nothing in T5000 has yet touched a live controller.** Every claim here is
 source-against-source, except the struct sizes, which the compiler asserts.
 
-**Where it stands, 2026-09-24:** Stage 0 is done. In Stage 1, Inputs are read
-and shown as T3000 shows them, after each panel's settings and custom range
-names (#17). The Panel and Type columns are still to do, and Outputs and
-Variables are not started. The stage table below has each
-stage's state, and [Next](#next) is the list of what comes after.
+**Where it stands, 2026-09-25:** Stage 0 is done, and the device list is now
+saved between runs, as T3000's building database is ([The device
+list](#the-device-list-and-virtual-devices)). In Stage 1, Inputs are read and
+shown as T3000 shows them, after each panel's settings and custom range names
+(#17). The Panel and Type columns are still to do, and Outputs and Variables
+are not started. The stage table below has each stage's state, and
+[Next](#next) is the list of what comes after.
 [`T5000/README.md`](../T5000/README.md) describes the tool as it is today.
 
 ---
@@ -160,9 +162,9 @@ would check each before acting on it.
 
 Each ships on its own. Ordered by dependency, not by difficulty.
 
-| Stage | Delivers | Changed by all-products? | State, 2026-09-24 |
+| Stage | Delivers | Changed by all-products? | State, 2026-09-25 |
 |---|---|---|---|
-| **0** | Discovery, selection, firmware detection, **product-identity model** | **Larger** — two id axes, capability table | Done (#9, #12, #13, #15) |
+| **0** | Discovery, selection, firmware detection, **product-identity model** | **Larger** — two id axes, capability table | Done (#9, #12, #13, #15). The device list is saved between runs (#19) |
 | **1** | Inputs + Outputs + Variables read | Unchanged — one shared layout | Inputs done (#14, #16, #17), except the Panel and Type columns. Outputs and Variables not started |
 | **2** | Write support for points, then Arrays, PVar | Unchanged | Not started |
 | **3** | Device settings, user login | Slightly larger — per-product field ranges | Not started. The settings block is already read and guarded, for Inputs |
@@ -204,12 +206,14 @@ reproduce](#what-the-write-path-must-not-reproduce).
 
 In order:
 
-1. **Finish Inputs:** the Panel and Type columns.
-2. **Outputs and Variables.** Same struct path as Inputs, and their structs
+1. **Virtual devices,** and then **importing T3000's building database.** The
+   next two parts of [the device list](#the-device-list-and-virtual-devices).
+2. **Finish Inputs:** the Panel and Type columns.
+3. **Outputs and Variables.** Same struct path as Inputs, and their structs
    are already guarded. T3000 also reads multi-state ranges
    (`READ_MSV_COMMAND`) and variable units (`READVARUNIT_T3000`) when it
    connects (`BacnetView.cpp:6483-6575`); the port will need both.
-3. **The first hardware check,** once a controller is available and the owner
+4. **The first hardware check,** once a controller is available and the owner
    agrees. Two things above all:
    - the serial check: the settings' `n_serial_number` must equal the serial
      in the scan response, or the page refuses the panel;
@@ -219,8 +223,10 @@ In order:
 
    Later, when there is a Modbus device on firmware below 525 to try, the
    firmware gate (see the end of Risks).
-4. **Stage 2, writes,** as above.
-5. **The register path** for Tstats and the Modbus modules, starting with the
+5. **Stage 2, writes,** as above. Editing a virtual device's points comes
+   first: it changes a file, not a controller, so it can build the edit
+   screens before there is a write transport.
+6. **The register path** for Tstats and the Modbus modules, starting with the
    guard on the Tstat registers described under Risks.
 
 Smaller loose ends:
@@ -233,6 +239,73 @@ Smaller loose ends:
 - The device list shows the scan's firmware as a raw number. Check how
   T3000's device list shows it before changing it. The Inputs banner already
   shows the panel's firmware as T3000 does (`60.5`).
+
+---
+
+## The device list and virtual devices
+
+T3000 keeps every device it has found in a database, one file per building
+(`Database\Buildings\<main>\<building>.db`, table `ALL_NODE`, keyed on
+`Serial_ID`). A scan updates the rows and never removes one, so a device that
+is off still shows, under building, floor and room. A **virtual device** is a
+row with no hardware behind it: T3000 keeps its points in a `.prog` file and
+opens it like a real controller, with nothing sent anywhere.
+
+T5000 does the same in four parts, each its own pull request.
+
+**1. The saved list (#19).** `T5000.db`, beside the exe, or wherever `--db`
+says. One file for every building, with building, floor and room as fields
+the operator fills in, and the list grouped by them. A scan saves each device
+that answered. A rescan updates what it saw and leaves the name, the location
+and the first sighting alone. Each device says whether it answered the last
+scan, or when it was last seen. It can be forgotten, which removes it from the
+list and the file and does nothing to the device.
+
+- The storage is the SQLite that ships with Windows (`winsqlite3.dll`), not
+  the repository's `SQLiteDriver`, which is SQLite 3.4.0 from 2007 behind an
+  MFC wrapper. `T5000/store/sqlite.h` says what that rules out.
+- A device known only from the saved list takes no part in the
+  duplicate-Modbus-id check. The list spans buildings and months, so two
+  devices on id 5 in it are not a conflict until both answer.
+- A file that is not a T5000 list (one of T3000's, say), or that a newer
+  T5000 wrote, is refused and left as it was. T5000 then runs with the list in
+  memory, and the page says it is not being saved.
+
+**2. Virtual devices.** Next. What T3000 does, from
+`BacnetAddVirtualDevice.cpp` and `global_function.cpp`:
+
+- The product list is `init_product_list` (`global_function.cpp:11980`), 16
+  entries of name, product id, `mini_type` and point counts. Only products 74
+  and 88 get a `.prog` file (`BacnetAddVirtualDevice.cpp:187-203`). The port
+  needs a guard test that reads the table from the source, as the display
+  tables have.
+- The `.prog` format is `SaveBacnetBinaryFile` (`global_function.cpp:12724`):
+  `55 FF` then a version byte, then the point sections in a fixed order, as
+  the `ud_str.h` structs T5000 already guards. Version 5 is 65,956 bytes,
+  version 6 adds variable units (66,056), 7 adds multi-state ranges (66,608),
+  and 8, which T3000 writes, adds schedule flags (67,184).
+  `Documentation/BTUMeterRev22.prog` is a version 6 file to test against. The
+  loader never checks the length; T5000's should.
+- A new device's points are `Initial_All_Point`'s defaults (`global_function.cpp:17693`)
+  and its settings `Initial_Virtual_Device_Setting`'s (`:17621`).
+- Not to copy: the serial is `rand() % 10000000 + 1000000`, which on MSVC
+  is 1,000,000 to 1,032,767, with no check for one already in use; a
+  non-T3 product saves over whatever `.prog` was open last; adding one
+  overwrites the open device's settings; the panel name can overflow its
+  20 bytes; the name goes into SQL unescaped; deleting one leaves its
+  `.prog` behind; and the `T3_3IIC` entry has its analog output count set
+  from its input count.
+
+The saved list's `kind` column already allows `'virtual'`, so the table does
+not have to be rebuilt for this.
+
+**3. Importing T3000's building database.** Read-only: T5000 reads the
+`ALL_NODE` rows into its own list and never writes T3000's file. `ALL_NODE`
+reuses columns (the IP address is in `Bautrate`, the port in `Com_Port`, and
+`Screen_Name` holds the virtual flag), so each needs mapping, not copying.
+
+**4. Editing a virtual device's points.** The first edit screens, against a
+file rather than a controller. See Next.
 
 ---
 
@@ -291,6 +364,13 @@ touches a row being edited.
 The server binds 127.0.0.1 only. The tool reads and will write building
 equipment; remote or tablet access is a later, deliberate step, and it comes
 with a decision about authentication.
+
+Loopback keeps other machines out, not other web pages: any page open in the
+technician's browser can send a request to 127.0.0.1:8730. So the server
+refuses, before any route runs, a request whose `Origin` is not its own page
+or whose `Host` is not 127.0.0.1 or localhost on its port (#19,
+`from_this_tool` in `T5000/http/server.h`). Every write route will depend on
+that check.
 
 ---
 

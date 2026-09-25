@@ -3,20 +3,25 @@
 //   T5000.exe --selftest    run the self-tests, exit non-zero on failure
 //   T5000.exe               serve the UI on http://127.0.0.1:8730
 //   T5000.exe --no-browser  the same, without opening a browser
+//   T5000.exe --db <file>   keep the device list in <file> rather than in
+//                           T5000.db beside the exe
 //
-// It finds devices and reads a selected controller's inputs, and cannot yet
-// change anything. The scan and the reads are read-only by construction (see
-// discovery/scanner.h and bacnet/command.h), and problems the scan notices are
-// staged as proposals nobody has agreed to yet. With no device selected, the
-// Inputs page gets the fixture, flagged as such everywhere it is served.
-// README.md says where the project stands.
+// It finds devices, keeps a list of them between runs, and reads a selected
+// controller's inputs. It cannot yet change anything on a device. The scan and
+// the reads are read-only by construction (see discovery/scanner.h and
+// bacnet/command.h), and problems the scan notices are staged as proposals
+// nobody has agreed to yet. With no device selected, the Inputs page gets the
+// fixture, flagged as such everywhere it is served. README.md says where the
+// project stands.
 
 #include <windows.h>
 #include <shellapi.h>
 
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
+#include "app/device_list.h"
 #include "app/fixture.h"
 #include "app/inputs_plan.h"
 #include "app/inputs_read.h"
@@ -31,6 +36,7 @@
 #include "http/server.h"
 #include "json/read.h"
 #include "net/interfaces.h"
+#include "store/device_db.h"
 #include "web/devices_page.h"
 #include "web/inputs_page.h"
 
@@ -93,6 +99,73 @@ namespace
     // than beside it.
     t5000::device::Registry g_registry;
     t5000::app::ScanSummary g_summary;
+
+    // The saved device list, and whether it is being saved. Opened once at
+    // startup; when it cannot be opened, the list lives in memory and every
+    // response says so.
+    t5000::store::DeviceDb  g_db;
+    t5000::app::StoreStatus g_store;
+
+    std::string devices_json()
+    {
+        return t5000::app::build_devices_json(g_registry, g_summary, g_store);
+    }
+
+    // What the list actions answer with: whether it worked, why not, and the
+    // list as it now is, so the page never has to guess what changed.
+    t5000::http::Response action_response(bool ok, const std::string& message)
+    {
+        std::string body = "{\"ok\":";
+        body += ok ? "true" : "false";
+        if (!message.empty())
+            body += ",\"message\":\"" + t5000::app::json_escape(message) + "\"";
+        body += ",\"state\":" + devices_json() + "}";
+        return t5000::http::Response::json(body);
+    }
+
+    std::string utf8_from_wide(const wchar_t* w)
+    {
+        const int n = WideCharToMultiByte(CP_UTF8, 0, w, -1, nullptr, 0, nullptr, nullptr);
+        if (n <= 1)
+            return std::string();
+        std::string out((size_t)n, '\0');
+        WideCharToMultiByte(CP_UTF8, 0, w, -1, &out[0], n, nullptr, nullptr);
+        out.resize((size_t)n - 1);
+        return out;
+    }
+
+    // The file --db names, as the UTF-8 SQLite takes, or empty when there is
+    // no --db. False when --db has no file name after it.
+    //
+    // From the wide command line, not argv. argv has already been through
+    // the ANSI code page, which swaps a letter it lacks for its nearest
+    // match - a Polish L-with-stroke in a user's folder name becomes a plain
+    // L - and so names another folder.
+    bool db_argument(std::string& path)
+    {
+        path.clear();
+
+        int n = 0;
+        LPWSTR* args = CommandLineToArgvW(GetCommandLineW(), &n);
+        if (!args)
+            return true;
+
+        bool ok = true;
+        for (int i = 1; i < n; i++)
+        {
+            if (wcscmp(args[i], L"--db") != 0)
+                continue;
+            if (i + 1 >= n || args[i + 1][0] == L'\0')
+            {
+                ok = false;
+                break;
+            }
+            path = utf8_from_wide(args[++i]);
+        }
+
+        LocalFree(args);
+        return ok;
+    }
 
     // Advanced by every request sent, across reads, so a late reply to one
     // read cannot be taken for an answer to the next.
@@ -163,6 +236,16 @@ int main(int argc, char** argv)
         if (strcmp(argv[i], "--no-browser") == 0)
             open_a_browser = false;
     }
+
+    std::string db_path;
+    if (!db_argument(db_path))
+    {
+        fprintf(stderr, "--db needs a file name after it.\n");
+        wait_before_closing();
+        return 1;
+    }
+    if (db_path.empty())
+        db_path = t5000::store::default_db_path();
 
     using namespace t5000;
 
@@ -278,8 +361,16 @@ int main(int argc, char** argv)
         return http::Response::json(app::build_interfaces_json(interfaces, error));
     });
 
+    // The saved list, loaded before the first request so the page opens on
+    // the devices from last time rather than on an empty list.
+    g_store = app::open_saved_list(g_db, db_path, g_registry);
+    if (g_store.saving)
+        printf("  devices   %s - %d saved\n", db_path.c_str(), g_store.restored);
+    else
+        printf("  devices   NOT SAVED - %s could not be used: %s\n", db_path.c_str(), g_store.error.c_str());
+
     server.route("/api/devices", [](const http::Request&) {
-        return http::Response::json(app::build_devices_json(g_registry, g_summary));
+        return http::Response::json(devices_json());
     });
 
     // Runs one scan, synchronously. The request takes as long as the scan
@@ -323,7 +414,7 @@ int main(int argc, char** argv)
         if (!transport.open(open_error))
         {
             g_summary.error = open_error;
-            return http::Response::json(app::build_devices_json(g_registry, g_summary));
+            return http::Response::json(devices_json());
         }
 
         discovery::ScanSettings settings;
@@ -331,23 +422,10 @@ int main(int argc, char** argv)
 
         const discovery::ScanResult result = discovery::scan(transport, settings);
 
-        g_summary.stats = result.stats;
-        g_summary.error = result.error;
+        // Merges, numbers and saves; see app/device_list.h.
+        app::record_scan(g_registry, g_db, result, (int64_t)time(nullptr), g_summary, g_store);
 
-        // Merged, not replaced. A controller that answered earlier and stayed
-        // quiet this time is information worth keeping on screen; dropping it
-        // would make a flaky device look like one that was never there.
-        for (const auto& d : result.devices)
-            g_registry.add_or_merge(d);
-
-        // Over the WHOLE list, not just this scan. Two devices sharing an id
-        // can answer on different scans and never appear in one result, and a
-        // rescan that only one of a pair answers would otherwise leave the
-        // other accusing a device the page now shows as clean.
-        g_summary.stats.duplicate_modbus_ids =
-            g_registry.refresh_duplicate_modbus_ids();
-
-        return http::Response::json(app::build_devices_json(g_registry, g_summary));
+        return http::Response::json(devices_json());
     });
 
     server.route("/api/devices/select", [](const http::Request& req) {
@@ -370,17 +448,56 @@ int main(int argc, char** argv)
         if (!found)
             body += ",\"message\":\"That device is no longer in the list. "
                     "Scan again to see what is there now.\"";
-        body += ",\"state\":" + app::build_devices_json(g_registry, g_summary) + "}";
+        body += ",\"state\":" + devices_json() + "}";
         return http::Response::json(body);
     });
 
+    // Forgets one device: out of the list and out of the saved file, with its
+    // name and location. Nothing is sent to the device.
+    server.route("/api/devices/forget", [](const http::Request& req) {
+        if (req.method != "POST")
+            return bad_request("A device is forgotten with POST.");
+
+        device::Handle handle = device::kNoHandle;
+        std::string message;
+        if (!app::read_handle_request(req.body, handle, message))
+            return bad_request(message);
+
+        const bool ok = app::forget_device(g_registry, g_db, handle, g_summary, message);
+        return action_response(ok, message);
+    });
+
+    // Forgets every device. The body must say {"confirm":true}: the page asks
+    // first, and a stray POST should not be able to empty a building's list.
     server.route("/api/devices/clear", [](const http::Request& req) {
         if (req.method != "POST")
             return bad_request("Clearing the list is done with POST.");
 
-        g_registry.clear();
-        g_summary = app::ScanSummary();
-        return http::Response::json(app::build_devices_json(g_registry, g_summary));
+        bool confirmed = false;
+        if (!json::read_bool(req.body, "confirm", confirmed) || !confirmed)
+            return bad_request("Forgetting every device needs {\"confirm\":true}.");
+
+        std::string message;
+        const bool ok = app::forget_all(g_registry, g_db, message);
+        if (ok)
+            g_summary = app::ScanSummary();
+        return action_response(ok, message);
+    });
+
+    // A device's name and location, as the operator gives them. Kept in the
+    // saved list only; nothing is sent to the device.
+    server.route("/api/devices/placement", [](const http::Request& req) {
+        if (req.method != "POST")
+            return bad_request("A name or location is saved with POST.");
+
+        device::Handle handle = device::kNoHandle;
+        device::Placement placement;
+        std::string message;
+        if (!app::read_placement_request(req.body, handle, placement, message))
+            return bad_request(message);
+
+        const bool ok = app::place_device(g_registry, g_db, handle, placement, g_store, message);
+        return action_response(ok, message);
     });
 
     // What the tool knows about products. Served so the capability table is

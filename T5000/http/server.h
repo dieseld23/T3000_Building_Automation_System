@@ -27,7 +27,33 @@ namespace t5000::http
         std::string path;      // no query string; see `query`
         std::string query;     // raw, undecoded
         std::string body;      // empty unless the request carried one
+
+        // Empty when the request did not carry the header. See
+        // from_this_tool below for what they are for.
+        std::string host;
+        std::string origin;
     };
+
+    // The request line, the Host and Origin headers, and the body.
+    bool parse_request(const std::string& raw, Request& req);
+
+    // Whether a request came from this tool's own page, or from a script
+    // with no page at all, rather than from some other web page open in the
+    // same browser.
+    //
+    // Binding to loopback keeps other machines out and does nothing about
+    // that: any page the technician has open can send a POST to
+    // 127.0.0.1:8730, and "forget every device" is one. So:
+    //
+    //   - Host must name this server, as 127.0.0.1 or localhost on its port.
+    //     A page on a hostile domain that has been re-pointed at 127.0.0.1
+    //     (DNS rebinding) still sends its own name here.
+    //   - Origin, when there is one, must be this server's. A browser sends it
+    //     on every cross-site request that could change something. A script
+    //     such as Invoke-WebRequest sends none, and is let through.
+    //
+    // False with the reason in `why`, and the server answers 403.
+    bool from_this_tool(const Request& req, unsigned short port, std::string& why);
 
     struct Response
     {

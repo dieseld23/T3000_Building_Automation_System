@@ -95,6 +95,8 @@ T5000
 * Its self-test runs after every build, as `T5000.exe --selftest --source-root <repo>`, and a failing check fails the build. Some tests read T3000's own headers from the source root, to catch a copied table or constant that has drifted.
 * It builds to `T3000 Output\release\T5000.exe`. A running T5000 locks that file, so stop it before building.
 * `T5000.exe` serves its UI on `http://127.0.0.1:8730` and opens a browser; `--no-browser` skips the browser; `--selftest` runs the tests by hand.
+* It keeps its device list in `T5000.db` beside the exe, or in the file `--db <file>` names. The self-test uses a database in memory and temporary files, so a build leaves no `T5000.db` behind.
+* It links `winsqlite3.lib`, the import library for the SQLite in Windows, which comes with the Windows SDK. There is nothing extra to install.
 
 [`T5000/README.md`](T5000/README.md) covers what it does and how to work on it.
 

@@ -1,0 +1,349 @@
+#include "device_list.h"
+
+#include <map>
+#include <vector>
+
+#include "../json/read.h"
+
+namespace t5000::app
+{
+    namespace
+    {
+        using namespace t5000::device;
+
+        const DeviceRecord* find(const Registry& registry, Handle handle)
+        {
+            if (handle == kNoHandle)
+                return nullptr;
+            for (const auto& d : registry.devices())
+                if (d.handle == handle)
+                    return &d;
+            return nullptr;
+        }
+
+        const char* const kGone = "That device is no longer in the list. The page may be out of date.";
+
+        void trim(std::string& s)
+        {
+            const char* const space = " \t\r\n";
+            const size_t first = s.find_first_not_of(space);
+            if (first == std::string::npos)
+            {
+                s.clear();
+                return;
+            }
+            s.erase(s.find_last_not_of(space) + 1);
+            s.erase(0, first);
+        }
+
+        // Characters, not bytes, counted as UTF-8 lead bytes. False on a
+        // sequence that is not well-formed UTF-8, which SQLite would store
+        // and the page would show as replacement characters.
+        bool utf8_length(const std::string& s, int& chars)
+        {
+            chars = 0;
+            size_t i = 0;
+            while (i < s.size())
+            {
+                const unsigned char c = (unsigned char)s[i];
+                size_t n = 0;
+                unsigned cp = 0;
+                if (c < 0x80)               { n = 1; cp = c; }
+                else if ((c & 0xE0) == 0xC0) { n = 2; cp = c & 0x1F; }
+                else if ((c & 0xF0) == 0xE0) { n = 3; cp = c & 0x0F; }
+                else if ((c & 0xF8) == 0xF0) { n = 4; cp = c & 0x07; }
+                else return false;
+
+                if (i + n > s.size())
+                    return false;
+                for (size_t k = 1; k < n; k++)
+                {
+                    const unsigned char cc = (unsigned char)s[i + k];
+                    if ((cc & 0xC0) != 0x80)
+                        return false;
+                    cp = (cp << 6) | (cc & 0x3F);
+                }
+
+                // Overlong forms, surrogates and values past U+10FFFF are
+                // not characters.
+                if ((n == 2 && cp < 0x80) || (n == 3 && cp < 0x800) || (n == 4 && cp < 0x10000) ||
+                    (cp >= 0xD800 && cp <= 0xDFFF) || cp > 0x10FFFF)
+                    return false;
+
+                i += n;
+                chars++;
+            }
+            return true;
+        }
+
+        bool clean_field(std::string& value, const char* label, std::string& message)
+        {
+            trim(value);
+
+            for (const char c : value)
+            {
+                if ((unsigned char)c < 0x20 || c == 0x7F)
+                {
+                    message = std::string("The ") + label + " holds a control character.";
+                    return false;
+                }
+            }
+
+            int chars = 0;
+            if (!utf8_length(value, chars))
+            {
+                message = std::string("The ") + label + " is not valid text.";
+                return false;
+            }
+            if (chars > kMaxPlacementChars)
+            {
+                message = std::string("The ") + label + " is " + std::to_string(chars) +
+                          " characters long. The most kept is " +
+                          std::to_string(kMaxPlacementChars) + ".";
+                return false;
+            }
+            return true;
+        }
+
+        bool handle_from(const std::map<std::string, json::FlatValue>& fields, Handle& handle,
+                         std::string& message)
+        {
+            const auto it = fields.find("handle");
+            unsigned long long raw = 0;
+            if (it == fields.end() || !json::parse_u64(it->second.text, raw) || raw == 0)
+            {
+                message = "handle must be a device's handle, a whole number above 0.";
+                return false;
+            }
+            handle = to_handle(raw);
+            return true;
+        }
+
+        bool string_from(const std::map<std::string, json::FlatValue>& fields, const char* key,
+                         std::string& target, std::string& message)
+        {
+            const auto it = fields.find(key);
+            if (it == fields.end())
+            {
+                target.clear();
+                return true;
+            }
+            if (!it->second.is_string)
+            {
+                message = std::string(key) + " must be a string.";
+                return false;
+            }
+            target = it->second.text;
+            return true;
+        }
+    }
+
+    StoreStatus open_saved_list(store::DeviceDb& db, const std::string& path, Registry& registry)
+    {
+        StoreStatus status;
+        status.path = path;
+
+        std::string error;
+        if (!db.open(path, error))
+        {
+            status.error = error;
+            return status;
+        }
+
+        std::vector<DeviceRecord> saved;
+        if (!db.load(saved, error))
+        {
+            // Open but unreadable. Not written to either, since a list that
+            // could not be read would be saved back without its devices'
+            // names.
+            db.close();
+            status.error = "it could not be read: " + error;
+            return status;
+        }
+
+        for (const auto& d : saved)
+            registry.add_or_merge(d);
+
+        status.saving   = true;
+        status.restored = (int)saved.size();
+        return status;
+    }
+
+    void record_scan(Registry& registry, store::DeviceDb& db, const discovery::ScanResult& result,
+                     int64_t now, ScanSummary& summary, StoreStatus& status)
+    {
+        summary.stats = result.stats;
+        summary.error = result.error;
+
+        const int scan = registry.begin_scan();
+
+        // Merged, not replaced. A controller that answered earlier and stayed
+        // quiet this time is information worth keeping on screen; dropping it
+        // would make a flaky device look like one that was never there.
+        for (DeviceRecord d : result.devices)
+        {
+            d.answered_scan = scan;
+            d.first_seen    = now;
+            d.last_seen     = now;
+            registry.add_or_merge(d);
+        }
+
+        // Over the WHOLE list, not just this scan. Two devices sharing an id
+        // can answer on different scans and never appear in one result, and a
+        // rescan that only one of a pair answers would otherwise leave the
+        // other accusing a device the page now shows as clean.
+        summary.stats.duplicate_modbus_ids = registry.refresh_duplicate_modbus_ids();
+
+        if (!db.is_open())
+            return;
+
+        // Every device seen this session, not only those in this scan. A
+        // save that failed earlier is then made good by the next one that
+        // works, and clearing the error below is true rather than hopeful.
+        // A device from an earlier scan keeps its own last_seen: the file
+        // takes the later of the two.
+        //
+        // The merged records, not the raw ones: a field this scan did not
+        // carry keeps what an earlier one learned, on disk as in memory.
+        std::vector<DeviceRecord> answered;
+        for (const auto& d : registry.devices())
+            if (d.answered_scan != 0)
+                answered.push_back(d);
+
+        std::string error;
+        if (db.save_scanned(answered, error))
+            status.error.clear();
+        else
+            status.error = "the last scan could not be saved: " + error;
+    }
+
+    bool forget_device(Registry& registry, store::DeviceDb& db, Handle handle, ScanSummary& summary,
+                       std::string& message)
+    {
+        const DeviceRecord* d = find(registry, handle);
+        if (!d)
+        {
+            message = kGone;
+            return false;
+        }
+
+        // A device with no serial was never saved, so there is nothing to
+        // delete from the file.
+        if (d->has_stable_identity() && db.is_open())
+        {
+            std::string error;
+            if (!db.forget(d->serial_number, error))
+            {
+                message = "It could not be removed from the saved list: " + error;
+                return false;
+            }
+        }
+
+        registry.remove(handle);
+        summary.stats.duplicate_modbus_ids = registry.refresh_duplicate_modbus_ids();
+        return true;
+    }
+
+    bool forget_all(Registry& registry, store::DeviceDb& db, std::string& message)
+    {
+        if (db.is_open())
+        {
+            std::string error;
+            if (!db.forget_all_scanned(error))
+            {
+                message = "The saved list could not be emptied: " + error;
+                return false;
+            }
+        }
+
+        registry.clear();
+        return true;
+    }
+
+    bool place_device(Registry& registry, store::DeviceDb& db, Handle handle,
+                      const Placement& placement, const StoreStatus& status, std::string& message)
+    {
+        const DeviceRecord* d = find(registry, handle);
+        if (!d)
+        {
+            message = kGone;
+            return false;
+        }
+
+        if (!d->has_stable_identity())
+        {
+            message = "This device reports no serial number, so it cannot be saved, and a name "
+                      "given to it could not be kept.";
+            return false;
+        }
+
+        if (!db.is_open())
+        {
+            message = "The device list is not being saved";
+            if (!status.error.empty())
+                message += " (" + status.error + ")";
+            message += ", so a name given now would be lost when T5000 closes.";
+            return false;
+        }
+
+        Placement cleaned = placement;
+        if (!clean_placement(cleaned, message))
+            return false;
+
+        DeviceRecord updated = *d;
+        updated.placement = cleaned;
+
+        std::string error;
+        if (!db.save_placement(updated, error))
+        {
+            message = "It could not be saved: " + error;
+            return false;
+        }
+
+        registry.set_placement(handle, cleaned);
+        return true;
+    }
+
+    bool clean_placement(Placement& placement, std::string& message)
+    {
+        return clean_field(placement.name, "name", message) &&
+               clean_field(placement.building, "building", message) &&
+               clean_field(placement.floor, "floor", message) &&
+               clean_field(placement.room, "room", message);
+    }
+
+    bool read_handle_request(const std::string& body, Handle& handle, std::string& message)
+    {
+        std::map<std::string, json::FlatValue> fields;
+        std::string error;
+        if (!json::parse_flat_object(body, fields, error))
+        {
+            message = "The request could not be read: " + error + ".";
+            return false;
+        }
+        return handle_from(fields, handle, message);
+    }
+
+    bool read_placement_request(const std::string& body, Handle& handle, Placement& placement,
+                                std::string& message)
+    {
+        std::map<std::string, json::FlatValue> fields;
+        std::string error;
+        if (!json::parse_flat_object(body, fields, error))
+        {
+            message = "The request could not be read: " + error + ".";
+            return false;
+        }
+
+        Placement p;
+        if (!handle_from(fields, handle, message) ||
+            !string_from(fields, "name", p.name, message) ||
+            !string_from(fields, "building", p.building, message) ||
+            !string_from(fields, "floor", p.floor, message) ||
+            !string_from(fields, "room", p.room, message))
+            return false;
+
+        placement = p;
+        return true;
+    }
+}

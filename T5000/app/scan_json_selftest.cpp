@@ -391,6 +391,81 @@ namespace
     }
 }
 
+namespace
+{
+    void test_the_saved_list_reaches_the_page()
+    {
+        section("the saved list's fields reach the page, and whether each device answered");
+
+        Registry reg;
+        const int scan = reg.begin_scan();
+
+        DeviceRecord now = a_device(8001);
+        now.answered_scan = scan;
+        now.first_seen    = 100;
+        now.last_seen     = 200;
+        now.panel_name    = "AHU";
+        reg.add_or_merge(now);
+
+        Placement p;
+        p.name     = "Boiler \"B\"";
+        p.building = "North";
+        p.floor    = "2";
+        p.room     = "Plant";
+        reg.set_placement(reg.devices()[0].handle, p);
+
+        DeviceRecord before = a_device(8002);
+        before.provenance = Provenance::Restored;
+        before.last_seen  = 50;
+        reg.add_or_merge(before);
+
+        StoreStatus store;
+        store.saving   = true;
+        store.path     = "C:\\T5000\\T5000.db";
+        store.restored = 1;
+
+        const std::string json = build_devices_json(reg, ScanSummary(), store);
+
+        const std::string first  = json.substr(0, json.find("\"serialNumber\":8002"));
+        const std::string second = json.substr(json.find("\"serialNumber\":8002"));
+
+        check(has(first, "\"panelName\":\"AHU\""), "the panel's own name");
+        check(has(first, "\"placement\":{\"name\":\"Boiler \\\"B\\\"\",\"building\":\"North\","
+                         "\"floor\":\"2\",\"room\":\"Plant\"}"),
+              "the operator's name and location, escaped");
+        check(has(first, "\"firstSeen\":100"), "when it was first seen");
+        check(has(first, "\"lastSeen\":200"), "and last seen, as numbers");
+        check(has(first, "\"answeredLastScan\":true"), "that it answered the last scan");
+        check(has(first, "\"seenThisSession\":true"), "and so was seen this session");
+
+        check(has(second, "\"answeredLastScan\":false"), "the restored one did not answer");
+        check(has(second, "\"seenThisSession\":false"), "and has not been seen this session");
+        check(has(second, "\"provenance\":\"restored from the saved list\""), "and says where it came from");
+
+        check(has(json, "\"scanCount\":1"), "how many scans have run");
+        check(has(json, "\"store\":{\"saving\":true,\"path\":\"C:\\\\T5000\\\\T5000.db\","
+                        "\"error\":\"\",\"restored\":1}"),
+              "and whether, and where, the list is saved");
+    }
+
+    void test_a_list_not_being_saved_says_why()
+    {
+        section("a list that is not being saved says so, and why");
+
+        Registry reg;
+        StoreStatus store;
+        store.path  = "D:\\T5000.db";
+        store.error = "unable to open database file";
+
+        const std::string json = build_devices_json(reg, ScanSummary(), store);
+        check(has(json, "\"saving\":false"), "not saving");
+        check(has(json, "\"error\":\"unable to open database file\""), "and the reason");
+
+        const std::string defaulted = build_devices_json(reg, ScanSummary());
+        check(has(defaulted, "\"saving\":false"), "a caller that passes no status claims no saving");
+    }
+}
+
 int run_scan_json_tests()
 {
     test_an_empty_registry_is_not_an_error();
@@ -407,5 +482,7 @@ int run_scan_json_tests()
     test_both_addresses_reach_the_page();
     test_interfaces_report_their_failure();
     test_inputs_carry_what_t3000_shows();
+    test_the_saved_list_reaches_the_page();
+    test_a_list_not_being_saved_says_why();
     return 0;
 }

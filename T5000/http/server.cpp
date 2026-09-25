@@ -3,6 +3,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
+#include <ctype.h>
 #include <stdio.h>
 
 #pragma comment(lib, "Ws2_32.lib")
@@ -17,6 +18,7 @@ namespace t5000::http
             {
             case 200: return "OK";
             case 400: return "Bad Request";
+            case 403: return "Forbidden";
             case 404: return "Not Found";
             case 500: return "Internal Server Error";
             default:  return "OK";
@@ -84,39 +86,19 @@ namespace t5000::http
             return true;
         }
 
-        bool parse_request(const std::string& raw, Request& req)
+        std::string lowercase(std::string s)
         {
-            const size_t line_end = raw.find("\r\n");
-            if (line_end == std::string::npos)
-                return false;
+            for (char& c : s)
+                c = (char)tolower((unsigned char)c);
+            return s;
+        }
 
-            const std::string line = raw.substr(0, line_end);
-
-            const size_t sp1 = line.find(' ');
-            if (sp1 == std::string::npos) return false;
-            const size_t sp2 = line.find(' ', sp1 + 1);
-            if (sp2 == std::string::npos) return false;
-
-            req.method = line.substr(0, sp1);
-
-            std::string target = line.substr(sp1 + 1, sp2 - sp1 - 1);
-            const size_t q = target.find('?');
-            if (q == std::string::npos)
-            {
-                req.path  = target;
-                req.query.clear();
-            }
-            else
-            {
-                req.path  = target.substr(0, q);
-                req.query = target.substr(q + 1);
-            }
-
-            const size_t head_end = raw.find("\r\n\r\n");
-            if (head_end != std::string::npos)
-                req.body = raw.substr(head_end + 4);
-
-            return true;
+        std::string trimmed(const std::string& s)
+        {
+            const size_t first = s.find_first_not_of(" \t");
+            if (first == std::string::npos)
+                return std::string();
+            return s.substr(first, s.find_last_not_of(" \t") - first + 1);
         }
 
         void send_all(SOCKET client, const std::string& data)
@@ -131,6 +113,92 @@ namespace t5000::http
                 sent += (size_t)n;
             }
         }
+    }
+
+    bool parse_request(const std::string& raw, Request& req)
+    {
+        const size_t line_end = raw.find("\r\n");
+        if (line_end == std::string::npos)
+            return false;
+
+        const std::string line = raw.substr(0, line_end);
+
+        const size_t sp1 = line.find(' ');
+        if (sp1 == std::string::npos) return false;
+        const size_t sp2 = line.find(' ', sp1 + 1);
+        if (sp2 == std::string::npos) return false;
+
+        req.method = line.substr(0, sp1);
+
+        std::string target = line.substr(sp1 + 1, sp2 - sp1 - 1);
+        const size_t q = target.find('?');
+        if (q == std::string::npos)
+        {
+            req.path  = target;
+            req.query.clear();
+        }
+        else
+        {
+            req.path  = target.substr(0, q);
+            req.query = target.substr(q + 1);
+        }
+
+        const size_t head_end = raw.find("\r\n\r\n");
+        const size_t head_stop = head_end == std::string::npos ? raw.size() : head_end;
+
+        // Header lines, one at a time, matched on the whole name. Only the
+        // two from_this_tool needs are kept.
+        req.host.clear();
+        req.origin.clear();
+        size_t at = line_end + 2;
+        while (at < head_stop)
+        {
+            size_t end = raw.find("\r\n", at);
+            if (end == std::string::npos || end > head_stop)
+                end = head_stop;
+
+            const std::string header = raw.substr(at, end - at);
+            const size_t colon = header.find(':');
+            if (colon != std::string::npos)
+            {
+                const std::string name  = lowercase(trimmed(header.substr(0, colon)));
+                const std::string value = trimmed(header.substr(colon + 1));
+                if (name == "host")
+                    req.host = value;
+                else if (name == "origin")
+                    req.origin = value;
+            }
+            at = end + 2;
+        }
+
+        if (head_end != std::string::npos)
+            req.body = raw.substr(head_end + 4);
+
+        return true;
+    }
+
+    bool from_this_tool(const Request& req, unsigned short port, std::string& why)
+    {
+        const std::string p = ":" + std::to_string(port);
+        const std::string host = lowercase(req.host);
+        if (host != "127.0.0.1" + p && host != "localhost" + p)
+        {
+            why = req.host.empty() ? "The request names no host."
+                                   : "The request is addressed to " + req.host + ", not to T5000.";
+            return false;
+        }
+
+        if (!req.origin.empty())
+        {
+            const std::string origin = lowercase(req.origin);
+            if (origin != "http://127.0.0.1" + p && origin != "http://localhost" + p)
+            {
+                why = "The request came from a page at " + req.origin +
+                      ". Only T5000's own pages may use it.";
+                return false;
+            }
+        }
+        return true;
     }
 
     Response Response::json(std::string body)
@@ -228,10 +296,17 @@ namespace t5000::http
             Request req;
             Response res;
 
+            std::string why;
             if (!read_request(client, raw) || !parse_request(raw, req))
             {
                 res.status = 400;
                 res.body   = "Bad request";
+            }
+            else if (!from_this_tool(req, m_port, why))
+            {
+                // Before any route runs, so no handler can forget to check.
+                res.status = 403;
+                res.body   = why;
             }
             else
             {
