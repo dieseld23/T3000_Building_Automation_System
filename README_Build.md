@@ -173,7 +173,7 @@ The checks on a push or pull request are T5000's, and T3000 is no longer built o
 
 | Workflow | Runs | Builds |
 | --- | --- | --- |
-| `.github/workflows/T5000.yml` | On a push to, or pull request against, `master` that touches `T5000/`, the workflow itself, `T3000 - VS2019.sln`, or a T3000 file the conformance checks read (`T3000/ProductModel.h`, `T3000/global_define.h`, `T3000/CM5/`, `BacNetDllforVc/`). Also by hand. | Two jobs, below |
+| `.github/workflows/T5000.yml` | On a push to, or pull request against, `master` that touches `T5000/`, the workflow itself, `T3000 - VS2019.sln`, or a T3000 file the conformance checks read (`T3000/ProductModel.h`, `T3000/global_define.h`, `T3000/global_function.cpp`, `T3000/BacnetSetting.cpp`, `T3000/CM5/`, `BacNetDllforVc/`). Also by hand. | Two jobs, below |
 | `.github/workflows/T3000.yml` | By hand only: in the Actions tab, "T3000 (run by hand)", then Run workflow | All of `T3000 - VS2019.sln`. It was `BuildTest.yml`, which ran on every push |
 | `.github/workflows/Build.yml`, `Release.yml` | By hand, or on a published release, and only in `temcocontrols/T3000_Building_Automation_System` | Temco's signed T3000 installer and release. They need Temco's SignPath project and secrets, so they are skipped in a fork |
 
