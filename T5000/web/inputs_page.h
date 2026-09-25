@@ -194,6 +194,11 @@ namespace t5000::web
     const rp = data.readPath || {};
     const fixture = !!(data.device && data.device.isFixture);
 
+    // Set only for a device no scan has found since T5000 started: when it
+    // was last seen, and that its address is the saved one. Said in both
+    // banners, as the reason a read was refused or the proof it was not.
+    const sighting = (data.device && data.device.sighting) ? " " + esc(data.device.sighting) : "";
+
     // A device that was FOUND but cannot be read is its own state, and the
     // most important one to get right. Without this branch the page fell
     // through to "Live device - points below were read from serial NNN" over
@@ -202,7 +207,7 @@ namespace t5000::web
     if (data.unavailable) {
       $("banner").className = "banner warn";
       $("banner").innerHTML = "<b>Nothing was read from this device.</b> "
-        + esc(data.message || "T5000 cannot read it yet.");
+        + esc(data.message || "T5000 cannot read it yet.") + sighting;
 
       const pb = $("path-banner");
       pb.hidden = false;
@@ -235,7 +240,7 @@ namespace t5000::web
       $("banner").innerHTML = "<b>Read from the device.</b> Serial "
         + esc(data.device.serialNumber) + " at " + esc(data.device.address || "unknown address")
         + ", " + esc(new Date().toLocaleTimeString()) + ". Values do not refresh on their own "
-        + "- reload to read again.";
+        + "- reload to read again." + sighting;
     } else {
       $("banner").innerHTML = "<b>Unconfirmed.</b> The server did not say these points came "
         + "from a device, so this page will not say so either.";

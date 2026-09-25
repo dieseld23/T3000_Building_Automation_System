@@ -10,6 +10,10 @@ namespace
     using namespace t5000::device;
     using namespace t5000::testing;
 
+    // 2026-09-21 14:13:20 UTC, and within a day of that in any time zone.
+    constexpr int64_t kLastSeen = 1790000000;
+
+    // A device that answered this session's first scan.
     DeviceRecord scanned(ProductClassId product, const char* host = "192.168.1.50", int port = 47808)
     {
         DeviceRecord d;
@@ -19,7 +23,24 @@ namespace
         d.connection.transport = Transport::BacnetIp;
         d.connection.host      = host;
         d.connection.udp_port  = port;
+        d.answered_scan        = 1;
+        d.last_seen            = kLastSeen;
         return d;
+    }
+
+    // The same device as the saved list gives it back after a restart: no
+    // scan this session has found it.
+    DeviceRecord restored(ProductClassId product = ProductClassId::Cm5)
+    {
+        DeviceRecord d = scanned(product);
+        d.provenance    = Provenance::Restored;
+        d.answered_scan = 0;
+        return d;
+    }
+
+    bool has(const std::string& text, const std::string& part)
+    {
+        return text.find(part) != std::string::npos;
     }
 
     void test_a_private_data_controller_is_read()
@@ -113,6 +134,129 @@ namespace
         check(p.note.find("more than 64") == std::string::npos,
               "and the plan no longer claims only 64 are shown - the settings decide that now");
     }
+
+    // ------------------------------------------ seen this session, or not
+
+    void test_a_device_seen_this_session_is_vouched_for()
+    {
+        section("a device that answered a scan this session is read as before, with nothing said of it");
+
+        const InputsPlan p = plan_inputs_read(scanned(ProductClassId::Cm5));
+        check(p.can_read, "it is read");
+        check(p.seen_this_session, "as seen this session");
+        check(p.identity == Identity::VouchedForByScan, "its scan vouches for the panel at the address");
+        check(p.sighting.empty(), "and the page is told nothing about when it was seen");
+
+        DeviceRecord later = scanned(ProductClassId::Cm5);
+        later.answered_scan = 3;
+        check(plan_inputs_read(later).identity == Identity::VouchedForByScan, "whichever scan it answered");
+    }
+
+    void test_a_restored_device_must_confirm_its_serial()
+    {
+        section("a device known only from the saved list must confirm its serial, and the page says why");
+
+        const InputsPlan p = plan_inputs_read(restored());
+        check(p.can_read, "it is still read");
+        check(!p.seen_this_session, "as not seen this session");
+        check(p.identity == Identity::MustConfirm, "on the condition that its settings confirm its serial");
+        check(has(p.sighting, "Not seen since T5000 started"), "the page is told it has not been seen");
+        check(has(p.sighting, "last seen, " + local_time_text(kLastSeen) + "."), "  and when it last was");
+
+        DeviceRecord never = restored();
+        never.last_seen = 0;
+        const InputsPlan n = plan_inputs_read(never);
+        check(n.identity == Identity::MustConfirm, "with no time saved: the same rule");
+        check(has(n.sighting, "Not seen since T5000 started") && has(n.sighting, "saved for it."),
+              "  and the page is told it has not been seen");
+        check(!has(n.sighting, "last seen"), "  without a time it does not have");
+
+        check(InputsPlan().identity == Identity::MustConfirm,
+              "a plan that says nothing about sightings is held to the stricter rule");
+    }
+
+    void test_a_restored_device_the_plan_refuses_still_says_when_it_was_seen()
+    {
+        section("a device from the saved list that is not read still says it has not been seen");
+
+        DeviceRecord serial = restored();
+        serial.connection.transport = Transport::ModbusRtu;
+        const InputsPlan s = plan_inputs_read(serial);
+        check(!s.can_read, "a serial connection is not read");
+        check(has(s.sighting, "Not seen since T5000 started"), "  and the sighting is on the plan");
+
+        DeviceRecord child = restored(ProductClassId::Tstat10);
+        child.parent_serial = 500001;
+        const InputsPlan c = plan_inputs_read(child);
+        check(!c.can_read, "a device behind a controller is not read");
+        check(has(c.sighting, "Not seen since T5000 started"), "  and the sighting is on the plan");
+        check(c.identity == Identity::MustConfirm, "  with its identity");
+    }
+
+    void test_times_are_shown_to_the_minute()
+    {
+        section("a time is shown as date and minute, in this computer's time zone");
+
+        const std::string t = local_time_text(kLastSeen);
+        check_eq((long)t.size(), 16, "YYYY-MM-DD HH:MM, sixteen characters");
+        check(t.compare(0, 9, "2026-09-2") == 0, "the day, in any time zone");
+        check(t.size() == 16 && t[4] == '-' && t[7] == '-' && t[10] == ' ' && t[13] == ':',
+              "the separators where they belong");
+        check(local_time_text(kLastSeen + 39) == t, "seconds are not shown");
+        check(local_time_text(kLastSeen + 60) != t, "minutes are");
+        check(local_time_text(0).empty(), "0, never seen: nothing");
+        check(local_time_text(-1).empty(), "a time before 1970: nothing");
+    }
+
+    // ---------------------------------------------------------- the payload
+
+    InputsPageRead read_ok()
+    {
+        InputsPageRead r;
+        r.ok     = true;
+        r.points = std::vector<t5000::wire::InputPoint>(3);
+        return r;
+    }
+
+    void test_the_payload_for_a_device_seen_this_session()
+    {
+        section("the payload for a device the scan found says nothing about the saved list");
+
+        const DeviceRecord d = scanned(ProductClassId::Cm5, "10.1.2.3", 47809);
+        InputsPlan plan = plan_inputs_read(d);
+        plan.note = "A NOTE FROM THE PLAN.";
+        const std::string json = inputs_payload(d, plan, read_ok());
+
+        check(has(json, "\"readFromWire\":true"), "it was read from the device");
+        check(has(json, "\"address\":\"10.1.2.3:47809\""), "at the address the plan chose");
+        check(has(json, "\"sighting\":\"\""), "with no sighting");
+        check(!has(json, "the one saved for it"), "and no word of the saved serial");
+        check(has(json, "A NOTE FROM THE PLAN."), "the plan's note is carried to the read path");
+        check(has(json, "\"count\":3"), "and the points");
+    }
+
+    void test_the_payload_for_a_restored_device()
+    {
+        section("the payload for a device from the saved list says it was not seen, and whether it was confirmed");
+
+        const DeviceRecord d = restored();
+        const InputsPlan plan = plan_inputs_read(d);
+
+        const std::string read = inputs_payload(d, plan, read_ok());
+        check(has(read, "\"readFromWire\":true"), "read: from the device");
+        check(has(read, "Not seen since T5000 started"), "  with the sighting");
+        check(has(read, "serial 800100, the one saved for it, so it is the same device"),
+              "  and that its settings confirmed the saved serial");
+
+        InputsPageRead refused;
+        refused.error = "THE READ'S OWN REASON.";
+        const std::string none = inputs_payload(d, plan, refused);
+        check(has(none, "\"unavailable\":true") && has(none, "\"readFromWire\":false"),
+              "not read: nothing from the device");
+        check(has(none, "\"message\":\"THE READ'S OWN REASON.\""), "  the read's reason as the message");
+        check(has(none, "Not seen since T5000 started"), "  and the sighting beside it");
+        check(!has(none, "the same device"), "  with no claim that it was confirmed");
+    }
 }
 
 int run_inputs_plan_tests()
@@ -122,5 +266,11 @@ int run_inputs_plan_tests()
     test_a_device_behind_a_controller_is_not_read();
     test_a_device_behind_a_controller_is_not_read_from_the_address_it_came_from();
     test_an_esp32_is_read();
+    test_a_device_seen_this_session_is_vouched_for();
+    test_a_restored_device_must_confirm_its_serial();
+    test_a_restored_device_the_plan_refuses_still_says_when_it_was_seen();
+    test_times_are_shown_to_the_minute();
+    test_the_payload_for_a_device_seen_this_session();
+    test_the_payload_for_a_restored_device();
     return 0;
 }

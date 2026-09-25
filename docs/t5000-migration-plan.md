@@ -216,7 +216,8 @@ In order:
 4. **The first hardware check,** once a controller is available and the owner
    agrees. Two things above all:
    - the serial check: the settings' `n_serial_number` must equal the serial
-     in the scan response, or the page refuses the panel;
+     in the scan response, or for a device from the saved list the saved
+     serial, or the page refuses the panel;
    - whether a controller replies to the port a request came from.
      `READ_PATH.md` explains why that decides whether T5000 can run beside
      T3000.
@@ -267,6 +268,10 @@ list and the file and does nothing to the device.
 - A device known only from the saved list takes no part in the
   duplicate-Modbus-id check. The list spans buildings and months, so two
   devices on id 5 in it are not a conflict until both answer.
+- For the same reason, its Inputs are read only once its settings give its
+  saved serial. A refusal or serial 0 stops the read after the settings, as a
+  different serial does, and the page says to scan first
+  (`READ_PATH.md`, "A device known only from the saved list must prove it").
 - A file that is not a T5000 list (one of T3000's, say), or that a newer
   T5000 wrote, is refused and left as it was. T5000 then runs with the list in
   memory, and the page says it is not being saved.

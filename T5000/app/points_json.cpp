@@ -89,7 +89,8 @@ namespace t5000::app
 
     std::string build_unavailable_inputs_json(int serial_number,
                                               const std::string& address,
-                                              const std::string& reason)
+                                              const std::string& reason,
+                                              const std::string& sighting)
     {
         std::string out = "{\"unavailable\":true,\"device\":{";
         append_int(out, "serialNumber", serial_number); out += ',';
@@ -98,7 +99,8 @@ namespace t5000::app
         // the points had been read from hardware.
         out += "\"isFixture\":false,";
         out += "\"readFromWire\":false,";
-        append_field(out, "address", address);
+        append_field(out, "address", address); out += ',';
+        append_field(out, "sighting", sighting);
         out += "},";
 
         // The page always renders a read-path band. "none" is a real answer
@@ -145,7 +147,8 @@ namespace t5000::app
         out += ",\"readFromWire\":";
         out += device.read_from_wire ? "true" : "false";
         out += ',';
-        append_field(out, "address", device.address);
+        append_field(out, "address", device.address); out += ',';
+        append_field(out, "sighting", device.sighting);
         out += "},";
 
         out += "\"readPath\":{";

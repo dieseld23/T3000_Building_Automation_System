@@ -263,6 +263,12 @@ namespace
         check(has(json, "\"panel\":{\"known\":false"), "the panel is there, and not known");
         check(has(json, "\"inputsShown\":0"), "with nothing shown");
         check(has(json, "\"customRanges\":{\"digitalKnown\":false"), "and no custom range names");
+
+        // The page reads device.sighting in both of its banners.
+        check(has(json, "\"sighting\":\"\""), "the sighting is there, and empty when none was given");
+        const std::string unseen = build_unavailable_inputs_json(700002, "192.168.1.51", "Not read.",
+                                                                 "Not seen since T5000 started.");
+        check(has(unseen, "\"sighting\":\"Not seen since T5000 started.\""), "  and carried when it is");
     }
 
     void test_the_parent_reaches_the_page()
@@ -333,6 +339,11 @@ namespace
         const std::string l = build_inputs_json(live, decision, {});
         check(has(l, "\"readFromWire\":true"), "a wire read: true");
         check(has(l, "192.168.1.52:47808"), "with the address it was read from");
+        check(has(l, "\"sighting\":\"\""), "and a sighting, empty for a device the scan found");
+
+        live.sighting = "Not seen \"since\" T5000 started.";
+        check(has(build_inputs_json(live, decision, {}), "\"sighting\":\"Not seen \\\"since\\\" T5000 started.\""),
+              "  escaped, when there is one");
     }
 
     void test_inputs_carry_what_t3000_shows()

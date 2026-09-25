@@ -183,41 +183,25 @@ namespace
 
         const app::InputsPlan plan = app::plan_inputs_read(d);
         if (!plan.can_read)
-            return app::build_unavailable_inputs_json((int)d.serial_number, d.address_note, plan.reason);
+            return app::build_unavailable_inputs_json((int)d.serial_number, d.address_note, plan.reason,
+                                                      plan.sighting);
 
         bacnet::UdpReadTransport transport(plan.endpoint);
         std::string error;
         if (!transport.open(error))
         {
             return app::build_unavailable_inputs_json(
-                (int)d.serial_number, d.address_note, "Nothing was sent. " + error);
+                (int)d.serial_number, d.address_note, "Nothing was sent. " + error, plan.sighting);
         }
 
+        // The plan says how sure T5000 already is of the panel at the
+        // address; the read holds a device known only from the saved list to
+        // the stricter rule. See app::Identity.
         const app::InputsPageRead read = app::read_inputs_page(
-            transport, plan.endpoint, d.product, d.serial_number, bacnet::ReadSettings(), g_next_invoke_id);
-        if (!read.ok)
-            return app::build_unavailable_inputs_json((int)d.serial_number, d.address_note, read.error);
+            transport, plan.endpoint, d.product, d.serial_number, plan.identity, bacnet::ReadSettings(),
+            g_next_invoke_id);
 
-        app::DeviceInfo info;
-        info.serial_number  = (int)d.serial_number;
-        info.product_id     = (int)static_cast<uint8_t>(d.product);
-        info.firmware       = d.firmware;
-        info.protocol       = app::kProtocolBacnetIp;
-        info.read_from_wire = true;
-        info.address        = plan.endpoint.text();
-
-        device::Decision decision = plan.decision;
-        if (!plan.note.empty())
-            decision.detail += " " + plan.note;
-
-        app::InputsPanel panel;
-        panel.known    = read.panel.settings_known;
-        panel.settings = read.panel.settings;
-        panel.product  = d.product;
-        panel.ranges   = read.panel.ranges;
-        panel.note     = read.panel.note;
-
-        return app::build_inputs_json(info, decision, read.points, panel);
+        return app::inputs_payload(d, plan, read);
     }
 }
 

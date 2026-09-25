@@ -23,9 +23,13 @@
 //     table names are asked for whether or not the digital names came back.
 //
 // And it is stricter in one place: the settings carry the panel's serial
-// number, and a panel whose serial is not the one the scan found at that
-// address is not read further. T3000's own web view makes the same check
+// number, and a panel whose serial is not the one expected at that address
+// is not read further. T3000's own web view makes the same check
 // (BacnetWebView.cpp:1655-1665); its Inputs screen does not.
+//
+// How much further that goes depends on where the address came from; see
+// Identity below. For a device known only from the saved list, a serial that
+// cannot be read at all is treated like one that does not match.
 
 #include <stdint.h>
 
@@ -40,6 +44,26 @@
 
 namespace t5000::app
 {
+    // How sure T5000 already is that the panel at the address is the device
+    // expected there, before its settings are read.
+    //
+    // Either way, settings that give another serial stop the read. The two
+    // differ over settings that cannot confirm the serial: refused, not
+    // decodable, or carrying serial 0.
+    enum class Identity
+    {
+        // It answered a scan this session, from this address, with this
+        // serial. The scan has vouched for it, so a panel whose settings
+        // cannot confirm the serial is read on, and the page says so.
+        VouchedForByScan,
+
+        // Known only from the saved list: it has not answered a scan since
+        // T5000 started, and the address is the one it had then. Another
+        // panel may have that address now, so unless the settings confirm
+        // the serial, nothing more is read and the page says to scan first.
+        MustConfirm,
+    };
+
     struct PanelRead
     {
         // The settings answered and decoded.
@@ -68,7 +92,10 @@ namespace t5000::app
         int requests_sent = 0;
     };
 
+    // expected_serial is the serial the device was found with: by this
+    // session's scan, or in the saved list, as `identity` says.
     InputsPageRead read_inputs_page(bacnet::ReadTransport& transport, const bacnet::Endpoint& device,
-                                    device::ProductClassId product, uint32_t scanned_serial,
-                                    const bacnet::ReadSettings& settings, uint8_t& next_invoke_id);
+                                    device::ProductClassId product, uint32_t expected_serial,
+                                    Identity identity, const bacnet::ReadSettings& settings,
+                                    uint8_t& next_invoke_id);
 }
