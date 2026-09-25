@@ -27,6 +27,27 @@ namespace t5000::app
 
         InputsPlan plan;
 
+        // Before anything else, including the note below about a saved
+        // address: a device added by hand that no scan has found is an entry,
+        // not a device. Nothing has answered from any address for it, and its
+        // product is the operator's word, so there is nothing to read and
+        // nothing is sent. A scan that finds its serial changes its
+        // provenance (Registry::add_or_merge), and it is read like any other
+        // device from then on.
+        //
+        // ManuallyAdded is also what a record gets when whoever built it set
+        // no provenance at all. Refusing that too is the safe way round.
+        if (d.provenance == device::Provenance::ManuallyAdded)
+        {
+            plan.reason = "There is no device to read. This entry was added by hand, and no scan has "
+                          "found a device with serial " +
+                          std::to_string(d.serial_number) +
+                          ", so T5000 has no address for it. Nothing was sent. Once a scan finds "
+                          "it, it takes this entry's place in the list, with the name and location "
+                          "given here, and can be read.";
+            return plan;
+        }
+
         // Decided first, so it is on the plan whatever else is refused.
         // answered_scan is set only by a scan in this session; a device
         // restored from the saved list starts at 0.

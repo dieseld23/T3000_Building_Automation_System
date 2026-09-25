@@ -450,6 +450,228 @@ namespace
         check(file.read() == text, "and its contents are exactly as they were");
     }
 
+    // ------------------------------------------------------ added by hand
+
+    // What app::add_device saves: the operator's serial, product and
+    // placement, and nothing a scan learned.
+    DeviceRecord typed_in(uint32_t serial)
+    {
+        DeviceRecord d;
+        d.serial_number = serial;
+        d.product       = ProductClassId::Esp32T3Series;
+        d.provenance    = Provenance::ManuallyAdded;
+        d.placement     = a_placement();
+        return d;
+    }
+
+    void test_a_device_added_by_hand_comes_back_as_added_by_hand()
+    {
+        section("a device added by hand is saved, and comes back as added by hand, not as seen");
+
+        DeviceDb db;
+        if (!require(open_memory(db), "the list opens"))
+            return;
+
+        std::string error;
+        check(db.add_by_hand(typed_in(8101), error), "a device is added by hand");
+
+        const auto list = load(db);
+        if (!require(list.size() == 1, "it comes back"))
+            return;
+
+        const DeviceRecord& d = list[0];
+        check_eq((long)d.serial_number, 8101, "its serial");
+        check(d.product == ProductClassId::Esp32T3Series, "the product it was added as");
+        check(d.placement.name == "Boiler \"B\"" && d.placement.room == "Plant \xC3\xA9",
+              "its name and location");
+        check(d.provenance == Provenance::ManuallyAdded, "as added by hand, not as restored");
+        check(!d.reached, "and as never reached");
+        check(d.connection.host.empty() && d.address_note.empty(), "with no address");
+        check_eq((long)d.first_seen, 0, "never seen");
+        check_eq((long)d.last_seen, 0, "  first or last");
+    }
+
+    void test_adding_by_hand_never_overwrites_a_saved_device()
+    {
+        section("adding by hand only ever adds: a saved serial is refused and left as it was");
+
+        DeviceDb db;
+        if (!require(open_memory(db), "the list opens"))
+            return;
+
+        std::string error;
+        check(db.save_scanned({ scanned(8001) }, error), "a scanned device is saved");
+
+        DeviceRecord same = typed_in(8001);
+        check(!db.add_by_hand(same, error), "adding its serial by hand is refused");
+        check(error.find("already") != std::string::npos, "  and says it is already there");
+
+        const auto list = load(db);
+        if (require(list.size() == 1, "still one device"))
+        {
+            check(list[0].product == ProductClassId::MiniPanelArm, "  with the product the device reported");
+            check(list[0].connection.host == "127.0.0.2", "  and the address it answered from");
+            check(list[0].placement.empty(), "  and none of the typed-in placement");
+        }
+
+        error.clear();
+        check(db.add_by_hand(typed_in(8101), error), "a new serial is added");
+        check(!db.add_by_hand(typed_in(8101), error), "and not twice");
+        check(error.find("added by hand") != std::string::npos, "  and the reason says how it got there");
+
+        error.clear();
+        check(!db.add_by_hand(typed_in(0), error), "serial 0 is refused");
+        check(error.find("no serial number") != std::string::npos,
+              "  before the table's own check, in words for the page");
+        check(!db.add_by_hand(typed_in(0xFFFFFFFFu), error), "serial 0xFFFFFFFF is refused");
+        check_eq((long)load(db).size(), 2, "and nothing else was added");
+    }
+
+    void test_a_scan_that_finds_a_device_added_by_hand()
+    {
+        section("a scan that finds a device added by hand updates its row and keeps its name");
+
+        TempFile file(L"byhand");
+        {
+            DeviceDb db;
+            std::string error;
+            if (!require(db.open(file.utf8(), error), "a new list is made"))
+                return;
+            check(db.add_by_hand(typed_in(8101), error), "a device is added by hand");
+
+            // As the registry holds it after the merge: what the scan saw,
+            // and the placement the entry had.
+            DeviceRecord found = scanned(8101, 3000);
+            found.placement    = a_placement();
+            check(db.save_scanned({ found }, error), "then a scan finds it and is saved");
+        }
+
+        DeviceDb db;
+        std::string error;
+        if (!require(db.open(file.utf8(), error), "the list reopens"))
+            return;
+
+        const auto list = load(db);
+        if (!require(list.size() == 1, "one device, not an entry and a device"))
+            return;
+
+        const DeviceRecord& d = list[0];
+        check(d.provenance == Provenance::Restored, "it comes back as a device that has answered");
+        check(d.reached, "  and has been reached");
+        check(d.product == ProductClassId::MiniPanelArm, "with the product it reported, over the one typed in");
+        check(d.connection.host == "127.0.0.2", "and the address it answered from");
+        check_eq((long)d.first_seen, 3000, "first seen when the scan found it");
+        check_eq((long)d.last_seen, 3000, "  and last seen then");
+        check(d.placement.name == "Boiler \"B\"", "its name kept");
+
+        Database raw;
+        if (require(raw.open(file.utf8(), error), "the file opens directly"))
+            check_eq((long)single_int(raw, "SELECT added_by_hand FROM devices"), 1,
+                     "and still records that it was added by hand");
+    }
+
+    void test_a_version_1_list_is_brought_up_to_date()
+    {
+        section("a list an older T5000 wrote is brought up to this build's schema, devices and all");
+
+        TempFile file(L"v1");
+        {
+            Database raw;
+            std::string error;
+            if (!require(raw.open(file.utf8(), error), "a file is made"))
+                return;
+
+            // Version 1 as it shipped, spelled out here rather than taken
+            // from device_db.cpp, so a change there cannot change what this
+            // test calls version 1.
+            check(raw.exec(
+                      "CREATE TABLE devices ("
+                      "  id               INTEGER PRIMARY KEY,"
+                      "  kind             TEXT    NOT NULL CHECK (kind IN ('scanned', 'virtual')),"
+                      "  serial           INTEGER NOT NULL CHECK (serial > 0 AND serial < 4294967295),"
+                      "  product_class_id INTEGER NOT NULL,"
+                      "  mini_type        INTEGER NOT NULL,"
+                      "  firmware         INTEGER NOT NULL,"
+                      "  modbus_id        INTEGER NOT NULL,"
+                      "  parent_serial    INTEGER NOT NULL,"
+                      "  object_instance  INTEGER NOT NULL,"
+                      "  host             TEXT    NOT NULL,"
+                      "  answered_from    TEXT    NOT NULL,"
+                      "  reported_ip      TEXT    NOT NULL,"
+                      "  bacnet_port      INTEGER NOT NULL,"
+                      "  panel_name       TEXT    NOT NULL,"
+                      "  name             TEXT    NOT NULL,"
+                      "  building         TEXT    NOT NULL,"
+                      "  floor            TEXT    NOT NULL,"
+                      "  room             TEXT    NOT NULL,"
+                      "  first_seen       INTEGER NOT NULL,"
+                      "  last_seen        INTEGER NOT NULL,"
+                      "  UNIQUE (kind, serial)"
+                      ");"
+                      "INSERT INTO devices (kind, serial, product_class_id, mini_type, firmware,"
+                      " modbus_id, parent_serial, object_instance, host, answered_from, reported_ip,"
+                      " bacnet_port, panel_name, name, building, floor, room, first_seen, last_seen)"
+                      " VALUES ('scanned', 8001, 74, 7, 538, 12, 0, 4321, '127.0.0.2', '127.0.0.2',"
+                      " '127.0.0.2', 47809, 'AHU 3', 'Boiler', 'North', '2', 'Plant', 1000, 2000);"
+                      "PRAGMA user_version = 1;",
+                      error),
+                  "as version 1 of T5000 wrote it, with one device in it");
+        }
+
+        {
+            DeviceDb db;
+            std::string error;
+            if (!require(db.open(file.utf8(), error), "this build opens it"))
+                return;
+
+            const auto list = load(db);
+            if (require(list.size() == 1, "its device comes back"))
+            {
+                check(list[0].provenance == Provenance::Restored, "  as a device that has answered a scan");
+                check(list[0].placement.name == "Boiler", "  with its name");
+                check_eq((long)list[0].first_seen, 1000, "  and its history");
+            }
+
+            check(db.add_by_hand(typed_in(8101), error), "and a device can now be added by hand");
+            check(db.save_scanned({ scanned(8002) }, error), "and a scanned one saved");
+        }
+
+        Database raw;
+        std::string error;
+        if (!require(raw.open(file.utf8(), error), "the file opens directly"))
+            return;
+        check_eq((long)single_int(raw, "PRAGMA user_version"), kSchemaVersion, "it is at this build's version");
+        check_eq((long)single_int(raw, "SELECT added_by_hand FROM devices WHERE serial = 8001"), 0,
+                 "the device from version 1 is not taken for one added by hand");
+        check_eq((long)single_int(raw, "SELECT added_by_hand FROM devices WHERE serial = 8101"), 1,
+                 "the one added since is");
+        check_eq((long)single_int(raw, "SELECT added_by_hand FROM devices WHERE serial = 8002"), 0,
+                 "and the one a scan saved since is not");
+        check(!raw.exec("UPDATE devices SET added_by_hand = 2", error), "and the column takes only 0 or 1");
+    }
+
+    void test_a_new_list_is_made_the_same_way_an_old_one_is_upgraded()
+    {
+        section("a new list is made at version 1 and brought up, so there is one shape per version");
+
+        TempFile file(L"fresh");
+        {
+            DeviceDb db;
+            std::string error;
+            if (!require(db.open(file.utf8(), error), "a new list is made"))
+                return;
+        }
+
+        Database raw;
+        std::string error;
+        if (!require(raw.open(file.utf8(), error), "the file opens directly"))
+            return;
+        check_eq((long)single_int(raw, "PRAGMA user_version"), kSchemaVersion, "at this build's version");
+        check_eq((long)single_int(raw, "SELECT count(*) FROM pragma_table_info('devices')"
+                                       " WHERE name = 'added_by_hand' AND dflt_value = '0' AND \"notnull\" = 1"),
+                 1, "with added_by_hand as the upgrade adds it");
+    }
+
     void test_the_default_path_is_beside_the_exe()
     {
         section("the list is kept beside the exe by default");
@@ -479,6 +701,11 @@ int run_device_db_tests()
     test_someone_elses_database_is_left_alone();
     test_a_foreign_database_claiming_our_version_is_left_alone();
     test_a_file_that_is_not_sqlite_is_left_alone();
+    test_a_device_added_by_hand_comes_back_as_added_by_hand();
+    test_adding_by_hand_never_overwrites_a_saved_device();
+    test_a_scan_that_finds_a_device_added_by_hand();
+    test_a_version_1_list_is_brought_up_to_date();
+    test_a_new_list_is_made_the_same_way_an_old_one_is_upgraded();
     test_the_default_path_is_beside_the_exe();
     return 0;
 }

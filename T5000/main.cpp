@@ -6,8 +6,9 @@
 //   T5000.exe --db <file>   keep the device list in <file> rather than in
 //                           T5000.db beside the exe
 //
-// It finds devices, keeps a list of them between runs, and reads a selected
-// controller's inputs. It cannot yet change anything on a device. The scan and
+// It finds devices, keeps a list of them between runs, takes devices added by
+// hand before any scan has found them, and reads a selected controller's
+// inputs. It cannot yet change anything on a device. The scan and
 // the reads are read-only by construction (see discovery/scanner.h and
 // bacnet/command.h), and problems the scan notices are staged as proposals
 // nobody has agreed to yet. With no device selected, the Inputs page gets the
@@ -474,6 +475,24 @@ int main(int argc, char** argv)
             return bad_request(message);
 
         const bool ok = app::place_device(g_registry, g_db, handle, placement, g_store, message);
+        return action_response(ok, message);
+    });
+
+    // Adds a device by hand: one T5000 has not found, entered so it can be
+    // named and placed before anyone can reach it. Kept in the saved list.
+    // Nothing is sent to any device, and nothing is sent to this one until a
+    // scan finds a device with its serial (app/device_list.h).
+    server.route("/api/devices/add", [](const http::Request& req) {
+        if (req.method != "POST")
+            return bad_request("A device is added with POST.");
+
+        app::HandAdded added;
+        std::string message;
+        if (!app::read_add_request(req.body, added, message))
+            return bad_request(message);
+
+        device::Handle handle = device::kNoHandle;
+        const bool ok = app::add_device(g_registry, g_db, added, g_store, handle, message);
         return action_response(ok, message);
     });
 

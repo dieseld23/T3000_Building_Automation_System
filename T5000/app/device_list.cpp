@@ -119,6 +119,42 @@ namespace t5000::app
             return true;
         }
 
+        // A whole number from 0 to `most`, given as a JSON number or as a
+        // string of digits, which is how a text box sends one. The messages
+        // are the page's, since they are shown to whoever filled in the form.
+        bool number_from(const std::map<std::string, json::FlatValue>& fields, const char* key,
+                         unsigned long long most, const char* missing, const char* wrong,
+                         unsigned long long& target, std::string& message)
+        {
+            const auto it = fields.find(key);
+            if (it == fields.end() || it->second.text.empty())
+            {
+                message = missing;
+                return false;
+            }
+
+            unsigned long long n = 0;
+            if (!json::parse_u64(it->second.text, n) || n > most)
+            {
+                message = wrong;
+                return false;
+            }
+            target = n;
+            return true;
+        }
+
+        bool is_known_product(ProductClassId id)
+        {
+            if (id == ProductClassId::Unknown)
+                return false;
+
+            const CapabilityTable table = known_products();
+            for (int i = 0; i < table.count; i++)
+                if (table.entries[i].id == id)
+                    return true;
+            return false;
+        }
+
         bool string_from(const std::map<std::string, json::FlatValue>& fields, const char* key,
                          std::string& target, std::string& message)
         {
@@ -301,6 +337,124 @@ namespace t5000::app
         }
 
         registry.set_placement(handle, cleaned);
+        return true;
+    }
+
+    bool add_device(Registry& registry, store::DeviceDb& db, const HandAdded& device,
+                    const StoreStatus& status, Handle& handle, std::string& message)
+    {
+        handle = kNoHandle;
+
+        // 0 and 0xFFFFFFFF are what a device with no serial reports. A scan
+        // can never match an entry on one, so the entry could never become
+        // the device it stands for.
+        if (is_uninitialised_serial(device.serial))
+        {
+            message = "The serial number must be from 1 to 4294967294. " + std::to_string(device.serial) +
+                      " is what a device with no serial reports, so a scan could never match it to "
+                      "this entry.";
+            return false;
+        }
+
+        if (!is_known_product(device.product))
+        {
+            message = "Product " + std::to_string((int)static_cast<uint8_t>(device.product)) +
+                      " is not one T5000 has been taught about. Pick one from the list.";
+            return false;
+        }
+
+        // In the table, but not a Temco device: T5000's scan never reports a
+        // third-party device's serial, so an entry for one could never be
+        // matched to the device it stands for.
+        if (device.product == ProductClassId::ThirdPartyDevice)
+        {
+            message = "A third-party device cannot be added by hand: a scan never reports its "
+                      "serial, so the entry could never be matched to the device.";
+            return false;
+        }
+
+        // Refused, not merged. Merging would put the product typed here over
+        // the one a device reported, and an entry for a device already listed
+        // has nothing to add that Edit does not.
+        for (const auto& d : registry.devices())
+        {
+            if (d.serial_number != device.serial)
+                continue;
+
+            message = "Serial " + std::to_string(device.serial) + " is already in the list";
+            if (d.provenance == Provenance::ManuallyAdded)
+                message += ", added by hand";
+            else if (!d.placement.name.empty())
+                message += ", as \"" + d.placement.name + "\"";
+            message += ". Use Edit on that row to name or place it.";
+            return false;
+        }
+
+        if (!db.is_open())
+        {
+            message = "The device list is not being saved";
+            if (!status.error.empty())
+                message += " (" + status.error + ")";
+            message += ", so a device added now would be lost when T5000 closes.";
+            return false;
+        }
+
+        Placement cleaned = device.placement;
+        if (!clean_placement(cleaned, message))
+            return false;
+
+        // Only what the operator gave. No address: nothing has answered from
+        // one, and the Inputs page refuses a device added by hand before it
+        // looks for one. Not reached, and not a complete observation, so a
+        // scan that finds the serial replaces everything here but the name
+        // and location.
+        DeviceRecord d;
+        d.serial_number        = device.serial;
+        d.product              = device.product;
+        d.provenance           = Provenance::ManuallyAdded;
+        d.reached              = false;
+        d.observation_complete = false;
+        d.placement            = cleaned;
+
+        std::string error;
+        if (!db.add_by_hand(d, error))
+        {
+            message = "It could not be saved: " + error + ".";
+            return false;
+        }
+
+        const int index = registry.add_or_merge(d);
+        handle = registry.devices()[index].handle;
+        return true;
+    }
+
+    bool read_add_request(const std::string& body, HandAdded& device, std::string& message)
+    {
+        std::map<std::string, json::FlatValue> fields;
+        std::string error;
+        if (!json::parse_flat_object(body, fields, error))
+        {
+            message = "The request could not be read: " + error + ".";
+            return false;
+        }
+
+        unsigned long long product = 0;
+        unsigned long long serial  = 0;
+        HandAdded d;
+        if (!number_from(fields, "productId", 255, "Choose a product.",
+                         "The product must be a product number from 0 to 255.", product, message) ||
+            !number_from(fields, "serialNumber", 0xFFFFFFFFull, "Enter the device's serial number.",
+                         "The serial number must be a whole number, digits only, up to 4294967294.",
+                         serial, message) ||
+            !string_from(fields, "name", d.placement.name, message) ||
+            !string_from(fields, "building", d.placement.building, message) ||
+            !string_from(fields, "floor", d.placement.floor, message) ||
+            !string_from(fields, "room", d.placement.room, message))
+            return false;
+
+        d.product = static_cast<ProductClassId>((uint8_t)product);
+        d.serial  = (uint32_t)serial;
+        device    = d;
         return true;
     }
 
