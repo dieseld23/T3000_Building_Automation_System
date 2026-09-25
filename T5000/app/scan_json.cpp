@@ -53,7 +53,8 @@ namespace t5000::app
             out += ']';
         }
 
-        void append_device(std::string& out, const DeviceRecord& d, bool selected)
+        void append_device(std::string& out, const Registry& registry, const DeviceRecord& d,
+                           bool selected)
         {
             const Capabilities& cap = capabilities(d.product);
             const PanelResolution panel = resolve_panel(d.product, d.mini_type);
@@ -101,6 +102,27 @@ namespace t5000::app
             append_field(out, "provenance",
                          std::string(to_string(d.provenance)));               out += ',';
             append_field(out, "reached", d.reached);                          out += ',';
+
+            // The panel's own name, and separately the operator's. The page
+            // decides which to show; both go out so neither is lost.
+            append_field(out, "panelName", d.panel_name);                     out += ',';
+            append_key(out, "placement");
+            out += '{';
+            append_field(out, "name", d.placement.name);                      out += ',';
+            append_field(out, "building", d.placement.building);              out += ',';
+            append_field(out, "floor", d.placement.floor);                    out += ',';
+            append_field(out, "room", d.placement.room);
+            out += "},";
+
+            // Unix seconds, 0 when not known. Whether it answered is decided
+            // here, from the registry's scan count, rather than by the page
+            // subtracting one total from another: the list now holds devices
+            // from earlier sessions, and a count of responses says nothing
+            // about which of them answered.
+            append_field(out, "firstSeen", (long long)d.first_seen);          out += ',';
+            append_field(out, "lastSeen", (long long)d.last_seen);            out += ',';
+            append_field(out, "answeredLastScan", registry.answered_last_scan(d)); out += ',';
+            append_field(out, "seenThisSession", d.answered_scan != 0);       out += ',';
             append_field(out, "needsAttention", d.needs_attention());         out += ',';
             append_repairs(out, d);
             out += '}';
@@ -120,7 +142,8 @@ namespace t5000::app
         }
     }
 
-    std::string build_devices_json(const Registry& registry, const ScanSummary& summary)
+    std::string build_devices_json(const Registry& registry, const ScanSummary& summary,
+                                   const StoreStatus& store)
     {
         const Handle selected = registry.selected_handle();
 
@@ -129,9 +152,19 @@ namespace t5000::app
         {
             if (i) out += ',';
             const DeviceRecord& d = registry.devices()[i];
-            append_device(out, d, selected != kNoHandle && d.handle == selected);
+            append_device(out, registry, d, selected != kNoHandle && d.handle == selected);
         }
         out += "],";
+
+        append_field(out, "scanCount", (long long)registry.scan_count()); out += ',';
+
+        append_key(out, "store");
+        out += '{';
+        append_field(out, "saving", store.saving);                   out += ',';
+        append_field(out, "path", store.path);                       out += ',';
+        append_field(out, "error", store.error);                     out += ',';
+        append_field(out, "restored", (long long)store.restored);
+        out += "},";
 
         // An empty string rather than 0: nothing selected is the absence of a
         // handle, and a page testing truthiness on it should not have to know
@@ -176,7 +209,7 @@ namespace t5000::app
                 continue;
 
             std::string out;
-            append_device(out, d, registry.selected_handle() == handle);
+            append_device(out, registry, d, registry.selected_handle() == handle);
             return out;
         }
         return "null";

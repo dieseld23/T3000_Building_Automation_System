@@ -65,10 +65,10 @@ namespace t5000::discovery
         if (r.bacnet_port != 0)
             d.connection.udp_port = r.bacnet_port;
 
-        // What the list shows is what T5000 will contact.
+        // What the list shows is what T5000 will contact. The panel's name
+        // has its own field and its own column.
         d.address_note = d.connection.host;
-        if (!r.panel_name.empty())
-            d.address_note += " (" + r.panel_name + ")";
+        d.panel_name   = r.panel_name;
 
         // What it said, before any defaulting. 0 stays 0 here; the
         // Connection above is how we would reach it, which is a different

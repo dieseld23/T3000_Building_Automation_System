@@ -69,8 +69,11 @@
         BACnet_Stack_Library.dll and does not reach this process - which is why
         no MFC decoupling was required after all. bacnet_link.cpp makes that
         fail at build time if it ever stops being true.
+
+        winsqlite3.lib is the import library for the SQLite that ships with
+        Windows, from the Windows SDK. store/sqlite.h says why that copy.
       -->
-      <AdditionalDependencies>BACnet_Stack_Library.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>BACnet_Stack_Library.lib;winsqlite3.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
@@ -90,6 +93,8 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="app\device_list.cpp" />
+    <ClCompile Include="app\device_list_selftest.cpp" />
     <ClCompile Include="app\fixture.cpp" />
     <ClCompile Include="app\inputs_plan.cpp" />
     <ClCompile Include="app\inputs_plan_selftest.cpp" />
@@ -143,6 +148,9 @@
     <ClCompile Include="json\read_selftest.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="selftest_main.cpp" />
+    <ClCompile Include="store\device_db.cpp" />
+    <ClCompile Include="store\device_db_selftest.cpp" />
+    <ClCompile Include="store\sqlite.cpp" />
     <ClCompile Include="wire\decode.cpp" />
     <ClCompile Include="wire\decode_selftest.cpp" />
     <ClCompile Include="wire\panel.cpp" />
@@ -151,6 +159,7 @@
     <ClCompile Include="wire\wire_guard.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="app\device_list.h" />
     <ClInclude Include="app\fixture.h" />
     <ClInclude Include="app\inputs_plan.h" />
     <ClInclude Include="app\inputs_read.h" />
@@ -172,10 +181,13 @@
     <ClInclude Include="discovery\scan_response.h" />
     <ClInclude Include="discovery\scanner.h" />
     <ClInclude Include="net\interfaces.h" />
+    <ClInclude Include="store\device_db.h" />
+    <ClInclude Include="store\sqlite.h" />
     <ClInclude Include="http\server.h" />
     <ClInclude Include="json\read.h" />
     <ClInclude Include="testing\check.h" />
     <ClInclude Include="testing\fake_transport.h" />
+    <ClInclude Include="testing\temp_file.h" />
     <ClInclude Include="web\devices_page.h" />
     <ClInclude Include="web\inputs_page.h" />
     <ClInclude Include="wire\cm5_header.h" />

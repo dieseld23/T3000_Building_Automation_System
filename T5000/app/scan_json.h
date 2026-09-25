@@ -43,8 +43,22 @@ namespace t5000::app
         int waited_ms = 0;
     };
 
+    // Whether the device list is being saved, and if not, why.
+    //
+    // Shown on the page rather than only printed at startup. A list that has
+    // quietly stopped being saved loses every name and location typed into
+    // it the next time T5000 closes.
+    struct StoreStatus
+    {
+        bool        saving = false;   // the database is open
+        std::string path;             // the file, or the one that could not be opened
+        std::string error;            // why it is not open, or why the last save failed
+        int         restored = 0;     // devices loaded from it at startup
+    };
+
     std::string build_devices_json(const device::Registry& registry,
-                                   const ScanSummary& summary);
+                                   const ScanSummary& summary,
+                                   const StoreStatus& store = StoreStatus());
 
     // One device in full, for a detail pane.
     //

@@ -673,6 +673,134 @@ namespace
     }
 }
 
+namespace
+{
+    void test_removing_clears_the_selection_and_never_reuses_a_handle()
+    {
+        section("removing a device clears it from the selection, and its handle is not reused");
+
+        Registry reg;
+        reg.add_or_merge(a_device(8001));
+        reg.add_or_merge(a_device(8002));
+        const Handle gone = handle_at(reg, 0);
+        const Handle kept = handle_at(reg, 1);
+
+        reg.select_by_handle(gone);
+        check(reg.remove(gone), "the device is removed");
+        check_eq(reg.size(), 1, "one is left");
+        check(reg.selected() == nullptr, "nothing is selected, rather than the next device");
+        check(!reg.remove(gone), "removing it again finds nothing");
+
+        reg.select_by_handle(kept);
+        check(reg.remove(handle_at(reg, 0)) && reg.selected() == nullptr,
+              "removing the selected one clears the selection");
+
+        reg.add_or_merge(a_device(8003));
+        check(handle_at(reg, 0) != gone && handle_at(reg, 0) != kept,
+              "a new device gets a handle no removed device had");
+    }
+
+    void test_a_merge_never_takes_a_placement()
+    {
+        section("a name and location are the operator's, and a scan never changes them");
+
+        Registry reg;
+        reg.add_or_merge(a_device(8001));
+
+        Placement p;
+        p.name = "Boiler";
+        p.room = "Plant";
+        check(reg.set_placement(handle_at(reg, 0), p), "the device is named");
+        check(!reg.set_placement(to_handle(999), p), "a handle not in the list is refused");
+
+        DeviceRecord rescan = a_device(8001);
+        rescan.placement.name = "something a record happened to carry";
+        reg.add_or_merge(rescan);
+        check(reg.devices()[0].placement.name == "Boiler", "the name survives a merge");
+        check(reg.devices()[0].placement.room == "Plant", "and so does the room");
+
+        DeviceRecord blank = a_device(8001);
+        reg.add_or_merge(blank);
+        check(reg.devices()[0].placement.name == "Boiler", "a record with no name does not blank it");
+    }
+
+    void test_history_merges_forwards()
+    {
+        section("when a device was seen only moves forwards, and its first sighting only back");
+
+        Registry reg;
+        DeviceRecord d = a_device(8001);
+        d.first_seen    = 100;
+        d.last_seen     = 100;
+        d.answered_scan = 1;
+        d.panel_name    = "AHU";
+        reg.add_or_merge(d);
+
+        DeviceRecord later = a_device(8001);
+        later.first_seen    = 300;
+        later.last_seen     = 300;
+        later.answered_scan = 2;
+        reg.add_or_merge(later);
+        check_eq((long)reg.devices()[0].first_seen, 100, "the first sighting stays the earliest");
+        check_eq((long)reg.devices()[0].last_seen, 300, "the last sighting moves on");
+        check_eq(reg.devices()[0].answered_scan, 2, "as does the scan it answered");
+        check(reg.devices()[0].panel_name == "AHU", "a record with no panel name keeps the old one");
+
+        DeviceRecord stale = a_device(8001);
+        stale.last_seen     = 200;
+        stale.answered_scan = 1;
+        stale.panel_name    = "AHU 2";
+        reg.add_or_merge(stale);
+        check_eq((long)reg.devices()[0].last_seen, 300, "an older sighting does not move it back");
+        check_eq(reg.devices()[0].answered_scan, 2, "nor an older scan");
+        check(reg.devices()[0].panel_name == "AHU 2", "a new panel name is taken");
+    }
+
+    void test_answered_last_scan_follows_the_count()
+    {
+        section("answered the last scan means the most recent one, and nothing before any scan");
+
+        Registry reg;
+        DeviceRecord d = a_device(8001);
+        reg.add_or_merge(d);
+        check(!reg.answered_last_scan(reg.devices()[0]), "no scan yet, so nothing answered one");
+
+        const int first = reg.begin_scan();
+        check_eq(first, 1, "scans are numbered from 1");
+        d.answered_scan = first;
+        reg.add_or_merge(d);
+        check(reg.answered_last_scan(reg.devices()[0]), "it answered scan 1");
+
+        reg.begin_scan();
+        check(!reg.answered_last_scan(reg.devices()[0]), "and not scan 2");
+
+        reg.clear();
+        check_eq(reg.begin_scan(), 3, "numbers are not reused after a clear");
+    }
+
+    void test_a_restored_device_takes_no_part_in_duplicates()
+    {
+        section("a device known only from the saved list is not counted as a duplicate");
+
+        Registry reg;
+        DeviceRecord live = a_device(8001);
+        live.modbus_id_reported = 5;
+        DeviceRecord restored = a_device(8002);
+        restored.modbus_id_reported = 5;
+        restored.provenance = Provenance::Restored;
+        reg.add_or_merge(live);
+        reg.add_or_merge(restored);
+
+        check_eq(reg.refresh_duplicate_modbus_ids(), 0, "one live and one restored on id 5 is no conflict");
+        check(reg.pending_repairs().empty(), "and neither carries a repair");
+
+        DeviceRecord answers = a_device(8002);
+        answers.modbus_id_reported = 5;
+        reg.add_or_merge(answers);
+        check_eq(reg.refresh_duplicate_modbus_ids(), 2, "once the restored one answers, both are flagged");
+    }
+}
+
 int run_registry_tests()
 {
     test_repairs_start_unapproved();
@@ -700,5 +828,10 @@ int run_registry_tests()
     test_refreshing_leaves_other_repairs_alone();
     test_uninitialised_serial_detection();
     test_labels_exist_for_everything_shown();
+    test_removing_clears_the_selection_and_never_reuses_a_handle();
+    test_a_merge_never_takes_a_placement();
+    test_history_merges_forwards();
+    test_answered_last_scan_follows_the_count();
+    test_a_restored_device_takes_no_part_in_duplicates();
     return 0;
 }

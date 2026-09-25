@@ -5,7 +5,7 @@
 // Embedded rather than served from disk so the tool is a single file that
 // works from wherever it is copied, for the same reason as inputs_page.h.
 //
-// Two things on this page are load-bearing and easy to get wrong:
+// Three things on this page are load-bearing and easy to get wrong:
 //
 //   1. An empty list is FOUR different situations. Not scanned yet, scanned
 //      and the subnet really is empty, scanned and devices answered with
@@ -18,6 +18,15 @@
 //      so an "Apply" button would be a control that cannot do what it says.
 //      What T3000 would have written is disclosed in full, and the page says
 //      plainly that nothing will be sent.
+//
+//   3. The list is saved, so a device on it is not necessarily there now.
+//      Whether each one answered the last scan comes from the server, per
+//      device. The page used to subtract the number of responses from the
+//      length of the list, which stopped meaning anything once the list held
+//      devices from other buildings and other days.
+//
+// Text from a device or typed by the operator goes onto the page through
+// textContent, or through esc() where a banner is built as HTML.
 
 namespace t5000::web
 {
@@ -55,7 +64,7 @@ namespace t5000::web
   .meta b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
   .spacer{flex:1}
   label.inline{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)}
-  select,input[type=number]{font:inherit;color:inherit;background:var(--bg);
+  select,input[type=number],input[type=text]{font:inherit;color:inherit;background:var(--bg);
     border:1px solid var(--border);border-radius:6px;padding:5px 8px}
   select:focus,input:focus{border-color:var(--accent);outline:none}
   button{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--border);
@@ -90,6 +99,15 @@ namespace t5000::web
   .pill-bad{background:var(--bad-bg);color:var(--bad)}
   .pill-info{background:var(--info-bg);color:var(--info)}
 
+  /* A building, floor and room, over the devices in it. Only drawn once at
+     least one device has been given a location; until then the list is flat. */
+  tr.grp td{background:var(--surface);color:var(--dim);font-size:11px;font-weight:600;
+            letter-spacing:.03em;padding:12px 10px 4px;cursor:default}
+  tr.grp td b{color:var(--text);font-size:12px;letter-spacing:0}
+
+  td.act{text-align:right;padding:3px 8px}
+  td.act button{padding:2px 9px;font-size:11px;margin-left:4px}
+
   /* A repair is disclosure, not an offer. It reads as a note attached to the
      device rather than as a row with an action on the end of it. */
   tr.rep td{background:var(--warn-bg);white-space:normal;padding:0}
@@ -117,6 +135,17 @@ namespace t5000::web
   .empty ul{text-align:left;margin:8px 0 0;padding-left:18px;font-size:12px}
   .empty li{margin:3px 0}
 
+  dialog{border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);
+         padding:0;width:min(420px,calc(100vw - 32px))}
+  dialog::backdrop{background:rgba(0,0,0,.35)}
+  dialog form{padding:16px 18px}
+  dialog h2{font-size:14px;font-weight:600;margin:0 0 2px}
+  dialog label{display:block;font-size:12px;color:var(--dim);margin:10px 0 0}
+  dialog input[type=text]{display:block;width:100%;margin-top:3px}
+  dialog .note{font-size:11px;color:var(--dim);margin:14px 0 0}
+  dialog .err{font-size:12px;color:var(--bad);margin:8px 0 0}
+  dialog .buttons{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+
   footer{flex:none;padding:6px 16px;border-top:1px solid var(--border);
          background:var(--surface);color:var(--dim);font-size:11px;
          display:flex;gap:14px;flex-wrap:wrap}
@@ -126,7 +155,7 @@ namespace t5000::web
 
 <header>
   <h1>Devices</h1>
-  <span class="meta"><b id="count">0</b> found</span>
+  <span class="meta"><b id="count">0</b> listed</span>
   <span class="meta" id="problems" hidden></span>
   <span class="spacer"></span>
   <label class="inline">Scan from
@@ -139,11 +168,12 @@ namespace t5000::web
       <option value="20000">20 s (stragglers)</option>
     </select>
   </label>
-  <button id="clear">Clear list</button>
-  <button id="scan" class="primary">Scan</button>
+  <button id="clear" type="button">Forget all&hellip;</button>
+  <button id="scan" type="button" class="primary">Scan</button>
 </header>
 
 <div class="banner info" id="banner">Loading&hellip;</div>
+<div class="banner warn" id="store-banner" hidden></div>
 
 <div class="scroll">
   <div class="empty" id="empty">
@@ -158,33 +188,67 @@ namespace t5000::web
     <thead>
       <tr>
         <th>Serial</th>
+        <th>Name</th>
         <th>Product</th>
         <th>Panel</th>
         <th>Address</th>
         <th class="num">Firmware</th>
-        <th>Found by</th>
+        <th>Seen</th>
         <th>State</th>
+        <th></th>
       </tr>
     </thead>
     <tbody id="rows"></tbody>
   </table>
 </div>
 
+<dialog id="edit">
+  <form id="edit-form">
+    <h2>Name and location</h2>
+    <div class="dim" id="edit-which"></div>
+    <label>Name <input type="text" id="f-name" maxlength="60" autocomplete="off"></label>
+    <label>Building <input type="text" id="f-building" maxlength="60" list="dl-building" autocomplete="off"></label>
+    <label>Floor <input type="text" id="f-floor" maxlength="60" list="dl-floor" autocomplete="off"></label>
+    <label>Room <input type="text" id="f-room" maxlength="60" list="dl-room" autocomplete="off"></label>
+    <datalist id="dl-building"></datalist>
+    <datalist id="dl-floor"></datalist>
+    <datalist id="dl-room"></datalist>
+    <p class="note">Kept in T5000's device list only. Nothing is sent to the device.</p>
+    <p class="err" id="edit-error" hidden></p>
+    <div class="buttons">
+      <button type="button" id="edit-cancel">Cancel</button>
+      <button type="submit" id="edit-save" class="primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
 <footer>
   <span id="readonly-note">Scanning is read-only. No register is written.</span>
+  <span id="saved-note"></span>
   <span class="spacer"></span>
   <span><a href="/inputs">Inputs</a></span>
 </footer>
-
+)PAGE"
+        R"PAGE(
 <script>
 (function () {
   "use strict";
 
   var state = null;
   var scanning = false;
+  var editing = null;
+  var COLUMNS = 9;
 
   function $(id) { return document.getElementById(id); }
   function text(s) { return s === null || s === undefined ? "" : String(s); }
+
+  // For the few places a banner is built as HTML. Everything else goes in
+  // through textContent.
+  function esc(s) {
+    return text(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c];
+    });
+  }
 
   function el(tag, cls, content) {
     var n = document.createElement(tag);
@@ -193,11 +257,42 @@ namespace t5000::web
     return n;
   }
 
+  function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+
   function setBanner(kind, html) {
     var b = $("banner");
     b.className = "banner " + kind;
     b.innerHTML = html;
     b.hidden = false;
+  }
+
+  function findDevice(handle) {
+    for (var i = 0; i < state.devices.length; i++)
+      if (state.devices[i].handle === handle) return state.devices[i];
+    return null;
+  }
+
+  // How a device is named in a question about it: the operator's name, then
+  // the panel's own, and always the serial, which is the one thing that
+  // cannot be two devices at once.
+  function describe(d) {
+    var name = (d.placement && d.placement.name) || d.panelName;
+    var id = d.hasStableIdentity ? "serial " + d.serialNumber : "the device with no serial number";
+    return name ? "\"" + name + "\" (" + id + ")" : id;
+  }
+
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+
+  function when(seconds) { return new Date(seconds * 1000).toLocaleString(); }
+
+  function ago(seconds) {
+    var d = Date.now() / 1000 - seconds;
+    if (d < 60) return "just now";
+    if (d < 3600) return Math.floor(d / 60) + " min ago";
+    if (d < 86400) return Math.floor(d / 3600) + " h ago";
+    if (d < 7 * 86400) return plural(Math.floor(d / 86400), "day", "days") + " ago";
+    var t = new Date(seconds * 1000);
+    return t.getFullYear() + "-" + pad(t.getMonth() + 1) + "-" + pad(t.getDate());
   }
 
   // The four empty states. Which one is showing is decided here and nowhere
@@ -260,10 +355,10 @@ namespace t5000::web
     ]);
   }
 
-  function repairRow(repair, columns) {
+  function repairRow(repair) {
     var tr = el("tr", "rep");
     var td = document.createElement("td");
-    td.colSpan = columns;
+    td.colSpan = COLUMNS;
 
     var box = el("div", "repair");
     box.appendChild(el("h3", null, "Problem found: " + repair.kind));
@@ -302,10 +397,181 @@ namespace t5000::web
     tr.appendChild(td);
     return tr;
   }
+)PAGE"
+        R"PAGE(
+  // Devices under their building, floor and room, in that order, with the
+  // ones not placed yet last. Within a place, the order they were found.
+  // One group with no heading when nothing has been placed at all.
+  function groups(devices) {
+    function where(d) {
+      var p = d.placement || {};
+      return [p.building || "", p.floor || "", p.room || ""];
+    }
+    var any = devices.some(function (d) { return where(d).join("") !== ""; });
+    if (!any) return [{ label: null, devices: devices }];
+
+    var byKey = {}, list = [];
+    devices.forEach(function (d) {
+      var w = where(d), key = JSON.stringify(w);
+      if (!byKey[key]) {
+        byKey[key] = { where: w, devices: [] };
+        list.push(byKey[key]);
+      }
+      byKey[key].devices.push(d);
+    });
+
+    function cmp(a, b) {
+      return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+    }
+    list.sort(function (a, b) {
+      var ua = a.where.join("") === "", ub = b.where.join("") === "";
+      if (ua !== ub) return ua ? 1 : -1;
+      for (var i = 0; i < 3; i++) {
+        var c = cmp(a.where[i], b.where[i]);
+        if (c) return c;
+      }
+      return 0;
+    });
+
+    return list.map(function (g) {
+      var parts = g.where.filter(function (x) { return x; });
+      return { label: parts.length ? parts : null, devices: g.devices };
+    });
+  }
+
+  function groupRow(label, count) {
+    var tr = el("tr", "grp");
+    var td = document.createElement("td");
+    td.colSpan = COLUMNS;
+    if (label) {
+      label.forEach(function (part, i) {
+        if (i) td.appendChild(document.createTextNode("  ›  "));
+        td.appendChild(el("b", null, part));
+      });
+    } else {
+      td.appendChild(el("b", null, "Not placed"));
+    }
+    td.appendChild(document.createTextNode("  ·  " + plural(count, "device", "devices")));
+    tr.appendChild(td);
+    return tr;
+  }
+
+  function seenCell(d) {
+    var td = document.createElement("td");
+    if (d.answeredLastScan) {
+      td.appendChild(el("span", "pill pill-ok", "answered"));
+      td.title = "Answered the last scan (" + d.provenance + ").";
+    } else if (d.seenThisSession) {
+      td.appendChild(el("span", "pill pill-warn", "not in last scan"));
+      td.title = "Answered an earlier scan since T5000 started, but not the last one. " +
+                 "Last seen " + when(d.lastSeen) + ".";
+    } else if (d.lastSeen > 0) {
+      td.className = "dim";
+      td.textContent = ago(d.lastSeen);
+      td.title = "From the saved list, and not seen since T5000 started. " +
+                 "Last answered a scan " + when(d.lastSeen) + ".";
+    } else {
+      td.className = "dim";
+      td.textContent = "never";
+    }
+    return td;
+  }
+
+  function actionsCell(d) {
+    var td = el("td", "act");
+
+    var edit = el("button", null, "Edit");
+    edit.type = "button";
+    edit.setAttribute("data-act", "edit");
+    if (!d.hasStableIdentity) {
+      edit.disabled = true;
+      edit.title = "A device with no serial number cannot be saved, so it cannot be named.";
+    } else if (!state.store.saving) {
+      edit.disabled = true;
+      edit.title = "The list is not being saved, so a name would be lost when T5000 closes.";
+    } else {
+      edit.title = "Name this device and say where it is. Kept in this list only.";
+    }
+    td.appendChild(edit);
+
+    var forget = el("button", null, "Forget");
+    forget.type = "button";
+    forget.setAttribute("data-act", "forget");
+    forget.title = "Take it off the list. Nothing is sent to the device.";
+    td.appendChild(forget);
+    return td;
+  }
+
+  function deviceRow(d) {
+    var tr = el("tr", "dev" + (d.selected ? " sel" : ""));
+    tr.setAttribute("data-handle", d.handle);
+
+    var serial = el("td", "num");
+    if (d.hasStableIdentity) {
+      serial.textContent = d.serialNumber;
+    } else {
+      serial.appendChild(el("span", "pill pill-bad", "no serial"));
+    }
+    tr.appendChild(serial);
+
+    // The operator's name when there is one, otherwise the panel's own,
+    // dimmed, so it is clear which of the two is showing.
+    var name = document.createElement("td");
+    var given = d.placement && d.placement.name;
+    if (given) {
+      name.textContent = given;
+      if (d.panelName) name.title = "The panel calls itself \"" + d.panelName + "\".";
+    } else if (d.panelName) {
+      name.className = "dim";
+      name.textContent = d.panelName;
+      name.title = "The name the panel gives itself.";
+    } else {
+      name.className = "dim";
+      name.textContent = "—";
+    }
+    tr.appendChild(name);
+
+    tr.appendChild(el("td", null, d.productName));
+
+    var panel = el("td", d.panel.resolved ? null : "dim");
+    panel.textContent = d.panel.resolved ? d.panel.name : "unknown";
+    panel.title = d.panel.reason;
+    tr.appendChild(panel);
+
+    // The address shown is the one the device answered from, which is the
+    // one T5000 contacts. When the device describes itself differently,
+    // say so, rather than leave the operator to wonder which is in use.
+    var addr = el("td", null, d.address);
+    if (d.addressMismatch) {
+      addr.appendChild(document.createTextNode(" "));
+      var differs = el("span", "pill pill-warn", "reports " + d.reportedIp);
+      differs.title = "This device answered from " + d.answeredFrom + " but says its address is " +
+        d.reportedIp + ". T5000 contacts " + d.answeredFrom + ", the address the answer came " +
+        "from, as T3000 does. The device may be behind NAT or have a second network interface.";
+      addr.appendChild(differs);
+    }
+    tr.appendChild(addr);
+    tr.appendChild(el("td", "num", d.firmware || ""));
+    tr.appendChild(seenCell(d));
+
+    var st = document.createElement("td");
+    if (d.needsAttention) {
+      st.appendChild(el("span", "pill pill-warn", "needs attention"));
+    } else if (d.support === "verified") {
+      st.appendChild(el("span", "pill pill-ok", "supported"));
+    } else {
+      st.appendChild(el("span", "pill pill-info", d.support));
+    }
+    tr.appendChild(st);
+
+    tr.appendChild(actionsCell(d));
+    return tr;
+  }
 
   function render() {
     var devices = state.devices;
     $("count").textContent = devices.length;
+    $("clear").disabled = devices.length === 0;
 
     var problems = $("problems");
     if (state.pendingRepairs > 0) {
@@ -315,6 +581,8 @@ namespace t5000::web
     } else {
       problems.hidden = true;
     }
+
+    renderStore();
 
     if (!devices.length) {
       showEmpty(state.scan, state.scan.stats);
@@ -327,98 +595,85 @@ namespace t5000::web
 
     var rows = $("rows");
     rows.innerHTML = "";
-)PAGE"
-        R"PAGE(    var columns = 7;
 
-    devices.forEach(function (d) {
-      var tr = el("tr", "dev" + (d.selected ? " sel" : ""));
-      tr.setAttribute("data-handle", d.handle);
-
-      var serial = el("td", "num");
-      if (d.hasStableIdentity) {
-        serial.textContent = d.serialNumber;
-      } else {
-        serial.appendChild(el("span", "pill pill-bad", "no serial"));
-      }
-      tr.appendChild(serial);
-
-      tr.appendChild(el("td", null, d.productName));
-
-      var panel = el("td", d.panel.resolved ? null : "dim");
-      panel.textContent = d.panel.resolved ? d.panel.name : "unknown";
-      panel.title = d.panel.reason;
-      tr.appendChild(panel);
-
-      // The address shown is the one the device answered from, which is the
-      // one T5000 contacts. When the device describes itself differently,
-      // say so, rather than leave the operator to wonder which is in use.
-      var addr = el("td", null, d.address);
-      if (d.addressMismatch) {
-        addr.appendChild(document.createTextNode(" "));
-        var differs = el("span", "pill pill-warn", "reports " + d.reportedIp);
-        differs.title = "This device answered from " + d.answeredFrom + " but says its address is " +
-          d.reportedIp + ". T5000 contacts " + d.answeredFrom + ", the address the answer came " +
-          "from, as T3000 does. The device may be behind NAT or have a second network interface.";
-        addr.appendChild(differs);
-      }
-      tr.appendChild(addr);
-      tr.appendChild(el("td", "num", d.firmware || ""));
-      tr.appendChild(el("td", "dim", d.provenance));
-
-      var st = document.createElement("td");
-      if (d.needsAttention) {
-        st.appendChild(el("span", "pill pill-warn", "needs attention"));
-      } else if (d.support === "verified") {
-)PAGE"
-        R"PAGE(        st.appendChild(el("span", "pill pill-ok", "supported"));
-      } else {
-        st.appendChild(el("span", "pill pill-info", d.support));
-      }
-      tr.appendChild(st);
-
-      rows.appendChild(tr);
-
-      d.repairs.forEach(function (r) { rows.appendChild(repairRow(r, columns)); });
+    groups(devices).forEach(function (g, i, all) {
+      if (g.label || all.length > 1) rows.appendChild(groupRow(g.label, g.devices.length));
+      g.devices.forEach(function (d) {
+        rows.appendChild(deviceRow(d));
+        d.repairs.forEach(function (r) { rows.appendChild(repairRow(r)); });
+      });
     });
 
     renderBanner();
   }
-
+)PAGE"
+        R"PAGE(
   function renderBanner() {
     var s = state.scan, st = s.stats;
+    var devices = state.devices;
 
     if (s.error) {
-      setBanner("bad", "<b>Scan problem.</b> " + text(s.error));
+      setBanner("bad", "<b>Scan problem.</b> " + esc(s.error));
       return;
     }
     if (!s.hasScanned) {
-      setBanner("info",
-        "Nothing has been scanned yet. Scanning sends one broadcast and listens - " +
-        "it does not write to any device.");
+      if (devices.length) {
+        setBanner("info",
+          "<b>" + devices.length + "</b> " + (devices.length === 1 ? "device" : "devices") +
+          " from the saved list. Nothing has been scanned since T5000 started, so these " +
+          "are the devices that were there last time - press Scan to see which are there now. " +
+          "Scanning does not write to any device.");
+      } else {
+        setBanner("info",
+          "Nothing has been scanned yet. Scanning sends one broadcast and listens - " +
+          "it does not write to any device.");
+      }
       return;
     }
 
+    var answered = devices.filter(function (d) { return d.answeredLastScan; }).length;
     var parts = [];
-    parts.push("<b>" + st.responsesParsed + "</b> answered the last scan");
+    parts.push("<b>" + answered + "</b> answered the last scan");
     if (st.inBootloader > 0) parts.push("<b>" + st.inBootloader + "</b> in bootloader");
     if (st.withoutSerial > 0) parts.push("<b>" + st.withoutSerial + "</b> with no serial");
     if (st.duplicateModbusIds > 0) parts.push("<b>" + st.duplicateModbusIds + "</b> with a duplicate Modbus id");
     if (st.malformed > 0) parts.push("<b>" + st.malformed + "</b> unreadable");
 
-    // The table is cumulative and these numbers are not. A scan that finds
-    // nothing used to print "0 answered" directly above a list of three
-    // devices - a screen contradicting itself, which is the precise failure
-    // this tool exists to stop repeating. Devices are kept across scans on
-    // purpose (a controller that answered once and is quiet now is worth
-    // seeing), so the gap has to be named rather than hidden.
-    var carried = state.devices.length - st.responsesParsed;
-    if (carried > 0) {
-      parts.push("<b>" + carried + "</b> listed from an earlier scan, not seen this time");
+    // The list is cumulative and the scan is not. A scan that finds nothing
+    // used to print "0 answered" directly above a list of three devices - a
+    // screen contradicting itself. Devices are kept across scans and across
+    // runs on purpose, so the gap is named rather than hidden. It is not a
+    // warning: with a saved list, devices from another building not answering
+    // here is the normal case.
+    var quiet = devices.length - answered;
+    if (quiet > 0) parts.push("<b>" + quiet + "</b> listed that did not answer it");
+
+    var kind = (st.malformed > 0 || state.pendingRepairs > 0) ? "warn" : "ok";
+    setBanner(kind, parts.join(" &middot; ") + " &middot; nothing was written to any device");
+  }
+
+  // Whether the list is being saved. A list that has quietly stopped being
+  // saved loses every name typed into it when T5000 closes, so this is shown
+  // on the page and not only printed in the console.
+  function renderStore() {
+    var s = state.store, b = $("store-banner");
+    var file = text(s.path).split(/[\\/]/).pop();
+
+    if (!s.saving) {
+      b.innerHTML = "<b>The device list is not being saved.</b> " + esc(s.path) +
+        " could not be used: " + esc(s.error) + ". Devices are listed until T5000 " +
+        "closes, and cannot be named.";
+      b.hidden = false;
+    } else if (s.error) {
+      b.innerHTML = "<b>Not saved.</b> " + esc(s.error.charAt(0).toUpperCase() + s.error.slice(1)) + ".";
+      b.hidden = false;
+    } else {
+      b.hidden = true;
     }
 
-    var stale = carried > 0;
-    var kind = (st.malformed > 0 || state.pendingRepairs > 0 || stale) ? "warn" : "ok";
-    setBanner(kind, parts.join(" &middot; ") + " &middot; nothing was written");
+    var note = $("saved-note");
+    note.textContent = s.saving ? "The list is kept in " + file + "." : "The list is not being saved.";
+    note.title = text(s.path);
   }
 
   function applyState(next) {
@@ -429,6 +684,24 @@ namespace t5000::web
     render();
   }
 
+  async function post(url, body) {
+    var res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    var data = null;
+    try { data = await res.json(); } catch (e) { /* reported below */ }
+    return data || { ok: false, message: "The server answered " + res.status + " with nothing readable." };
+  }
+
+  // What every list action does with its answer: show the list as it now
+  // is, then say why the action did not happen, if it did not.
+  function settle(data, what) {
+    if (data.state) applyState(data.state);
+    if (!data.ok) setBanner("bad", "<b>" + esc(what) + "</b> " + esc(data.message || "The request failed."));
+  }
+
   async function loadInterfaces() {
     try {
       var res = await fetch("/api/interfaces", { cache: "no-store" });
@@ -437,7 +710,7 @@ namespace t5000::web
       (data.interfaces || []).forEach(function (n) {
         var o = document.createElement("option");
         o.value = n.ip;
-        var suffix = n.isLoopback ? " - loopback, no device can answer here"
+        var suffix = n.isLoopback ? " - loopback, only for devices on this computer"
                    : !n.isUp ? " - down"
                    : n.looksVirtual ? " - probably virtual"
                    : "";
@@ -483,7 +756,7 @@ namespace t5000::web
       });
       applyState(await res.json());
     } catch (e) {
-      setBanner("bad", "<b>The scan request failed.</b> " + text(e && e.message));
+      setBanner("bad", "<b>The scan request failed.</b> " + esc(e && e.message));
     } finally {
       scanning = false;
       $("scan").disabled = false;
@@ -492,30 +765,130 @@ namespace t5000::web
   }
 
   async function select(handle) {
-    var res = await fetch("/api/devices/select", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ handle: handle })
-    });
-    var data = await res.json();
-    applyState(data.state);
-    if (!data.ok && data.message) setBanner("warn", text(data.message));
+    var data = await post("/api/devices/select", { handle: handle });
+    if (data.state) applyState(data.state);
+    if (!data.ok && data.message) setBanner("warn", esc(data.message));
   }
 
-  $("scan").addEventListener("click", doScan);
+  async function forgetOne(handle) {
+    var d = findDevice(handle);
+    if (!d) return;
 
-  $("clear").addEventListener("click", async function () {
-    var res = await fetch("/api/devices/clear", { method: "POST" });
-    applyState(await res.json());
+    var saved = d.hasStableIdentity && state.store.saving;
+    var question = saved
+      ? "Forget " + describe(d) + "?\n\nIt is taken off the list and out of the saved file, " +
+        "with any name and location given to it. Nothing is sent to the device. If it " +
+        "answers a later scan it is listed again."
+      : "Take " + describe(d) + " off the list?\n\nIt is not in the saved file, so only the " +
+        "list changes. Nothing is sent to the device. If it answers a later scan it is " +
+        "listed again.";
+    if (!confirm(question)) return;
+
+    settle(await post("/api/devices/forget", { handle: handle }), "Not forgotten.");
+  }
+
+  async function forgetAll() {
+    var n = state.devices.length;
+    if (!n) return;
+
+    var question = state.store.saving
+      ? "Forget all " + plural(n, "device", "devices") + "?\n\nThey are taken off the list and " +
+        "out of the saved file, with every name and location given to them. Nothing is sent " +
+        "to any device. Devices that answer a later scan are listed again."
+      : "Clear all " + plural(n, "device", "devices") + " from the list?\n\nThe list is not " +
+        "being saved, so nothing on disk changes. Nothing is sent to any device.";
+    if (!confirm(question)) return;
+
+    settle(await post("/api/devices/clear", { confirm: true }), "Not forgotten.");
+  }
+)PAGE"
+        R"PAGE(
+  // Suggestions for building, floor and room from what is already in the
+  // list, so "North" and "north " do not become two buildings by accident.
+  function fillSuggestions() {
+    ["building", "floor", "room"].forEach(function (field) {
+      var seen = {}, list = $("dl-" + field);
+      list.innerHTML = "";
+      state.devices.forEach(function (d) {
+        var v = d.placement && d.placement[field];
+        if (v && !seen[v]) {
+          seen[v] = true;
+          var o = document.createElement("option");
+          o.value = v;
+          list.appendChild(o);
+        }
+      });
+    });
+  }
+
+  function openEdit(handle) {
+    var d = findDevice(handle);
+    if (!d) return;
+
+    editing = handle;
+    var p = d.placement || {};
+    $("edit-which").textContent = describe(d) + ", " + d.productName;
+    $("f-name").value = p.name || "";
+    $("f-name").placeholder = d.panelName || "";
+    $("f-building").value = p.building || "";
+    $("f-floor").value = p.floor || "";
+    $("f-room").value = p.room || "";
+    $("edit-error").hidden = true;
+    $("edit-save").disabled = false;
+    fillSuggestions();
+    $("edit").showModal();
+    $("f-name").focus();
+  }
+
+  $("edit-form").addEventListener("submit", async function (ev) {
+    ev.preventDefault();
+    $("edit-save").disabled = true;
+    try {
+      var data = await post("/api/devices/placement", {
+        handle: editing,
+        name: $("f-name").value,
+        building: $("f-building").value,
+        floor: $("f-floor").value,
+        room: $("f-room").value
+      });
+      if (data.state) applyState(data.state);
+      if (data.ok) {
+        $("edit").close();
+        return;
+      }
+      $("edit-error").textContent = data.message || "The request failed.";
+      $("edit-error").hidden = false;
+    } catch (e) {
+      $("edit-error").textContent = "The request failed. " + text(e && e.message);
+      $("edit-error").hidden = false;
+    } finally {
+      $("edit-save").disabled = false;
+    }
   });
+
+  $("edit-cancel").addEventListener("click", function () { $("edit").close(); });
+
+  $("scan").addEventListener("click", doScan);
+  $("clear").addEventListener("click", forgetAll);
 
   $("rows").addEventListener("click", function (ev) {
     var tr = ev.target.closest("tr.dev");
-    if (tr) select(tr.getAttribute("data-handle"));
+    if (!tr) return;
+    var handle = tr.getAttribute("data-handle");
+
+    // A button in the row acts on the device without selecting it.
+    var button = ev.target.closest("button");
+    if (button) {
+      var act = button.getAttribute("data-act");
+      if (act === "edit") openEdit(handle);
+      else if (act === "forget") forgetOne(handle);
+      return;
+    }
+    select(handle);
   });
 
   loadInterfaces().then(load).catch(function (e) {
-    setBanner("bad", "<b>Could not load.</b> " + text(e && e.message));
+    setBanner("bad", "<b>Could not load.</b> " + esc(e && e.message));
   });
 })();
 </script>

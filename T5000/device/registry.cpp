@@ -48,6 +48,19 @@ namespace t5000::device
                 if (device.mini_type != 0)                     existing.mini_type = device.mini_type;
                 if (device.firmware != 0)                      existing.firmware = device.firmware;
                 if (!device.address_note.empty())              existing.address_note = device.address_note;
+                if (!device.panel_name.empty())                existing.panel_name = device.panel_name;
+
+                // History moves forwards only. A scan numbered lower than the
+                // one already recorded, or an older timestamp, is old news.
+                // The placement is the operator's and is not merged at all;
+                // see DeviceRecord::placement.
+                if (device.answered_scan > existing.answered_scan)
+                    existing.answered_scan = device.answered_scan;
+                if (device.last_seen > existing.last_seen)
+                    existing.last_seen = device.last_seen;
+                if (device.first_seen != 0 &&
+                    (existing.first_seen == 0 || device.first_seen < existing.first_seen))
+                    existing.first_seen = device.first_seen;
 
                 // As a pair, from complete observations only. Field by field,
                 // a later response whose sender was not known would keep the
@@ -170,6 +183,31 @@ namespace t5000::device
         // that happens to have been handed the same number.
     }
 
+    bool Registry::remove(Handle handle)
+    {
+        const int i = index_of(handle);
+        if (i < 0)
+            return false;
+
+        m_devices.erase(m_devices.begin() + i);
+        if (m_selected == handle)
+            m_selected = kNoHandle;
+
+        // As in clear(), m_next_handle stays where it is, so the removed
+        // device's handle is never given to another one.
+        return true;
+    }
+
+    bool Registry::set_placement(Handle handle, const Placement& placement)
+    {
+        const int i = index_of(handle);
+        if (i < 0)
+            return false;
+
+        m_devices[i].placement = placement;
+        return true;
+    }
+
     int Registry::index_of(Handle handle) const
     {
         if (handle == kNoHandle)
@@ -257,16 +295,23 @@ namespace t5000::device
         // Modbus id 0 is not an address, so several devices reporting it are
         // not in conflict with each other. Without this, every unconfigured
         // device on a subnet would accuse every other one.
+        //
+        // A device known only from the saved list is left out on both sides;
+        // see the header.
+        const auto takes_part = [](const DeviceRecord& d) {
+            return d.modbus_id_reported != 0 && d.provenance != Provenance::Restored;
+        };
+
         std::map<int, int> counts;
         for (const auto& d : m_devices)
-            if (d.modbus_id_reported != 0)
+            if (takes_part(d))
                 counts[d.modbus_id_reported]++;
 
         int flagged = 0;
         for (auto& d : m_devices)
         {
             const int id = d.modbus_id_reported;
-            if (id == 0 || counts[id] < 2)
+            if (!takes_part(d) || counts[id] < 2)
                 continue;
 
             Repair repair;

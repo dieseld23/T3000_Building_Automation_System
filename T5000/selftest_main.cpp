@@ -28,6 +28,8 @@ int run_input_text_tests();
 int run_custom_ranges_tests();
 int run_input_rows_tests();
 int run_inputs_read_tests();
+int run_device_db_tests();
+int run_device_list_tests();
 
 namespace
 {
@@ -105,6 +107,10 @@ int run_selftests(int argc, char** argv)
     run_input_rows_tests();
     printf("\n");
     run_inputs_read_tests();
+    printf("\n");
+    run_device_db_tests();
+    printf("\n");
+    run_device_list_tests();
 
     const int failures = t5000::testing::g_failures;
     const int checks   = t5000::testing::g_checks;

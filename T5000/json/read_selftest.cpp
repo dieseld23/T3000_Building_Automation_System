@@ -121,6 +121,68 @@ namespace
     }
 }
 
+namespace
+{
+    void test_a_flat_object_is_read_key_by_key()
+    {
+        section("a flat object is read key by key, with its escapes decoded");
+
+        std::map<std::string, FlatValue> f;
+        std::string error;
+
+        check(parse_flat_object(" { \"a\" : \"x\\ty\" , \"n\": 12 ,\"b\":true,\"z\":null } ", f, error),
+              "an object with spaces and mixed values is read");
+        check(f["a"].is_string && f["a"].text == "x\ty", "a string, its escape decoded");
+        check(!f["n"].is_string && f["n"].text == "12", "a number, kept as its text");
+        check(f["b"].text == "true", "a bool");
+        check(f["z"].text == "null", "and null");
+
+        check(parse_flat_object("{}", f, error), "an empty object is read");
+        check(f.empty(), "as empty");
+
+        check(parse_flat_object("{\"k\":\"\\u00e9\\u20ac\\ud83d\\ude00\\/\"}", f, error), "unicode escapes are read");
+        check(f["k"].text == "\xC3\xA9\xE2\x82\xAC\xF0\x9F\x98\x80/", "as UTF-8 of one, two and four bytes");
+
+        check(parse_flat_object("{\"k\":\"\xC3\xA9\"}", f, error), "raw UTF-8 passes through");
+        check(f["k"].text == "\xC3\xA9", "unchanged");
+    }
+
+    void test_a_flat_object_refuses_what_it_cannot_read()
+    {
+        section("a flat object that is not one, or is malformed, is refused with a reason");
+
+        std::map<std::string, FlatValue> f;
+        std::string error;
+
+        const char* bad[] = {
+            "",
+            "[1,2]",
+            "{\"a\":\"unclosed}",
+            "{\"a\":{\"b\":1}}",
+            "{\"a\":[1]}",
+            "{\"a\":1,\"a\":2}",
+            "{\"a\":1} trailing",
+            "{\"a\" 1}",
+            "{\"a\":}",
+            "{\"a\":1,}",
+            "{a:1}",
+            "{\"a\":\"\\x\"}",
+            "{\"a\":\"\\u12\"}",
+            "{\"a\":\"\\ud83d\"}",
+            "{\"a\":\"\\ude00\"}",
+            "{\"a\":\"\\ud83d\\u0041\"}",
+            "{\"a\":\"line\nbreak\"}",
+        };
+        for (const char* text : bad)
+        {
+            error.clear();
+            const bool read = parse_flat_object(text, f, error);
+            check(!read, text);
+            check(!error.empty(), "and says why");
+        }
+    }
+}
+
 int run_json_read_tests()
 {
     test_it_reads_the_shapes_it_claims_to();
@@ -128,5 +190,7 @@ int run_json_read_tests()
     test_a_present_but_broken_value_is_refused();
     test_a_negative_handle_is_refused_not_wrapped();
     test_it_admits_what_it_cannot_do();
+    test_a_flat_object_is_read_key_by_key();
+    test_a_flat_object_refuses_what_it_cannot_read();
     return 0;
 }
