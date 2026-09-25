@@ -670,6 +670,147 @@ namespace
             check(other->provenance == Provenance::ManuallyAdded, "  still as added by hand");
     }
 
+    HandAdded a_t3_oem(uint32_t serial)
+    {
+        HandAdded d = typed_in(serial, ProductClassId::Tstat10);
+        d.mini_type = static_cast<int>(MiniType::Oem);
+        return d;
+    }
+
+    void test_a_model_is_added_by_hand()
+    {
+        section("a device is added by hand as a model: a T3-OEM is a TSTAT10 with panel type 11");
+
+        TempFile file(L"model");
+        {
+            store::DeviceDb db;
+            Registry reg;
+            StoreStatus status = open_saved_list(db, file.utf8(), reg);
+            Handle h = kNoHandle;
+            std::string message;
+            check(add_device(reg, db, a_t3_oem(8201), status, h, message), "a T3-OEM is added");
+
+            HandAdded unknown = typed_in(8202, ProductClassId::Tstat10);
+            check(add_device(reg, db, unknown, status, h, message), "and a TSTAT10 whose model is not known");
+
+            const DeviceRecord* r = by_serial(reg, 8201);
+            if (require(r != nullptr, "the T3-OEM is listed"))
+            {
+                check(r->product == ProductClassId::Tstat10, "  as a TSTAT10");
+                check_eq(r->mini_type, 11, "  with panel type T3_OEM");
+            }
+        }
+
+        store::DeviceDb db;
+        Registry reg;
+        open_saved_list(db, file.utf8(), reg);
+        const DeviceRecord* r = by_serial(reg, 8201);
+        if (require(r != nullptr, "after a restart the T3-OEM is back"))
+        {
+            check_eq(r->mini_type, 11, "  still a T3-OEM");
+            check(r->provenance == Provenance::ManuallyAdded, "  still as added by hand");
+        }
+        const DeviceRecord* other = by_serial(reg, 8202);
+        if (require(other != nullptr, "and so is the other"))
+            check_eq(other->mini_type, 0, "  with no panel type");
+    }
+
+    void test_a_panel_type_that_is_no_model_is_refused()
+    {
+        section("a panel type that is no model of the product is refused, and changes nothing");
+
+        store::DeviceDb db;
+        Registry reg;
+        StoreStatus status = open_saved_list(db, ":memory:", reg);
+        Handle h = kNoHandle;
+        std::string message;
+
+        HandAdded tb11i = typed_in(8203, ProductClassId::Tstat10);
+        tb11i.mini_type = static_cast<int>(MiniType::Tb11I);
+        check(!add_device(reg, db, tb11i, status, h, message), "a TSTAT10 as panel type 12 is refused");
+        check(message.find("not a model of the TSTAT10") != std::string::npos, "  naming the product");
+        check(message.find("Pick one") != std::string::npos, "  and the page is told to pick from the list");
+
+        HandAdded arm_oem = typed_in(8203, ProductClassId::MiniPanelArm);
+        arm_oem.mini_type = static_cast<int>(MiniType::Oem);
+        check(!add_device(reg, db, arm_oem, status, h, message), "a MiniPanel ARM as a T3-OEM is refused");
+
+        HandAdded unrecognised = typed_in(8203, ProductClassId::Tstat10);
+        unrecognised.mini_type = 200;
+        check(!add_device(reg, db, unrecognised, status, h, message), "a panel type no one names is refused");
+
+        check(h == kNoHandle, "no refusal hands back a handle");
+        check_eq(reg.size(), 0, "nothing is listed");
+        check_eq((long)saved(db).size(), 0, "  or saved");
+
+        HandAdded tstat6 = typed_in(8204, ProductClassId::Tstat6);
+        check(add_device(reg, db, tstat6, status, h, message), "a product with no models takes panel type 0");
+    }
+
+    void test_a_scan_drops_the_model_chosen_by_hand()
+    {
+        section("a scan that finds a device added as a model drops the model chosen for it");
+
+        // A scan does not report a panel type. Kept, the one chosen would
+        // pass for the device's own: after a restart the entry is Restored,
+        // as a device that answered, with a panel type it never gave.
+        TempFile file(L"model-found");
+        {
+            store::DeviceDb db;
+            Registry reg;
+            StoreStatus status = open_saved_list(db, file.utf8(), reg);
+            Handle h = kNoHandle;
+            std::string message;
+            check(add_device(reg, db, a_t3_oem(8101), status, h, message), "a T3-OEM is added by hand");
+
+            DeviceRecord tstat = answered(8101);
+            tstat.product = ProductClassId::Tstat10;
+            ScanSummary summary;
+            record_scan(reg, db, a_scan({ tstat }), 500, summary, status);
+
+            const DeviceRecord* found = by_serial(reg, 8101);
+            if (require(found != nullptr, "a scan finds it"))
+            {
+                check(found->provenance == Provenance::BacnetBroadcast, "  as having answered");
+                check_eq(found->mini_type, 0, "  with the panel type chosen for it gone");
+                check(found->placement.name == "Boiler", "  keeping its name");
+            }
+        }
+
+        store::DeviceDb db;
+        Registry reg;
+        open_saved_list(db, file.utf8(), reg);
+        const DeviceRecord* found = by_serial(reg, 8101);
+        if (require(found != nullptr, "after a restart it is back"))
+        {
+            check(found->provenance == Provenance::Restored, "  as a device that has answered");
+            check_eq(found->mini_type, 0, "  and the file did not keep the panel type chosen either");
+            check(!resolve_panel(found->product, found->mini_type).resolved,
+                  "  so its panel type is unknown, not one it never gave");
+        }
+    }
+
+    void test_a_restored_device_keeps_its_panel_type()
+    {
+        section("a device that answered before keeps its panel type when a scan says nothing of it");
+
+        // The rule for an entry added by hand is that entry's alone. For any
+        // other device a scan's silence keeps what is known.
+        Registry reg;
+        DeviceRecord before = answered(8301);
+        before.provenance = Provenance::Restored;
+        before.mini_type  = static_cast<int>(MiniType::MiniPanelArm);
+        reg.add_or_merge(before);
+        reg.add_or_merge(answered(8301));
+
+        const DeviceRecord* d = by_serial(reg, 8301);
+        if (require(d != nullptr, "it is listed"))
+        {
+            check(d->provenance == Provenance::BacnetBroadcast, "  as having answered");
+            check_eq(d->mini_type, 5, "  with the panel type it had");
+        }
+    }
+
     void test_an_add_request_is_read()
     {
         section("the page's request to add a device is read, numbers as numbers or as text");
@@ -690,7 +831,7 @@ namespace
         check(d.placement.empty(), "  with the placement left empty");
 
         check(!read_add_request("{\"serialNumber\":\"1\"}", d, message), "no product is refused");
-        check(message == "Choose a product.", "  in words for the form, not the field's name");
+        check(message == "Choose a model.", "  in words for the form, not the field's name");
         check(!read_add_request("{\"productId\":\"\",\"serialNumber\":\"1\"}", d, message),
               "  as is the list left on its first line");
         check(!read_add_request("{\"productId\":74}", d, message), "no serial is refused");
@@ -702,6 +843,25 @@ namespace
         check(!read_add_request("{\"productId\":74,\"serialNumber\":4294967296}", d, message),
               "a serial too big for the device's four bytes is refused");
         check(!read_add_request("{\"productId\":256,\"serialNumber\":1}", d, message), "a product past 255 is refused");
+
+        check(read_add_request("{\"productId\":10,\"miniType\":11,\"serialNumber\":1}", d, message),
+              "a model is read");
+        check(d.product == ProductClassId::Tstat10 && d.mini_type == 11, "  as its product and panel type");
+        check(read_add_request("{\"productId\":10,\"miniType\":\"14\",\"serialNumber\":1}", d, message) &&
+                  d.mini_type == 14,
+              "  the panel type as text too");
+        check(read_add_request("{\"productId\":10,\"serialNumber\":1}", d, message) && d.mini_type == 0,
+              "no panel type is 0, a model not known");
+        check(read_add_request("{\"productId\":10,\"miniType\":\"\",\"serialNumber\":1}", d, message) &&
+                  d.mini_type == 0,
+              "  and so is an empty one");
+        check(!read_add_request("{\"productId\":10,\"miniType\":\"x\",\"serialNumber\":1}", d, message),
+              "a panel type that is not a number is refused");
+        check(message == "The model must be one from the list.", "  in words for the form");
+        check(!read_add_request("{\"productId\":10,\"miniType\":256,\"serialNumber\":1}", d, message),
+              "a panel type past 255 is refused");
+        check(!read_add_request("{\"productId\":10,\"miniType\":-1,\"serialNumber\":1}", d, message),
+              "  as is a negative one");
         check(!read_add_request("{\"productId\":74,\"serialNumber\":1,\"name\":5}", d, message),
               "a name that is not text is refused");
         check(!read_add_request("not json", d, message), "and a body that is not JSON");
@@ -726,6 +886,10 @@ int run_device_list_tests()
     test_what_adding_by_hand_refuses();
     test_adding_by_hand_is_refused_when_nothing_is_saved();
     test_a_scan_finds_a_device_added_by_hand();
+    test_a_model_is_added_by_hand();
+    test_a_panel_type_that_is_no_model_is_refused();
+    test_a_scan_drops_the_model_chosen_by_hand();
+    test_a_restored_device_keeps_its_panel_type();
     test_an_add_request_is_read();
     return 0;
 }

@@ -15,11 +15,21 @@ namespace t5000::app
     // The whole capability table, for a product list or a support matrix.
     std::string build_products_json();
 
+    // What a device can be added by hand as, for the Add device list: the
+    // models T3000 names (device::Model), grouped by product, each group
+    // ending with its product's "Model not known"; then every other product
+    // T5000 knows, as itself. Not a third-party device, which cannot be added
+    // by hand. Every entry carries the productId and miniType to send back.
+    std::string build_models_json();
+
     // One product, including its panel-type detail when a mini_type is known.
     //
     // mini_type is passed as the raw byte read off the device rather than as
     // a MiniType, because the value may not be one we recognise - and an
     // unrecognised panel type is exactly the case worth reporting rather than
     // coercing into an enumerator.
-    std::string build_product_json(int product_class_id, int mini_type);
+    //
+    // For an entry added by hand, mini_type is the one chosen with its model,
+    // and the panel says so rather than that it was read.
+    std::string build_product_json(int product_class_id, int mini_type, bool added_by_hand = false);
 }

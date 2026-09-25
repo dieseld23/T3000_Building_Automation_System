@@ -9,6 +9,9 @@
 #include "read_path.h"
 #include "../testing/check.h"
 
+#include <string.h>
+
+#include <string>
 #include <type_traits>
 
 namespace
@@ -318,6 +321,110 @@ namespace
             for (int j = i + 1; j < table.count; j++)
                 check(table.entries[i].id != table.entries[j].id, table.entries[i].name);
     }
+
+    void test_a_t3_oem_is_a_tstat10()
+    {
+        section("a T3-OEM is a TSTAT10 set up as panel type T3_OEM");
+
+        // The report that added models: T3-OEM was missing from the Add
+        // device list, which listed products. T3000 lists it as pid
+        // PM_TSTAT10, sub_pid T3_OEM (global_function.cpp:12127-12135).
+        const Model* oem = find_model(ProductClassId::Tstat10, 11);
+        if (require(oem != nullptr, "a TSTAT10 with panel type 11 is a model"))
+        {
+            check_streq(oem->name, "T3-OEM", "  named T3-OEM, as T3000's Settings page names it");
+            check(oem->type == MiniType::Oem, "  panel type T3_OEM");
+        }
+        check_streq(panel_name(ProductClassId::Tstat10, MiniType::Oem), "T3-OEM",
+                    "the panel of a TSTAT10 set up so goes by that name");
+        check_streq(panel_name(ProductClassId::MiniPanelArm, MiniType::Oem), "OEM",
+                    "  but not the same panel type on a product T3000 does not pair it with");
+
+        const Model* bb = find_model(ProductClassId::MiniPanelArm, static_cast<int>(MiniType::MiniPanelArm));
+        check(bb && strcmp(bb->name, "T3-BB") == 0, "a MiniPanel ARM with panel type 5 is a T3-BB");
+
+        // T3000's list gives T3_3IIC sub_pid T3_NG3 (global_function.cpp:12113);
+        // the table corrects it, and T5000Conformance checks that it still
+        // needs to.
+        const Model* iic = find_model(ProductClassId::Esp32T3Series, static_cast<int>(MiniType::ThreeIic));
+        check(iic && strcmp(iic->name, "T3-3IIC") == 0, "T3-3IIC has panel type T3_3IIC");
+        const Model* ng2 = find_model(ProductClassId::Esp32T3Series, static_cast<int>(MiniType::Ng3));
+        check(ng2 && strcmp(ng2->name, "T3-NG2") == 0, "  and T3_NG3 is T3-NG2's alone");
+    }
+
+    void test_find_model_names_only_pairs_t3000_names()
+    {
+        section("find_model finds only the pairs T3000 names");
+
+        check(find_model(ProductClassId::Tstat10, 0) == nullptr, "panel type 0 is no model: it is \"not set\"");
+        check(find_model(ProductClassId::Cm5, 0) == nullptr, "  not even on a CM5");
+        check(find_model(ProductClassId::Tstat10, static_cast<int>(MiniType::Tb11I)) == nullptr,
+              "a panel type T3000 does not pair with the product is no model of it");
+        check(find_model(ProductClassId::MiniPanelArm, 11) == nullptr, "a T3-OEM is not a MiniPanel ARM");
+        check(find_model(ProductClassId::Tstat10, 256 + 11) == nullptr, "a value past a byte is not cut down to one");
+        check(find_model(ProductClassId::Tstat10, -245) == nullptr, "  nor a negative one");
+    }
+
+    void test_every_model_is_presentable()
+    {
+        section("every model is a product T5000 knows, once, under its own name");
+
+        const ModelTable models = known_models();
+        check_eq(models.count, 15, "T3000's list, less its Custom Device");
+
+        for (int i = 0; i < models.count; i++)
+        {
+            const Model& m = models.entries[i];
+            check(m.name && m.name[0] != '\0', "a model has a name");
+            check(static_cast<int>(m.type) != 0, (std::string(m.name) + ": its panel type is not 0").c_str());
+            check(capabilities(m.product).id == m.product,
+                  (std::string(m.name) + ": its product is in the capability table").c_str());
+            check(m.product != ProductClassId::ThirdPartyDevice,
+                  (std::string(m.name) + ": and is not a third-party device").c_str());
+            check(find_model(m.product, static_cast<int>(m.type)) == &m,
+                  (std::string(m.name) + ": find_model finds this entry").c_str());
+
+            for (int j = i + 1; j < models.count; j++)
+            {
+                const Model& n = models.entries[j];
+                check(strcmp(m.name, n.name) != 0, (std::string(m.name) + ": no other model has its name").c_str());
+                check(m.product != n.product || m.type != n.type,
+                      (std::string(m.name) + ": no other model is the same pair").c_str());
+            }
+        }
+    }
+
+    void test_a_chosen_panel_is_not_said_to_be_read()
+    {
+        section("a panel type chosen by hand is not described as read");
+
+        const int cases[][2] = {
+            { static_cast<int>(ProductClassId::Tstat10), 11 },
+            { static_cast<int>(ProductClassId::Tstat10), 0 },
+            { static_cast<int>(ProductClassId::Cm5), 0 },
+            { static_cast<int>(ProductClassId::MiniPanelArm), 5 },
+        };
+        for (const auto& c : cases)
+        {
+            const auto product = static_cast<ProductClassId>(c[0]);
+            const PanelResolution chosen = resolve_chosen_panel(product, c[1]);
+            const PanelResolution read   = resolve_panel(product, c[1]);
+            const std::string what = std::string(to_string(product)) + " with panel type " + std::to_string(c[1]);
+
+            check(chosen.resolved == read.resolved && chosen.type == read.type,
+                  (what + ": resolves as it would if read").c_str());
+            check(chosen.counts.known == read.counts.known &&
+                      chosen.counts.analog_inputs == read.counts.analog_inputs,
+                  (what + ": with the same counts").c_str());
+            const std::string reason = chosen.reason;
+            check(reason.find("added by hand") != std::string::npos, (what + ": says it was chosen").c_str());
+            check(reason.find("read from") == std::string::npos && reason.find("reports") == std::string::npos,
+                  (what + ": and claims no reading").c_str());
+        }
+        check(std::string(resolve_chosen_panel(ProductClassId::Tstat10, 0).reason).find("no model") !=
+                  std::string::npos,
+              "a product added with its model not known says none was chosen");
+    }
 }
 
 int run_product_tests()
@@ -336,5 +443,9 @@ int run_product_tests()
     test_partial_types_say_which_half_works();
     test_unconfigured_panel_does_not_borrow_cm5_counts();
     test_no_duplicate_entries();
+    test_a_t3_oem_is_a_tstat10();
+    test_find_model_names_only_pairs_t3000_names();
+    test_every_model_is_presentable();
+    test_a_chosen_panel_is_not_said_to_be_read();
     return 0;
 }
