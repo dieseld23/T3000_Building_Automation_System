@@ -26,9 +26,10 @@ namespace
 
         const Request r = parsed(
             "POST /api/devices/forget HTTP/1.1\r\n"
-            "X-Not-Host: evil.example\r\n"
             "hOsT:   127.0.0.1:8730  \r\n"
             "Origin: http://127.0.0.1:8730\r\n"
+            "X-Not-Host: evil.example\r\n"
+            "X-Forwarded-Origin: https://evil.example\r\n"
             "Content-Length: 15\r\n"
             "\r\n"
             "{\"handle\":\"12\"}");
