@@ -17,7 +17,7 @@
 // T3000/CM5/ud_str.h is the live layout. It needs shims to compile outside MFC;
 // cm5_header.h has them and explains each.
 #include "cm5_header.h"
-#include "points.h"
+#include "../wire/points.h"
 
 namespace
 {

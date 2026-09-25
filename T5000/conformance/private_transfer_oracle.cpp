@@ -12,11 +12,15 @@
 // Loopback only. Nothing here can reach a network interface, let alone a
 // controller.
 //
-// This is the one file in T5000 that includes the stack's headers, with the
-// DLL's own include paths set on this file alone in T5000.vcxproj. It uses
+// This is the one file that includes the stack's headers, with the DLL's own
+// include paths set on this file alone in T5000Conformance.vcxproj. It uses
 // them so that every structure crossing into the DLL has the layout the DLL
-// was compiled with; bacnet_link.cpp's hand-written prototypes were fine for a
-// call with no arguments and would not be for these.
+// was compiled with.
+//
+// It is part of the conformance checks, not of T5000.exe: the stack is
+// T3000's, built with MFC, and T5000 neither links it nor needs it to run.
+// Its own codec is bacnet/private_transfer.cpp, which this file compiles and
+// compares.
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -35,8 +39,8 @@
 #include "bip.h"
 #include "datalink.h"
 
-#include "../wire/cm5_header.h"
-#include "private_transfer.h"
+#include "cm5_header.h"
+#include "../bacnet/private_transfer.h"
 #include "../testing/check.h"
 
 #pragma comment(lib, "ws2_32.lib")

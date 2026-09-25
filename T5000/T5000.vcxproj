@@ -7,6 +7,12 @@
     A console application. It serves its UI on http://127.0.0.1:8730, and has a
     self-test mode that the post-build event below runs, so a failing check
     fails the build.
+
+    It builds from T5000.sln, beside this file, with nothing else in the
+    repository present: every file it compiles is under this folder, and it
+    links only Windows libraries. The checks that hold it to T3000's headers,
+    tables and BACnet stack are conformance/T5000Conformance.vcxproj, which
+    "T3000 - VS2019.sln" builds.
   -->
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -42,18 +48,21 @@
   <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <!--
+    Its own folders, not T3000's. "T3000 Output\release" is zipped whole into
+    T3000's update package, so an exe built there ships with T3000.
+  -->
   <PropertyGroup>
-    <OutDir>..\T3000 Output\release\</OutDir>
-    <IntDir>..\T3000 Output\T5000 object\$(Configuration)\</IntDir>
+    <OutDir>$(ProjectDir)bin\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)obj\$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
       <!--
         C++17 for the nested namespace in points.h, and /permissive- so the
         static_asserts are evaluated under standard rules rather than the
-        Microsoft extensions the rest of this solution relies on. This project
-        has no MFC dependency and should not acquire one - wire_guard.cpp shims
-        the few Windows types CM5/ud_str.h needs precisely so it does not.
+        Microsoft extensions T3000's projects rely on. This project has no MFC
+        dependency and should not acquire one.
       -->
       <LanguageStandard>stdcpp17</LanguageStandard>
       <ConformanceMode>true</ConformanceMode>
@@ -64,17 +73,16 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <!--
-        The BACnet stack ships as a DLL, so linking its import library is all
-        this needs. The UseOfMfc=Static on that project applies inside
-        BACnet_Stack_Library.dll and does not reach this process - which is why
-        no MFC decoupling was required after all. bacnet_link.cpp makes that
-        fail at build time if it ever stops being true.
+        Windows libraries only. winsqlite3.lib is the import library for the
+        SQLite that ships with Windows, from the Windows SDK; store/sqlite.h
+        says why that copy. ws2_32 and iphlpapi come in by #pragma from the
+        files that use them.
 
-        winsqlite3.lib is the import library for the SQLite that ships with
-        Windows, from the Windows SDK. store/sqlite.h says why that copy.
+        Not T3000's BACnet stack: T5000 encodes and decodes its own reads
+        (bacnet/private_transfer.cpp). The stack is linked only by the
+        conformance checks, which compare the two.
       -->
-      <AdditionalDependencies>BACnet_Stack_Library.lib;winsqlite3.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>winsqlite3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <!--
@@ -82,13 +90,8 @@
         main() would never execute in CI otherwise, and a decoder that builds but
         decodes wrongly is exactly the failure this project exists to prevent.
         A non-zero exit fails the build.
-
-        The source-root argument is the repository root, where the tests that
-        check a copy against the T3000 source find that source. "$(ProjectDir).." and
-        not $(SolutionDir): a path ending in a backslash before the closing
-        quote escapes the quote on a Windows command line.
       -->
-      <Command>"$(TargetPath)" --selftest --source-root "$(ProjectDir).."</Command>
+      <Command>"$(TargetPath)" --selftest</Command>
       <Message>Running T5000 self-tests</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -105,26 +108,12 @@
     <ClCompile Include="app\scan_json.cpp" />
     <ClCompile Include="app\scan_json_selftest.cpp" />
     <ClCompile Include="bacnet\command.cpp" />
-    <ClCompile Include="bacnet\command_guard.cpp" />
     <ClCompile Include="bacnet\point_read.cpp" />
     <ClCompile Include="bacnet\point_read_selftest.cpp" />
     <ClCompile Include="bacnet\private_transfer.cpp" />
-    <!--
-      The one file that includes the BACnet stack's own headers, so every
-      structure it hands the DLL has the layout the DLL was built with. The
-      stack's include paths and PRINT_ENABLED are set here and nowhere else,
-      so no other file can pick up config.h or ud_str.h from the stack by
-      accident - its ud_str.h is the stale copy of the wire format.
-    -->
-    <ClCompile Include="bacnet\private_transfer_oracle.cpp">
-      <AdditionalIncludeDirectories>..\BacNetDllforVc\;..\BacNetDllforVc\MainCpp\;..\BacNetDllforVc\include\;..\BacNetDllforVc\object\;..\BacNetDllforVc\handler\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>PRINT_ENABLED=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
     <ClCompile Include="bacnet\private_transfer_selftest.cpp" />
-    <ClCompile Include="device\bacnet_link.cpp" />
     <ClCompile Include="display\input_text.cpp" />
     <ClCompile Include="display\input_text_selftest.cpp" />
-    <ClCompile Include="display\tables_guard_selftest.cpp" />
     <ClCompile Include="display\custom_ranges.cpp" />
     <ClCompile Include="display\custom_ranges_selftest.cpp" />
     <ClCompile Include="display\device_text.cpp" />
@@ -155,9 +144,7 @@
     <ClCompile Include="wire\decode.cpp" />
     <ClCompile Include="wire\decode_selftest.cpp" />
     <ClCompile Include="wire\panel.cpp" />
-    <ClCompile Include="wire\panel_guard.cpp" />
     <ClCompile Include="wire\panel_selftest.cpp" />
-    <ClCompile Include="wire\wire_guard.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app\device_list.h" />
@@ -170,7 +157,6 @@
     <ClInclude Include="bacnet\command.h" />
     <ClInclude Include="bacnet\point_read.h" />
     <ClInclude Include="bacnet\private_transfer.h" />
-    <ClInclude Include="device\bacnet_link.h" />
     <ClInclude Include="display\input_text.h" />
     <ClInclude Include="display\tables.h" />
     <ClInclude Include="display\custom_ranges.h" />
@@ -191,7 +177,6 @@
     <ClInclude Include="testing\temp_file.h" />
     <ClInclude Include="web\devices_page.h" />
     <ClInclude Include="web\inputs_page.h" />
-    <ClInclude Include="wire\cm5_header.h" />
     <ClInclude Include="wire\decode.h" />
     <ClInclude Include="wire\panel.h" />
     <ClInclude Include="wire\points.h" />

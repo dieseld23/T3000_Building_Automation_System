@@ -13,12 +13,13 @@
 // also pinned by hand at the places that are easy to get wrong, and anything
 // it does not understand is a failure rather than a guess.
 
-#include "custom_ranges.h"
-#include "tables.h"
+#include "../display/custom_ranges.h"
+#include "../display/tables.h"
 #include "../device/input_rows.h"
 #include "../bacnet/point_read.h"
 #include "../testing/check.h"
 #include "../wire/panel.h"
+#include "source_root.h"
 
 #include <fstream>
 #include <sstream>
@@ -29,6 +30,7 @@ namespace
 {
     using namespace t5000::display;
     using namespace t5000::testing;
+    using t5000::conformance::g_source_root;
 
     // Removes // and /* */ comments, leaving string literals alone.
     std::string strip_comments(const std::string& s)
@@ -394,7 +396,7 @@ namespace
         std::ifstream f(path, std::ios::binary);
         if (!require((bool)f, "T3000/global_define.h can be opened"))
         {
-            printf("        tried %s - pass --source-root <repository root> to --selftest\n", path.c_str());
+            printf("        tried %s - pass --source-root <repository root> to T5000Conformance.exe\n", path.c_str());
             return false;
         }
         std::stringstream ss;

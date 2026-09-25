@@ -53,7 +53,7 @@ give its saved serial, and the page says when it was last seen.
   (`discovery/scanner.h`), and a read can only send a command on the
   `ReadCommand` whitelist (`bacnet/command.h`). A compile-time guard checks
   the whitelist against T3000's command codes and against a list of codes
-  that must never be sent (`bacnet/command_guard.cpp`).
+  that must never be sent (`conformance/command_guard.cpp`).
 - **The device list is a file on this machine.** Saving it, naming a device
   and forgetting one change `T5000.db` and nothing else. None of it is sent to
   a device. T5000 will not write to a database it did not create, such as one
@@ -73,15 +73,17 @@ give its saved serial, and the page says when it was last seen.
 
 ## Build, run, test
 
-Build the solution as [`README_Build.md`](../README_Build.md) describes, or
-just T5000:
+T5000 has its own solution, `T5000.sln`, and builds with nothing else from
+the repository: it compiles only what is in this folder and links only
+Windows libraries. No MFC, no .NET, no T3000 project.
 
 ```
-& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" "T3000 - VS2019.sln" -t:T5000 -p:Platform=x86 -p:Configuration=Release
+& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" "T5000\T5000.sln" -p:Platform=x86 -p:Configuration=Release
 ```
 
-The exe lands in `T3000 Output\release\T5000.exe`. Stop any running T5000
-first, since a running server locks the exe.
+The exe lands in `T5000\bin\Release\T5000.exe`, and `T5000.db` and
+`T5000.connection.json` are kept beside it. Stop any running T5000 first,
+since a running server locks the exe.
 
 | Command | Does |
 | --- | --- |
@@ -90,21 +92,32 @@ first, since a running server locks the exe.
 | `T5000.exe --db <file>` | Keeps the device list in `<file>` instead of `T5000.db` beside the exe |
 | `T5000.exe --selftest` | Runs every self-test and exits non-zero if any fails |
 
-The self-test also runs after every build (the post-build step passes
-`--source-root`, so the tests find the T3000 source), and a failing check
-fails the build. Some of the tests read T3000's own headers and fail if a
-table or constant T5000 copied has drifted from them. One, the oracle, has
-T3000's BACnet DLL encode a request and requires T5000's bytes to match.
+The self-test also runs after every build, and a failing check fails the
+build.
 
-`scripts/ci-local.ps1` builds a clean checkout the way CI does; see
-[`README_Build.md`](../README_Build.md).
+**The checks against T3000 are in `conformance/`**, a separate project that
+`T3000 - VS2019.sln` builds and runs, not T5000's own build. They hold
+T5000's copies of T3000 to the originals:
+
+- the point, settings and command layouts against `CM5/ud_str.h`;
+- every product code against `ProductModel.h`;
+- the display tables and copied constants against `global_define.h`;
+- the oracle: T3000's BACnet DLL encodes a request, and T5000's bytes must
+  match it.
+
+A change to `wire/`, `bacnet/command.h`, `bacnet/private_transfer.cpp`,
+`device/product.h` or `display/tables.h` is not checked against T3000 until
+those run. Build
+`-t:T5000Conformance` or run `scripts/ci-local.ps1` before pushing one.
+[`README_Build.md`](../README_Build.md) has both.
 
 ## Layout
 
 | Folder | Holds |
 | --- | --- |
 | `app/` | What the routes serve: the Inputs read in page order, the device list kept in step with its saved copy, and the JSON the pages get |
-| `bacnet/` | Private-transfer requests and replies, the command whitelist, and the oracle |
+| `bacnet/` | Private-transfer requests and replies, and the command whitelist |
+| `conformance/` | The checks against T3000: its headers, its tables and its BACnet stack. A separate project, `T5000Conformance.vcxproj`, built by `T3000 - VS2019.sln` |
 | `device/` | Product identity (`ProductClassId` and `MiniType`, kept as distinct types), the device registry, read-path choice, row limits, connection settings |
 | `discovery/` | The scan: the query, parsing the responses, the scanner |
 | `display/` | Ports of how T3000 turns a point into grid text, and the tables it uses |
@@ -112,8 +125,10 @@ T3000's BACnet DLL encode a request and requires T5000's bytes to match.
 | `store/` | The saved device list, on the SQLite that ships with Windows |
 | `testing/` | The check macros, a scripted transport, and temporary files for the tests |
 | `web/` | The two pages, embedded as strings |
-| `wire/` | The struct layouts from `T3000/CM5/ud_str.h`, with compile-time guards on every offset T5000 uses |
+| `wire/` | The struct layouts from `T3000/CM5/ud_str.h`, each offset T5000 uses guarded by `conformance/` |
 
-New source files go in `T5000.vcxproj`. MSBuild puts every object file for
+New source files go in `T5000.vcxproj`, and must not include anything
+outside this folder: T5000 builds on its own, and CI's `t5000` job checks
+out only this folder to prove it. Only `conformance/` reaches into T3000. MSBuild puts every object file for
 this project in one directory, so two `.cpp` files with the same name in
 different folders overwrite each other's object; give each a unique name.

@@ -113,8 +113,9 @@ Two values in there are not what anyone would guess:
   hex parser above it is `#if 0`, :704-740). So `total_length` and `entitysize` go out
   little-endian, inside a BACnet frame that is otherwise big-endian.
 
-These bytes are not taken on trust from this reading. A self-test
-(`bacnet/private_transfer_oracle.cpp`) builds the request exactly as
+These bytes are not taken on trust from this reading. A conformance check
+(`conformance/private_transfer_oracle.cpp`, which T3000's solution builds
+and runs, since it needs T3000's stack) builds the request exactly as
 `GetPrivateData` does, lets the DLL send it to a loopback socket, and requires
 T5000's encoder to match it byte for byte. Mutating the encoder AND its
 hand-written expected bytes the same wrong way - a misreading written down

@@ -86,45 +86,75 @@ CI checks out submodules anyway; `scripts/ci-local.ps1` skips them, and checks o
 T5000
 -----------------------------------------------------------
 
-`T5000` is the standalone configuration tool, in `T5000\`, and it builds as part of the solution. To build only it, add `-t:T5000`:
+`T5000` is the standalone configuration tool, in `T5000\`. It has its own solution, and builds with nothing else from this repository:
 
 ```
-& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" "T3000 - VS2019.sln" -t:T5000 -p:Platform=x86 -p:Configuration=Release
+& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" "T5000\T5000.sln" -p:Platform=x86 -p:Configuration=Release
 ```
 
-* Its self-test runs after every build, as `T5000.exe --selftest --source-root <repo>`, and a failing check fails the build. Some tests read T3000's own headers from the source root, to catch a copied table or constant that has drifted.
-* It builds to `T3000 Output\release\T5000.exe`. A running T5000 locks that file, so stop it before building.
+* It compiles only the files under `T5000\` and links only Windows libraries, so it needs neither MFC nor the .NET targeting pack.
+* Its self-test runs after every build, as `T5000.exe --selftest`, and a failing check fails the build.
+* It builds to `T5000\bin\Release\T5000.exe` (`bin\Debug\` for Debug), with intermediates in `T5000\obj\`. A running T5000 locks the exe, so stop it before building.
 * `T5000.exe` serves its UI on `http://127.0.0.1:8730` and opens a browser; `--no-browser` skips the browser; `--selftest` runs the tests by hand.
 * It keeps its device list in `T5000.db` beside the exe, or in the file `--db <file>` names. The self-test uses a database in memory and temporary files, so a build leaves no `T5000.db` behind.
 * It links `winsqlite3.lib`, the import library for the SQLite in Windows, which comes with the Windows SDK. There is nothing extra to install.
 
 [`T5000/README.md`](T5000/README.md) covers what it does and how to work on it.
 
+### Checking T5000 against T3000
+
+T5000 copies what it needs from T3000: wire layouts, command codes, product codes and display tables. `T5000\conformance\` checks each copy against the T3000 header it came from, and checks T5000's BACnet encoder against T3000's stack.
+
+That project, `T5000Conformance`, is in `T3000 - VS2019.sln`. The solution builds it after `BACnet_Stack_Library` and runs it, so a change on either side that breaks the other fails the solution build. To build and run only those checks:
+
+```
+& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" "T3000 - VS2019.sln" -t:T5000Conformance -p:Platform=x86 -p:Configuration=Release
+```
+
+This builds the stack too, which needs MFC. T5000's own build does not run these checks. Run them, or `scripts/ci-local.ps1`, before pushing a change to any of these files:
+
+* `T5000\wire\`
+* `T5000\bacnet\command.h`
+* `T5000\bacnet\private_transfer.cpp`, which the oracle checks byte for byte against T3000's stack
+* `T5000\device\product.h`
+* `T5000\display\tables.h`
+* the constants the table guard lists
+
 Building a clean checkout, as CI does
 -----------------------------------------------------------
 
-`scripts/ci-local.ps1` builds a throwaway git worktree of a ref with the same command CI runs, so a file that was never committed fails here rather than in CI. Run it with PowerShell 7; under Windows PowerShell 5, git's progress output on stderr is treated as an error.
+`scripts/ci-local.ps1` builds a throwaway git worktree of a ref with the same commands CI runs, so a file that was never committed fails here rather than in CI. Run it with PowerShell 7; under Windows PowerShell 5, git's progress output on stderr is treated as an error.
+
+It runs both of CI's jobs:
+
+* **`t5000`** copies only the checkout's `T5000\` folder somewhere else and builds `T5000\T5000.sln` there, as CI checks out only that folder.
+* **`build`** builds `T3000 - VS2019.sln`.
+
+It fails if either job fails, or if either produces no test summary.
 
 ```
 pwsh -NoProfile -File scripts/ci-local.ps1
+pwsh -NoProfile -File scripts/ci-local.ps1 -Only T5000
 pwsh -NoProfile -File scripts/ci-local.ps1 -Ref origin/master -Parallel
 ```
 
 | Parameter | Default | Does |
 | --- | --- | --- |
 | `-Ref` | `HEAD` | What to build: a branch, tag or SHA |
+| `-Only` | `All` | `T5000` or `T3000` runs just that job |
 | `-WorktreePath` | `C:\t3000-ci` | Where the worktree goes. Keep it short; deep MFC paths hit `MAX_PATH` |
+| `-T5000Path` | `C:\t5000-ci` | Where the `T5000\` folder is copied to be built on its own |
 | `-Parallel` | off | Adds `/m`. Faster, but no longer the exact CI command |
-| `-Keep` | off | Leaves the worktree in place afterwards |
+| `-Keep` | off | Leaves the checkouts in place afterwards |
 
-It checks for MFC for v143 and the .NET 4.5.2 reference assemblies before building, and stops with the reason if either is missing.
+Before building the T3000 solution, it checks for MFC for v143 and the .NET 4.5.2 reference assemblies, and stops with the reason if either is missing.
 
 What to do if CI or local build fails with a build error
 -----------------------------------------------------------
 * If the above fails this is mostly due to:
    * Compilation errors in one or more CPP files
    * Developer _forgot_ to add new files to the project: the `.vcxproj` the file belongs to, such as `T3000\T3000_VS2019.vcxproj` or `T5000\T5000.vcxproj`. The build uses MSBuild and the project files; the `CMakeLists.txt` files in the tree are not part of it.
-   * For T5000, a self-test failure. The build log lists each failed check.
+   * For T5000, a self-test failure, or in the T3000 solution a conformance failure: a T5000 copy that no longer matches T3000. The build log lists each failed check. A layout, command-code or product-code mismatch is a `static_assert`, so it shows as a compile error in `T5000\conformance\`.
 
 Common first-time failures and what they mean:
 
@@ -137,4 +167,6 @@ Common first-time failures and what they mean:
 
 ### CI
 
-`.github/workflows/BuildTest.yml` builds the solution on GitHub's `windows-latest` runner. Since around 2026-06-10 that image has carried Visual Studio 2026 without `C++ MFC for v143` or the .NET Framework 4.5.2 targeting pack, which failed the build at `MSB8041` and `MSB3644`. The workflow now installs MFC for v143 and supplies the 4.5.2 reference assemblies itself before building (since 2026-09-18), and it passes. Because it builds the whole solution, it runs T5000's self-test too.
+`.github/workflows/BuildTest.yml` builds the solution on GitHub's `windows-latest` runner. Since around 2026-06-10 that image has carried Visual Studio 2026 without `C++ MFC for v143` or the .NET Framework 4.5.2 targeting pack, which failed the build at `MSB8041` and `MSB3644`. The workflow now installs MFC for v143 and supplies the 4.5.2 reference assemblies itself before building (since 2026-09-18), and it passes. That solution build also runs T5000's conformance checks.
+
+A second job, `t5000`, checks out only `T5000/` and builds `T5000\T5000.sln`, which runs T5000's self-test. It installs nothing, because T5000 needs neither MFC nor .NET. Any path T5000 reaches outside its own folder is absent there, so this job is what keeps the two separate.

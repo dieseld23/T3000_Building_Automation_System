@@ -1,8 +1,8 @@
 // Tests for the private-transfer codec.
 //
 // The request bytes below are written out by hand from the stack's source.
-// private_transfer_oracle.cpp is what makes them trustworthy: it checks the
-// same encoder against the bytes T3000's own stack emits. These tests are the
+// conformance/private_transfer_oracle.cpp is what makes them trustworthy: it
+// checks the same encoder against the bytes T3000's own stack emits. These tests are the
 // readable half - what each byte is - and the cases the oracle cannot reach:
 // every way a reply can be malformed.
 

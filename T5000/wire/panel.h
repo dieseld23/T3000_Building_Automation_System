@@ -10,7 +10,7 @@
 //   READANALOG_CUS_TABLE_T3000  five Str_table_point       105 bytes each
 //
 // Only the Settings fields T5000 uses are decoded, at offsets that
-// panel_guard.cpp checks against CM5/ud_str.h. The custom tables are not
+// conformance/panel_guard.cpp checks against CM5/ud_str.h. The custom tables are not
 // decoded into structs at all: what T3000 shows from them is a name, and the
 // rules it uses to cut that name out of the bytes (display/custom_ranges.cpp)
 // read past a field's end, so they work on the whole reply rather than on a

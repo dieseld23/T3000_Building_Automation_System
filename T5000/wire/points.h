@@ -9,8 +9,9 @@
 //
 // Copying a wire format is normally a mistake. It is done here because the
 // alternative is worse, and because the copy is checked rather than trusted -
-// wire_guard.cpp includes BOTH this header and the real one and fails the build
-// if any field moves. Treat that guard as part of this file.
+// conformance/wire_guard.cpp includes BOTH this header and the real one and
+// fails the build of T3000's solution if any field moves. Treat that guard as
+// part of this file.
 //
 // DO NOT "fix" this by including BacNetDllforVc/include/ud_str.h instead. That
 // header defines structs with these same names and it is STALE: it still has
@@ -72,7 +73,8 @@ namespace t5000::wire
         // declares this field as description[STR_OUT_DESCRIPTION_LENGTH-2]
         // with the macro at 21, so the array is 19 - while the comment beside
         // it in that same header says "(21 bytes; string)". The comment is
-        // wrong. wire_guard.cpp asserts the arithmetic rather than the prose.
+        // wrong. conformance/wire_guard.cpp asserts the arithmetic rather than
+        // the prose.
         kOutputDescriptionLength = 19,   // STR_OUT_DESCRIPTION_LENGTH - 2
         kOutputLabelLength       = 9,    // STR_OUT_LABEL
     };
@@ -129,7 +131,8 @@ namespace t5000::wire
 
     // 21 + 9 + 4 + 12 = 46. global_define.h:441 records the same number next to
     // BAC_INPUT_ITEM_COUNT. Size agreement is necessary but NOT sufficient - the
-    // stale layout also totals 46 - so wire_guard.cpp checks every offset.
+    // stale layout also totals 46 - so conformance/wire_guard.cpp checks every
+    // offset.
     static_assert(sizeof(InputPoint) == 46, "InputPoint must stay 46 bytes on the wire");
 
     // 19 + 2 + 9 + 4 + 11 = 45. NOT 46, and not the 40 that CM5/ud_str.h's own

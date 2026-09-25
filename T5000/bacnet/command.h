@@ -18,9 +18,10 @@
 // takes a ReadCommand, so handing it a raw byte - a write code, a typo, a value
 // read from somewhere - fails to compile instead of reaching a controller.
 //
-// command_guard.cpp checks every value here against the real header, and
-// against every code in that header this tool must never send. A new value
-// that collides with a write does not build.
+// conformance/command_guard.cpp checks every value here against the real
+// header, and against every code in that header this tool must never send. A
+// new value that collides with a write does not build: T3000's solution,
+// which builds that check, fails.
 
 #include <stddef.h>
 #include <stdint.h>

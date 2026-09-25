@@ -6,8 +6,8 @@
 // later.
 
 #include "read_path.h"
+#include "product.h"
 #include "../testing/check.h"
-#include "../../T3000/ProductModel.h"
 
 #include <string.h>
 
@@ -15,6 +15,10 @@ namespace
 {
     using namespace t5000::device;
     using namespace t5000::testing;
+
+    // A product code as the device reports it. T5000's own values;
+    // conformance/product_guard.cpp checks each against T3000/ProductModel.h.
+    constexpr int pm(ProductClassId p) { return static_cast<int>(p); }
 
     // From T3000/global_define.h.
     constexpr int kModbusRs485      = 0;
@@ -42,11 +46,11 @@ namespace
     {
         section("private-data device set mirrors Bacnet_Private_Device");
 
-        check(is_private_data_device(PM_TSTAT10), "TSTAT10 is a private-data device");
-        check(is_private_data_device(PM_CM5), "CM5");
-        check(is_private_data_device(PM_MINIPANEL), "MINIPANEL");
-        check(is_private_data_device(PM_MINIPANEL_ARM), "MINIPANEL_ARM");
-        check(is_private_data_device(PM_ESP32_T3_SERIES), "ESP32_T3_SERIES");
+        check(is_private_data_device(pm(ProductClassId::Tstat10)), "TSTAT10 is a private-data device");
+        check(is_private_data_device(pm(ProductClassId::Cm5)), "CM5");
+        check(is_private_data_device(pm(ProductClassId::MiniPanel)), "MINIPANEL");
+        check(is_private_data_device(pm(ProductClassId::MiniPanelArm)), "MINIPANEL_ARM");
+        check(is_private_data_device(pm(ProductClassId::Esp32T3Series)), "ESP32_T3_SERIES");
         check(!is_private_data_device(9999), "an unknown product is not");
     }
 
@@ -54,20 +58,20 @@ namespace
     {
         section("PTP firmware cutoff is >= 525, not > 525");
 
-        check(!ptp_would_be_enabled(PM_TSTAT10, 524), "524 does not enable PTP");
-        check(ptp_would_be_enabled(PM_TSTAT10, 525), "525 does enable PTP");
-        check(ptp_would_be_enabled(PM_TSTAT10, 526), "526 does enable PTP");
+        check(!ptp_would_be_enabled(pm(ProductClassId::Tstat10), 524), "524 does not enable PTP");
+        check(ptp_would_be_enabled(pm(ProductClassId::Tstat10), 525), "525 does enable PTP");
+        check(ptp_would_be_enabled(pm(ProductClassId::Tstat10), 526), "526 does enable PTP");
 
         // BacnetView.cpp:7740 enables PTP for the ESP32 series without looking
         // at the firmware version at all.
-        check(ptp_would_be_enabled(PM_ESP32_T3_SERIES, 0), "ESP32 ignores firmware entirely");
+        check(ptp_would_be_enabled(pm(ProductClassId::Esp32T3Series), 0), "ESP32 ignores firmware entirely");
     }
 
     void test_tstat_below_cutoff_falls_back_and_explains()
     {
         section("a Tstat below the cutoff falls back to registers, with a reason");
 
-        Decision d = choose_read_path(PM_TSTAT10, 520, kMbTcpipToMbRs485);
+        Decision d = choose_read_path(pm(ProductClassId::Tstat10), 520, kMbTcpipToMbRs485);
 
         check(d.path == ReadPath::ModbusRegisters, "falls back to Modbus registers");
 
@@ -88,7 +92,7 @@ namespace
     {
         section("a current Tstat on Modbus uses the PTP tunnel");
 
-        Decision d = choose_read_path(PM_TSTAT10, 525, kMbTcpipToMbRs485);
+        Decision d = choose_read_path(pm(ProductClassId::Tstat10), 525, kMbTcpipToMbRs485);
         check(d.path == ReadPath::PrivateDataOverPtp, "uses private data over PTP");
         check_streq(d.summary, "private data over PTP", "summary");
     }
@@ -100,7 +104,7 @@ namespace
         // Low firmware, but BACnet/IP is not in the guard, so the tunnel is
         // irrelevant. Getting this wrong would have the tool demand a firmware
         // update from devices that never needed one.
-        Decision d = choose_read_path(PM_CM5, 100, kBacnetIp);
+        Decision d = choose_read_path(pm(ProductClassId::Cm5), 100, kBacnetIp);
         check(d.path == ReadPath::PrivateData, "reads private data directly");
     }
 
@@ -112,16 +116,16 @@ namespace
         // decision said "private data". T3000 opens its private-data view for
         // five products only (MainFrm.cpp:7375-7380) - a Tstat8 is not one of
         // them, over any transport.
-        Decision d = choose_read_path(PM_TSTAT8, 600, kBacnetIp);
+        Decision d = choose_read_path(pm(ProductClassId::Tstat8), 600, kBacnetIp);
         check(d.path == ReadPath::ModbusRegisters, "a Tstat8 on BACnet/IP goes to registers");
         check(d.detail.find("does not support private-data") != std::string::npos,
               "and says it is the product");
 
-        d = choose_read_path(PM_TSTAT8, 600, kModbusTcpip);
+        d = choose_read_path(pm(ProductClassId::Tstat8), 600, kModbusTcpip);
         check(d.path == ReadPath::ModbusRegisters, "and so does one on Modbus TCP");
 
         // Each of the five still reaches private data on BACnet/IP.
-        const int five[] = { PM_CM5, PM_MINIPANEL, PM_MINIPANEL_ARM, PM_ESP32_T3_SERIES, PM_TSTAT10 };
+        const int five[] = { pm(ProductClassId::Cm5), pm(ProductClassId::MiniPanel), pm(ProductClassId::MiniPanelArm), pm(ProductClassId::Esp32T3Series), pm(ProductClassId::Tstat10) };
         bool all = true;
         for (int p : five)
             all = all && choose_read_path(p, 600, kBacnetIp).path == ReadPath::PrivateData;

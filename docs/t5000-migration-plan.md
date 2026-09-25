@@ -23,6 +23,12 @@ are not started. The stage table below has each stage's state, and
 [Next](#next) is the list of what comes after.
 [`T5000/README.md`](../T5000/README.md) describes the tool as it is today.
 
+T5000 builds on its own, from `T5000/T5000.sln`: it compiles nothing of
+T3000's, links only Windows libraries, and CI builds it from a checkout of
+its folder alone. What it copies from T3000 - layouts, codes, tables - is
+checked against the originals by `T5000/conformance/`, which
+`T3000 - VS2019.sln` builds with T3000's BACnet stack and runs.
+
 ---
 
 ## The headline: additive, not multiplicative
@@ -32,7 +38,9 @@ It does not.
 
 **There is one point-struct layout.** Every product that uses the struct path
 uses the same `Str_in_point` / `Str_out_point` / `Str_variable_point`. All
-three are now guarded field-by-field in `T5000/wire/`, compiler-enforced:
+three are copied in `T5000/wire/` and guarded field-by-field against
+`CM5/ud_str.h` by `T5000/conformance/`, compiler-enforced when
+`T3000 - VS2019.sln` builds:
 
 | Struct | Size | Guarded |
 |---|---|---|
@@ -41,7 +49,7 @@ three are now guarded field-by-field in `T5000/wire/`, compiler-enforced:
 | `VariablePoint` | 39 | ✓ every field |
 
 The panel's settings block and its two custom-range tables, which the Inputs
-read asks for first, are guarded as well (`wire/panel_guard.cpp`), on the
+read asks for first, are guarded as well (`conformance/panel_guard.cpp`), on the
 fields T5000 reads.
 
 **There are three data paths, not thirty.**
@@ -190,7 +198,8 @@ That is the source-side `CString` cost, and it lands here, not later.
 *Done for Inputs.* The grid itself, `BacnetInput.cpp:951-1237`, turned out to
 be the thing to port rather than the two label helpers. It is in
 `T5000/display/input_text.cpp`, with the tables in `display/tables.h`, checked
-against `global_define.h` on every build. `Device_Basic_Setting` is read too
+against `global_define.h` by `conformance/tables_guard.cpp` on every build of
+T3000's solution. `Device_Basic_Setting` is read too
 (`READ_SETTING_COMMAND`, `app/inputs_read.cpp`), and so are the custom range
 tables; the row limits and per-model labels they drive are ported. Still to
 come: the Panel and Type columns, and Outputs and Variables.
@@ -334,9 +343,9 @@ The stale copy is the one that looks portable (it includes only `stdint.h`
 and `stdbool.h`), which is what makes it dangerous: a tool built on it would
 compile cleanly and misread every point.
 
-T5000 includes the live header unmodified, through the shims in
-`wire/cm5_header.h`, and `wire/wire_guard.cpp` checks every field's offset and
-size against it. A `sizeof` check alone would not catch the difference above,
+T5000's conformance checks include the live header unmodified, through the
+shims in `conformance/cm5_header.h`, and `conformance/wire_guard.cpp` checks
+every field's offset and size against it. A `sizeof` check alone would not catch the difference above,
 because the two copies differ by which field sits at an offset, not by size.
 
 ### What the write path must not reproduce
@@ -425,12 +434,13 @@ makes the wire guard work. No hardware needed.*
 
 *Done.* `ProductClassId` and `MiniType` are separate `enum class` types
 (`device/product.h`), and `product_selftest.cpp` asserts the collisions above,
-so a renumbering is noticed. The one place T3000 mixes them, the
+so a renumbering is noticed. `conformance/product_guard.cpp` checks all
+ninety product codes against `ProductModel.h`. The one place T3000 mixes them, the
 `bacnet_device_type` row chain, is ported with the mix kept explicit as a
 plain `int` (`device/input_rows.h`).
 
 **The Tstat register model is a second wire format with no guard.** The point
-structs are protected by `wire_guard.cpp`; `product_register_value[]` has
+structs are protected by `conformance/wire_guard.cpp`; `product_register_value[]` has
 nothing equivalent, and it is hundreds of named indices. *Cheapest experiment:
 pick the ten registers the Tstat screen actually reads and assert their indices
 against the header the same way, before building on them.*
