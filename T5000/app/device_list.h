@@ -63,6 +63,40 @@ namespace t5000::app
                       const device::Placement& placement, const StoreStatus& status,
                       std::string& message);
 
+    // What the operator gives for a device added by hand.
+    //
+    // The serial and the product are required. The serial is how a scan that
+    // later finds the device is matched to this entry, so it has to be the
+    // one on the device's label; the product is what the entry is until
+    // then. The name and location are optional, as for any device.
+    struct HandAdded
+    {
+        uint32_t                serial  = 0;
+        device::ProductClassId  product = device::ProductClassId::Unknown;
+        device::Placement       placement;
+    };
+
+    // Adds a device T5000 has not found - one on another network, or not
+    // installed yet - to the list and the saved file, so it can be named and
+    // placed before anyone can reach it.
+    //
+    // Nothing is sent to it, now or when it is selected (plan_inputs_read).
+    // When a scan finds a device with its serial, that device takes the
+    // entry's place in the list, keeping the name and location given here
+    // (Registry::add_or_merge).
+    //
+    // Refused for a serial that is not a usable key, a product T5000 has not
+    // been taught about, a serial already in the list, and when the list is
+    // not being saved, since the entry would be gone when T5000 closes.
+    // `handle` is the new device's.
+    bool add_device(device::Registry& registry, store::DeviceDb& db, const HandAdded& device,
+                    const StoreStatus& status, device::Handle& handle, std::string& message);
+
+    // The body the page sends: {"productId":74,"serialNumber":"123456"} with
+    // name, building, floor and room as for a placement. The two numbers may
+    // come as JSON numbers or as strings of digits.
+    bool read_add_request(const std::string& body, HandAdded& device, std::string& message);
+
     // The longest name or location kept, in characters.
     constexpr int kMaxPlacementChars = 60;
 

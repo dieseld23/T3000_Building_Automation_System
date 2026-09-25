@@ -10,9 +10,11 @@ namespace t5000::store
 
         // Version 1.
         //
-        // kind is 'scanned' for a device found on the network. 'virtual' is
-        // allowed now for the virtual devices that come next, because SQLite
-        // cannot change a CHECK constraint without rebuilding the table.
+        // kind is 'scanned' for a real device: one a scan can find, keyed on
+        // the serial it reports. Since version 2 that includes a device added
+        // by hand before a scan has found it. 'virtual' is allowed now for the
+        // virtual devices that come next, because SQLite cannot change a CHECK
+        // constraint without rebuilding the table.
         //
         // The serial CHECK is is_uninitialised_serial, in SQL: 0 and
         // 0xFFFFFFFF are never keys.
@@ -40,6 +42,21 @@ namespace t5000::store
             "  last_seen        INTEGER NOT NULL,"
             "  UNIQUE (kind, serial)"
             ");";
+
+        // Version 2: whether the operator added the device by hand.
+        //
+        // A column rather than a third kind. A device added by hand and the
+        // device a scan later finds with its serial are one device, so they
+        // must be one row, which UNIQUE (kind, serial) holds only while both
+        // are the same kind. And SQLite adds a column in place, where a new
+        // kind would mean rebuilding the table to change its CHECK.
+        //
+        // It stays set once the device has been found. It says how the device
+        // came to be listed; whether it has answered a scan since is
+        // last_seen's to say.
+        const char* const kUpgradeToV2 =
+            "ALTER TABLE devices ADD COLUMN added_by_hand INTEGER NOT NULL DEFAULT 0"
+            "  CHECK (added_by_hand IN (0, 1));";
 
         bool read_int(Database& db, const char* sql, int64_t& out, std::string& error)
         {
@@ -126,18 +143,6 @@ namespace t5000::store
                 close();
                 return false;
             }
-
-            Transaction t(m_db);
-            if (!t.began() ||
-                !m_db.exec(kCreateV1, error) ||
-                !m_db.exec("PRAGMA user_version = 1", error) ||
-                !t.commit())
-            {
-                if (error.empty())
-                    error = t.error();
-                close();
-                return false;
-            }
         }
         else
         {
@@ -153,6 +158,39 @@ namespace t5000::store
             if (ours != 1)
             {
                 error = "it is a SQLite database, but not a T5000 device list";
+                close();
+                return false;
+            }
+        }
+
+        if (version < kSchemaVersion)
+        {
+            // One path for a new file and an old one. A new file is made at
+            // version 1 and brought up from there, so every new list goes
+            // through the same steps as one an older T5000 has been keeping
+            // for months, and there is one shape for each version, not two.
+            //
+            // In one transaction: a step that fails leaves the file exactly
+            // as it was, at the version it was.
+            const std::string set_version = "PRAGMA user_version = " + std::to_string(kSchemaVersion);
+
+            Transaction t(m_db);
+            bool ok = t.began();
+            if (ok && version < 1)
+                ok = m_db.exec(kCreateV1, error);
+            if (ok && version < 2)
+                ok = m_db.exec(kUpgradeToV2, error);
+            if (ok)
+                ok = m_db.exec(set_version.c_str(), error);
+            if (ok)
+                ok = t.commit();
+
+            if (!ok)
+            {
+                if (error.empty())
+                    error = t.error();
+                if (version != 0)
+                    error = "it could not be brought up to this build's version (" + error + ")";
                 close();
                 return false;
             }
@@ -176,7 +214,7 @@ namespace t5000::store
                     "SELECT serial, product_class_id, mini_type, firmware, modbus_id,"
                     "       parent_serial, object_instance, host, answered_from, reported_ip,"
                     "       bacnet_port, panel_name, name, building, floor, room,"
-                    "       first_seen, last_seen"
+                    "       first_seen, last_seen, added_by_hand"
                     "  FROM devices WHERE kind = 'scanned' ORDER BY id");
 
         for (;;)
@@ -219,11 +257,31 @@ namespace t5000::store
             d.first_seen = q.column_int(16);
             d.last_seen  = q.column_int(17);
 
-            // It was saved because it answered a scan, so it has been
-            // reached - in an earlier session. answered_scan stays 0: it has
-            // not answered one in this session.
-            d.provenance           = Provenance::Restored;
-            d.reached              = true;
+            // A device added by hand that no scan has found has nothing a
+            // scan learned: no address, no firmware, no panel name, only what
+            // the operator typed. It comes back as it was added, and as never
+            // reached, so nothing takes the product the operator picked for
+            // one the device reported.
+            //
+            // Decided on last_seen as well as the flag, which stays set once
+            // the device is found. A device added by hand that has since
+            // answered a scan comes back like any other saved device.
+            const bool added_by_hand = q.column_int(18) != 0;
+            if (added_by_hand && d.last_seen == 0)
+            {
+                d.provenance = Provenance::ManuallyAdded;
+                d.reached    = false;
+            }
+            else
+            {
+                // Saved because it answered a scan, so it has been reached -
+                // in an earlier session.
+                d.provenance = Provenance::Restored;
+                d.reached    = true;
+            }
+
+            // answered_scan stays 0 either way: it has not answered a scan in
+            // this session.
             d.observation_complete = false;
 
             out.push_back(d);
@@ -242,19 +300,26 @@ namespace t5000::store
             return false;
         }
 
+        const int64_t first = d.first_seen != 0 ? d.first_seen : d.last_seen;
+
         if (found == Statement::Step::Row)
         {
             const int64_t id = find.column_int(0);
 
             // The observed fields, as the registry holds them after the merge.
-            // Not name, building, floor, room or first_seen: those are the
-            // operator's, or history, and an observation changes neither.
+            // Not name, building, floor or room: those are the operator's, and
+            // an observation says nothing about them.
+            //
+            // first_seen is history, and set only while it is 0, which is how
+            // a device added by hand is saved. The first scan to find it
+            // gives it one; no later scan moves it.
             Statement u(m_db,
                         "UPDATE devices SET product_class_id = ?2, mini_type = ?3, firmware = ?4,"
                         "       modbus_id = ?5, parent_serial = ?6, object_instance = ?7,"
                         "       host = ?8, answered_from = ?9, reported_ip = ?10,"
                         "       bacnet_port = ?11, panel_name = ?12,"
-                        "       last_seen = max(last_seen, ?13)"
+                        "       last_seen = max(last_seen, ?13),"
+                        "       first_seen = CASE WHEN first_seen = 0 THEN ?14 ELSE first_seen END"
                         " WHERE id = ?1");
             u.bind(1, id);
             u.bind(2, (int64_t)static_cast<uint8_t>(d.product));
@@ -269,6 +334,7 @@ namespace t5000::store
             u.bind(11, (int64_t)d.connection.udp_port);
             u.bind(12, d.panel_name);
             u.bind(13, d.last_seen);
+            u.bind(14, first);
             if (u.step() != Statement::Step::Done)
             {
                 error = u.error();
@@ -296,15 +362,20 @@ namespace t5000::store
 
         // New. The whole record, placement included: a device the registry
         // already has a name for - because its row was lost, say - keeps it.
+        return insert(d, /*added_by_hand*/ false, error);
+    }
+
+    bool DeviceDb::insert(const DeviceRecord& d, bool added_by_hand, std::string& error)
+    {
         const int64_t first = d.first_seen != 0 ? d.first_seen : d.last_seen;
 
         Statement i(m_db,
                     "INSERT INTO devices (kind, serial, product_class_id, mini_type, firmware,"
                     "       modbus_id, parent_serial, object_instance, host, answered_from,"
                     "       reported_ip, bacnet_port, panel_name, name, building, floor, room,"
-                    "       first_seen, last_seen)"
+                    "       first_seen, last_seen, added_by_hand)"
                     " VALUES ('scanned', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,"
-                    "         ?13, ?14, ?15, ?16, ?17, ?18)");
+                    "         ?13, ?14, ?15, ?16, ?17, ?18, ?19)");
         i.bind(1, (int64_t)d.serial_number);
         i.bind(2, (int64_t)static_cast<uint8_t>(d.product));
         i.bind(3, (int64_t)d.mini_type);
@@ -323,12 +394,42 @@ namespace t5000::store
         i.bind(16, d.placement.room);
         i.bind(17, first);
         i.bind(18, d.last_seen);
+        i.bind(19, (int64_t)(added_by_hand ? 1 : 0));
         if (i.step() != Statement::Step::Done)
         {
             error = i.error();
             return false;
         }
         return true;
+    }
+
+    bool DeviceDb::add_by_hand(const DeviceRecord& device, std::string& error)
+    {
+        if (!device.has_stable_identity())
+        {
+            error = "a device with no serial number cannot be saved";
+            return false;
+        }
+
+        // Asked first, for a reason worth reading. The table's UNIQUE would
+        // refuse the insert below anyway, in SQLite's words.
+        Statement find(m_db, "SELECT added_by_hand FROM devices WHERE kind = 'scanned' AND serial = ?1");
+        find.bind(1, (int64_t)device.serial_number);
+
+        const Statement::Step found = find.step();
+        if (found == Statement::Step::Error)
+        {
+            error = find.error();
+            return false;
+        }
+        if (found == Statement::Step::Row)
+        {
+            error = "serial " + std::to_string(device.serial_number) + " is already in the saved list" +
+                    (find.column_int(0) != 0 ? ", added by hand" : "");
+            return false;
+        }
+
+        return insert(device, /*added_by_hand*/ true, error);
     }
 
     bool DeviceDb::save_scanned(const std::vector<DeviceRecord>& devices, std::string& error)

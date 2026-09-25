@@ -141,7 +141,8 @@ namespace t5000::web
   dialog form{padding:16px 18px}
   dialog h2{font-size:14px;font-weight:600;margin:0 0 2px}
   dialog label{display:block;font-size:12px;color:var(--dim);margin:10px 0 0}
-  dialog input[type=text]{display:block;width:100%;margin-top:3px}
+  dialog input[type=text],dialog select{display:block;width:100%;margin-top:3px}
+  dialog .lead{font-size:12px;color:var(--dim);margin:4px 0 0}
   dialog .note{font-size:11px;color:var(--dim);margin:14px 0 0}
   dialog .err{font-size:12px;color:var(--bad);margin:8px 0 0}
   dialog .buttons{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
@@ -168,6 +169,7 @@ namespace t5000::web
       <option value="20000">20 s (stragglers)</option>
     </select>
   </label>
+  <button id="add" type="button">Add device&hellip;</button>
   <button id="clear" type="button">Forget all&hellip;</button>
   <button id="scan" type="button" class="primary">Scan</button>
 </header>
@@ -222,6 +224,28 @@ namespace t5000::web
   </form>
 </dialog>
 
+<dialog id="add-dialog">
+  <form id="add-form">
+    <h2>Add a device by hand</h2>
+    <p class="lead">For a device no scan has found: one on a network you are not on, or not
+      installed yet. It is listed and saved, and can be named and placed.</p>
+    <label>Product <select id="a-product"></select></label>
+    <label>Serial number <input type="text" id="a-serial" inputmode="numeric" autocomplete="off"></label>
+    <label>Name <input type="text" id="a-name" maxlength="60" autocomplete="off"></label>
+    <label>Building <input type="text" id="a-building" maxlength="60" list="dl-building" autocomplete="off"></label>
+    <label>Floor <input type="text" id="a-floor" maxlength="60" list="dl-floor" autocomplete="off"></label>
+    <label>Room <input type="text" id="a-room" maxlength="60" list="dl-room" autocomplete="off"></label>
+    <p class="note">The serial is how a scan recognises the device later, so use the one on its
+      label. Nothing is sent to it until a scan finds a device with that serial; that device
+      then takes this entry's place, with the name and location given here.</p>
+    <p class="err" id="add-error" hidden></p>
+    <div class="buttons">
+      <button type="button" id="add-cancel">Cancel</button>
+      <button type="submit" id="add-save" class="primary">Add</button>
+    </div>
+  </form>
+</dialog>
+
 <footer>
   <span id="readonly-note">Scanning is read-only. No register is written.</span>
   <span id="saved-note"></span>
@@ -258,6 +282,11 @@ namespace t5000::web
   }
 
   function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+
+  // An entry the operator typed in that no scan has found. The server says
+  // so through the provenance; once a scan finds the serial it changes.
+  var BY_HAND = "added by hand";
+  function byHand(d) { return d.provenance === BY_HAND; }
 
   function setBanner(kind, html) {
     var b = $("banner");
@@ -458,7 +487,11 @@ namespace t5000::web
 
   function seenCell(d) {
     var td = document.createElement("td");
-    if (d.answeredLastScan) {
+    if (byHand(d)) {
+      td.appendChild(el("span", "pill pill-info", BY_HAND));
+      td.title = "Added by hand. No scan has found a device with this serial, so nothing has " +
+                 "been read from it and nothing is sent to it.";
+    } else if (d.answeredLastScan) {
       td.appendChild(el("span", "pill pill-ok", "answered"));
       td.title = "Answered the last scan (" + d.provenance + ").";
     } else if (d.seenThisSession) {
@@ -542,6 +575,11 @@ namespace t5000::web
     // one T5000 contacts. When the device describes itself differently,
     // say so, rather than leave the operator to wonder which is in use.
     var addr = el("td", null, d.address);
+    if (!d.address) {
+      addr.className = "dim";
+      addr.textContent = "—";
+      if (byHand(d)) addr.title = "Not known until a scan finds it.";
+    }
     if (d.addressMismatch) {
       addr.appendChild(document.createTextNode(" "));
       var differs = el("span", "pill pill-warn", "reports " + d.reportedIp);
@@ -786,7 +824,11 @@ namespace t5000::web
     if (!d) return;
 
     var saved = d.hasStableIdentity && state.store.saving;
-    var question = saved
+    var question = byHand(d)
+      ? "Forget " + describe(d) + "?\n\nIt was added by hand and no scan has found it, so it " +
+        "is taken off the list and out of the saved file for good, with its name and " +
+        "location. Nothing is sent to any device."
+      : saved
       ? "Forget " + describe(d) + "?\n\nIt is taken off the list and out of the saved file, " +
         "with any name and location given to it. Nothing is sent to the device. If it " +
         "answers a later scan it is listed again."
@@ -802,10 +844,12 @@ namespace t5000::web
     var n = state.devices.length;
     if (!n) return;
 
+    var typed = state.devices.filter(byHand).length;
     var question = state.store.saving
       ? "Forget all " + plural(n, "device", "devices") + "?\n\nThey are taken off the list and " +
         "out of the saved file, with every name and location given to them. Nothing is sent " +
-        "to any device. Devices that answer a later scan are listed again."
+        "to any device. Devices that answer a later scan are listed again" +
+        (typed ? "; the " + plural(typed, "device", "devices") + " added by hand are not." : ".")
       : "Clear all " + plural(n, "device", "devices") + " from the list?\n\nThe list is not " +
         "being saved, so nothing on disk changes. Nothing is sent to any device.";
     if (!confirm(question)) return;
@@ -878,6 +922,84 @@ namespace t5000::web
   });
 
   $("edit-cancel").addEventListener("click", function () { $("edit").close(); });
+
+  // The products a device can be added as: the ones T5000 has been taught
+  // about, from the server, so the page and the check on the server cannot
+  // disagree about which those are. Fetched when the dialog first opens.
+  var products = null;
+
+  async function loadProducts() {
+    if (products) return true;
+    try {
+      var res = await fetch("/api/products", { cache: "no-store" });
+      var data = await res.json();
+      products = (data.products || []).slice().sort(function (a, b) {
+        return a.name.localeCompare(b.name, undefined, { numeric: true });
+      });
+    } catch (e) {
+      return false;
+    }
+    var sel = $("a-product");
+    sel.innerHTML = "";
+    var pick = el("option", null, "Choose a product");
+    pick.value = "";
+    sel.appendChild(pick);
+    products.forEach(function (p) {
+      var o = el("option", null, p.name + " (product " + p.id + ")");
+      o.value = String(p.id);
+      sel.appendChild(o);
+    });
+    return true;
+  }
+
+  async function openAdd() {
+    if (!state.store.saving) {
+      setBanner("bad", "<b>Not added.</b> The list is not being saved, so a device added now " +
+        "would be lost when T5000 closes.");
+      return;
+    }
+    ["a-serial", "a-name", "a-building", "a-floor", "a-room"].forEach(function (id) { $(id).value = ""; });
+    $("add-error").hidden = true;
+    $("add-save").disabled = false;
+    if (!(await loadProducts())) {
+      setBanner("bad", "<b>Not added.</b> The product list could not be loaded from T5000.");
+      return;
+    }
+    $("a-product").value = "";
+    fillSuggestions();
+    $("add-dialog").showModal();
+    $("a-product").focus();
+  }
+
+  $("add-form").addEventListener("submit", async function (ev) {
+    ev.preventDefault();
+    $("add-save").disabled = true;
+    try {
+      // The serial goes as the text typed. The server reads it as a whole
+      // number and says what is wrong with it, rather than the page
+      // guessing what "12,345" meant.
+      var data = await post("/api/devices/add", {
+        productId: $("a-product").value,
+        serialNumber: $("a-serial").value.trim(),
+        name: $("a-name").value,
+        building: $("a-building").value,
+        floor: $("a-floor").value,
+        room: $("a-room").value
+      });
+      if (data.state) applyState(data.state);
+      if (data.ok) {
+        $("add-dialog").close();
+        return;
+      }
+      $("add-error").textContent = data.message || "The request failed.";
+      $("add-error").hidden = false;
+    } finally {
+      $("add-save").disabled = false;
+    }
+  });
+
+  $("add-cancel").addEventListener("click", function () { $("add-dialog").close(); });
+  $("add").addEventListener("click", openAdd);
 
   $("scan").addEventListener("click", doScan);
   $("clear").addEventListener("click", forgetAll);

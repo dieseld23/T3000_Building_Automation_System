@@ -1,7 +1,8 @@
 #pragma once
 
-// The saved device list: every device that has answered a scan, kept between
-// runs, as T3000 keeps its building database.
+// The saved device list: every device that has answered a scan, and every one
+// the operator has added by hand, kept between runs, as T3000 keeps its
+// building database.
 //
 // T5000's own file (T5000.db beside the exe by default), not T3000's. T3000's
 // database is one file per building, each with an ALL_NODE table whose
@@ -11,6 +12,11 @@
 // What is saved is what a scan learned, plus what the operator has said about
 // the device (Placement: a name, a building, a floor, a room). A rescan
 // updates the first and never touches the second.
+//
+// A device added by hand is saved with only what the operator gave: its
+// serial, its product and its placement. A scan that later finds that serial
+// updates the same row, as it would any saved device, so the entry and the
+// device it stood for cannot become two.
 //
 // Only devices with a usable serial are saved. The serial is the key, and a
 // device reporting 0 or 0xFFFFFFFF cannot be told apart from another one in
@@ -32,7 +38,10 @@ namespace t5000::store
     // The schema this build reads and writes, kept in the file's
     // PRAGMA user_version. Raised by every change to the tables, with the
     // step from the previous version added to DeviceDb::open.
-    constexpr int kSchemaVersion = 1;
+    //
+    // 1: the devices table.
+    // 2: added_by_hand, for a device the operator added before a scan found it.
+    constexpr int kSchemaVersion = 2;
 
     // T5000.db, beside the executable, as UTF-8. Beside it rather than in
     // %APPDATA% for the same reason as the connection settings: this is a tool
@@ -42,7 +51,8 @@ namespace t5000::store
     class DeviceDb
     {
     public:
-        // Opens the file, creating it and its table if it is new.
+        // Opens the file, creating it and its table if it is new, and bringing
+        // a list an older T5000 wrote up to this build's schema.
         //
         // Refuses, and leaves the file as it was:
         //   - a file written by a newer T5000 (a higher user_version), whose
@@ -55,8 +65,10 @@ namespace t5000::store
         bool is_open() const { return m_db.is_open(); }
         const std::string& path() const { return m_path; }
 
-        // Every saved device, in the order each was first saved, as records
-        // with Provenance::Restored and answered_scan 0.
+        // Every saved device, in the order each was first saved, with
+        // answered_scan 0. A device added by hand that no scan has found yet
+        // comes back as Provenance::ManuallyAdded and not reached; every other
+        // one as Provenance::Restored.
         bool load(std::vector<device::DeviceRecord>& out, std::string& error);
 
         // Saves what a scan found about these devices, in one transaction.
@@ -70,15 +82,24 @@ namespace t5000::store
         // device if it is not saved yet.
         bool save_placement(const device::DeviceRecord& device, std::string& error);
 
+        // Saves a device the operator has added by hand, with its placement.
+        //
+        // Only ever adds. Refused when a device with that serial is already
+        // saved, however it got there, so an entry typed in cannot overwrite
+        // what a scan learned about a real device. Refused too for a serial
+        // that is not a usable key.
+        bool add_by_hand(const device::DeviceRecord& device, std::string& error);
+
         // Deletes one saved device, name and location included. Not an error
         // when it was not saved.
         bool forget(uint32_t serial, std::string& error);
 
-        // Deletes every scanned device.
+        // Deletes every device: those found by a scan and those added by hand.
         bool forget_all_scanned(std::string& error);
 
     private:
         bool write(const device::DeviceRecord& d, bool with_placement, std::string& error);
+        bool insert(const device::DeviceRecord& d, bool added_by_hand, std::string& error);
 
         Database    m_db;
         std::string m_path;

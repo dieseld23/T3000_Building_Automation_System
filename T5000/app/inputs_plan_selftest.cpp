@@ -24,6 +24,7 @@ namespace
         d.connection.transport = Transport::BacnetIp;
         d.connection.host      = host;
         d.connection.udp_port  = port;
+        d.provenance           = Provenance::BacnetBroadcast;
         d.answered_scan        = 1;
         d.last_seen            = kLastSeen;
         return d;
@@ -194,6 +195,85 @@ namespace
         check(c.identity == Identity::MustConfirm, "  with its identity");
     }
 
+    // ------------------------------------------------------ added by hand
+
+    // An entry as app::add_device makes one: the operator's serial and
+    // product, and nothing a scan learned.
+    DeviceRecord added_by_hand(ProductClassId product = ProductClassId::Cm5)
+    {
+        DeviceRecord d;
+        d.serial_number = 800300;
+        d.product       = product;
+        d.provenance    = Provenance::ManuallyAdded;
+        return d;
+    }
+
+    void test_a_device_added_by_hand_is_not_read()
+    {
+        section("a device added by hand that no scan has found is sent nothing");
+
+        const InputsPlan p = plan_inputs_read(added_by_hand());
+        check(!p.can_read, "it is not read");
+        check(has(p.reason, "There is no device to read"), "  the page is told there is nothing to read");
+        check(has(p.reason, "added by hand") && has(p.reason, "800300"), "  and why, by serial");
+        check(has(p.reason, "Nothing was sent"), "  and that nothing was sent");
+        check(p.sighting.empty(), "  with no note about a saved address it does not have");
+
+        // Whatever else is on the record. An address, a sighting, or a
+        // product T5000 reads does not make an entry someone typed in into a
+        // device that has answered.
+        DeviceRecord with_host = added_by_hand(ProductClassId::Esp32T3Series);
+        with_host.connection.host     = "127.0.0.1";
+        with_host.connection.udp_port = 47900;
+        with_host.firmware            = 600;
+        with_host.last_seen           = kLastSeen;
+        check(!plan_inputs_read(with_host).can_read, "not even with an address and a sighting on it");
+
+        check(!plan_inputs_read(DeviceRecord()).can_read,
+              "a record nobody gave a provenance is refused the same way");
+    }
+
+    void test_a_device_added_by_hand_is_read_once_a_scan_finds_it()
+    {
+        section("once a scan finds its serial, a device added by hand is read like any other");
+
+        Registry reg;
+        const int i = reg.add_or_merge(added_by_hand());
+
+        DeviceRecord found          = scanned(ProductClassId::Cm5, "10.1.2.3", 47809);
+        found.serial_number         = 800300;
+        found.reached               = true;
+        found.observation_complete  = true;
+        reg.add_or_merge(found);
+
+        if (!require(reg.size() == 1, "the scan's device takes the entry's place"))
+            return;
+
+        const InputsPlan p = plan_inputs_read(reg.devices()[i]);
+        check(p.can_read, "it is read");
+        check(p.identity == Identity::VouchedForByScan, "  vouched for by the scan that found it");
+        check(p.endpoint.ip == 0x0A010203 && p.endpoint.port == 47809, "  at the address the scan gave");
+    }
+
+    void test_a_record_from_the_scan_is_never_taken_for_one_added_by_hand()
+    {
+        section("a record the scan builds is never refused as added by hand");
+
+        t5000::discovery::ScanResponse r;
+        r.serial_number    = 800400;
+        r.product_id       = static_cast<uint8_t>(ProductClassId::Cm5);
+        r.software_version = 600;
+        r.ip[0] = 10; r.ip[1] = 1; r.ip[2] = 2; r.ip[3] = 3;
+        r.bacnet_port      = 47808;
+
+        DeviceRecord d  = t5000::discovery::to_record(r, 0x0A010203);
+        d.answered_scan = 1;
+
+        const InputsPlan p = plan_inputs_read(d);
+        check(p.can_read, "it is read");
+        check(!has(p.reason, "added by hand"), "  and nothing calls it added by hand");
+    }
+
     void test_times_are_shown_to_the_minute()
     {
         section("a time is shown as date and minute, in this computer's time zone");
@@ -299,6 +379,9 @@ int run_inputs_plan_tests()
     test_a_device_seen_this_session_is_vouched_for();
     test_a_restored_device_must_confirm_its_serial();
     test_a_restored_device_the_plan_refuses_still_says_when_it_was_seen();
+    test_a_device_added_by_hand_is_not_read();
+    test_a_device_added_by_hand_is_read_once_a_scan_finds_it();
+    test_a_record_from_the_scan_is_never_taken_for_one_added_by_hand();
     test_times_are_shown_to_the_minute();
     test_the_payload_for_a_device_seen_this_session();
     test_the_payload_for_a_restored_device();

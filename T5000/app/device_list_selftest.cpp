@@ -492,6 +492,219 @@ namespace
     }
 }
 
+namespace
+{
+    // ------------------------------------------------------ added by hand
+
+    HandAdded typed_in(uint32_t serial, ProductClassId product = ProductClassId::Esp32T3Series)
+    {
+        HandAdded d;
+        d.serial    = serial;
+        d.product   = product;
+        d.placement = a_placement();
+        return d;
+    }
+
+    void test_adding_a_device_by_hand()
+    {
+        section("a device added by hand is listed, saved, and marked as added by hand");
+
+        TempFile file(L"add");
+        Handle added = kNoHandle;
+        {
+            store::DeviceDb db;
+            Registry reg;
+            StoreStatus status = open_saved_list(db, file.utf8(), reg);
+            if (!require(status.saving, "a new list opens"))
+                return;
+
+            HandAdded d = typed_in(8101);
+            d.placement.name = "  Boiler  ";
+            std::string message;
+            check(add_device(reg, db, d, status, added, message), "a device is added by hand");
+            check(message.empty(), "  with nothing to explain");
+
+            const DeviceRecord* r = by_serial(reg, 8101);
+            if (require(r != nullptr, "it is listed"))
+            {
+                check(r->handle == added && added != kNoHandle, "  under the handle returned");
+                check(r->product == ProductClassId::Esp32T3Series, "  as the product given");
+                check(r->provenance == Provenance::ManuallyAdded, "  as added by hand");
+                check(!r->reached, "  and never reached");
+                check(r->connection.host.empty(), "  with no address");
+                check(r->placement.name == "Boiler", "  named, the name tidied as any is");
+                check(r->placement.building == "North", "  and placed");
+                check_eq(r->answered_scan, 0, "  and not having answered a scan");
+            }
+            check(reg.selected() == nullptr, "adding a device does not select it");
+        }
+
+        store::DeviceDb db;
+        Registry reg;
+        const StoreStatus status = open_saved_list(db, file.utf8(), reg);
+        check_eq(status.restored, 1, "after a restart it is back");
+        const DeviceRecord* r = by_serial(reg, 8101);
+        if (require(r != nullptr, "  by its serial"))
+        {
+            check(r->provenance == Provenance::ManuallyAdded, "  still as added by hand, not as seen");
+            check(r->placement.name == "Boiler", "  with its name");
+        }
+    }
+
+    void test_what_adding_by_hand_refuses()
+    {
+        section("adding by hand refuses what could never become the device, and changes nothing");
+
+        store::DeviceDb db;
+        Registry reg;
+        StoreStatus status = open_saved_list(db, ":memory:", reg);
+        ScanSummary summary;
+        record_scan(reg, db, a_scan({ answered(8001) }), 100, summary, status);
+
+        Handle h = kNoHandle;
+        std::string message;
+
+        check(!add_device(reg, db, typed_in(0), status, h, message), "serial 0 is refused");
+        check(message.find("never match") != std::string::npos, "  since a scan could never match it");
+        check(!add_device(reg, db, typed_in(0xFFFFFFFFu), status, h, message), "serial 0xFFFFFFFF is refused");
+
+        check(!add_device(reg, db, typed_in(8102, ProductClassId::Unknown), status, h, message),
+              "no product is refused");
+        check(!add_device(reg, db, typed_in(8102, ProductClassId::Tstat5B), status, h, message),
+              "a product T5000 has not been taught about is refused");
+        check(message.find("Pick one") != std::string::npos, "  and the page is told to pick from the list");
+
+        check(!add_device(reg, db, typed_in(8001, ProductClassId::Cm5), status, h, message),
+              "a serial already in the list is refused");
+        check(message.find("already in the list") != std::string::npos, "  and says so");
+        const DeviceRecord* scanned = by_serial(reg, 8001);
+        if (require(scanned != nullptr, "the device already listed is still there"))
+        {
+            check(scanned->product == ProductClassId::MiniPanelArm, "  with the product it reported");
+            check(scanned->placement.empty(), "  and none of the typed-in placement");
+            check(scanned->provenance == Provenance::BacnetBroadcast, "  and as having answered");
+        }
+
+        HandAdded long_name = typed_in(8103);
+        long_name.placement.room = std::string(kMaxPlacementChars + 1, 'x');
+        check(!add_device(reg, db, long_name, status, h, message), "a room one past the limit is refused");
+        check(message.find("room") != std::string::npos, "  naming the field");
+
+        check(h == kNoHandle, "no refusal hands back a handle");
+        check_eq(reg.size(), 1, "and the list still holds only the scanned device");
+        check_eq((long)saved(db).size(), 1, "  as does the file");
+
+        check(add_device(reg, db, typed_in(8104), status, h, message), "a new serial is added");
+        check(!add_device(reg, db, typed_in(8104), status, h, message), "  and not twice");
+        check(message.find("added by hand") != std::string::npos, "  and the reason says how it got there");
+    }
+
+    void test_adding_by_hand_is_refused_when_nothing_is_saved()
+    {
+        section("a device is not added by hand when the list is not being saved");
+
+        TempFile beside(L"unsaved");
+        const std::string path = beside.utf8() + "\\no such folder\\T5000.db";
+
+        store::DeviceDb db;
+        Registry reg;
+        StoreStatus status = open_saved_list(db, path, reg);
+
+        Handle h = kNoHandle;
+        std::string message;
+        check(!add_device(reg, db, typed_in(8101), status, h, message), "it is refused");
+        check(message.find("not being saved") != std::string::npos, "  since it would be gone when T5000 closes");
+        check_eq(reg.size(), 0, "  and is not listed in memory either");
+    }
+
+    void test_a_scan_finds_a_device_added_by_hand()
+    {
+        section("a scan that finds a device added by hand puts it in the entry's place");
+
+        TempFile file(L"found");
+        {
+            store::DeviceDb db;
+            Registry reg;
+            StoreStatus status = open_saved_list(db, file.utf8(), reg);
+
+            Handle h = kNoHandle;
+            std::string message;
+            check(add_device(reg, db, typed_in(8101), status, h, message), "a device is added by hand");
+            check(add_device(reg, db, typed_in(8102), status, h, message), "and another");
+
+            ScanSummary summary;
+            record_scan(reg, db, a_scan({ answered(8101) }), 500, summary, status);
+            check(status.error.empty(), "a scan finds the first, and is saved");
+            check_eq(reg.size(), 2, "still two devices, not three");
+
+            const DeviceRecord* found = by_serial(reg, 8101);
+            if (require(found != nullptr, "the one found is listed"))
+            {
+                check(found->provenance == Provenance::BacnetBroadcast, "  as having answered");
+                check(found->product == ProductClassId::MiniPanelArm, "  as the product it reported");
+                check(found->connection.host == "127.0.0.2", "  at the address it answered from");
+                check(found->placement.name == "Boiler", "  keeping the name given by hand");
+                check_eq((long)found->first_seen, 500, "  first seen by that scan");
+            }
+
+            const DeviceRecord* other = by_serial(reg, 8102);
+            if (require(other != nullptr, "the other is still listed"))
+                check(other->provenance == Provenance::ManuallyAdded, "  as added by hand");
+        }
+
+        store::DeviceDb db;
+        Registry reg;
+        open_saved_list(db, file.utf8(), reg);
+        const DeviceRecord* found = by_serial(reg, 8101);
+        if (require(found != nullptr, "after a restart the one found is back"))
+        {
+            check(found->provenance == Provenance::Restored, "  as a device that has answered");
+            check_eq((long)found->first_seen, 500, "  with when it was first seen");
+            check(found->placement.name == "Boiler", "  and its name");
+        }
+        const DeviceRecord* other = by_serial(reg, 8102);
+        if (require(other != nullptr, "the other is back"))
+            check(other->provenance == Provenance::ManuallyAdded, "  still as added by hand");
+    }
+
+    void test_an_add_request_is_read()
+    {
+        section("the page's request to add a device is read, numbers as numbers or as text");
+
+        HandAdded d;
+        std::string message;
+        check(read_add_request("{\"productId\":88,\"serialNumber\":\"123456\",\"name\":\"AHU\","
+                               "\"building\":\"North\",\"floor\":\"2\",\"room\":\"Plant\"}",
+                               d, message),
+              "a full request is read");
+        check(d.product == ProductClassId::Esp32T3Series, "  the product");
+        check_eq((long)d.serial, 123456, "  the serial, sent as text");
+        check(d.placement.name == "AHU" && d.placement.room == "Plant", "  and the placement");
+
+        check(read_add_request("{\"productId\":\"74\",\"serialNumber\":4294967294}", d, message),
+              "numbers either way, and no placement");
+        check_eq((long)(d.serial == 4294967294u), 1, "  the largest serial that is a key");
+        check(d.placement.empty(), "  with the placement left empty");
+
+        check(!read_add_request("{\"serialNumber\":\"1\"}", d, message), "no product is refused");
+        check(message == "Choose a product.", "  in words for the form, not the field's name");
+        check(!read_add_request("{\"productId\":\"\",\"serialNumber\":\"1\"}", d, message),
+              "  as is the list left on its first line");
+        check(!read_add_request("{\"productId\":74}", d, message), "no serial is refused");
+        check(message.find("serial number") != std::string::npos, "  in words for the form");
+        check(!read_add_request("{\"productId\":74,\"serialNumber\":\"\"}", d, message), "an empty serial is refused");
+        check(!read_add_request("{\"productId\":74,\"serialNumber\":\"12 34\"}", d, message),
+              "a serial with a space in it is refused");
+        check(!read_add_request("{\"productId\":74,\"serialNumber\":-5}", d, message), "a negative serial is refused");
+        check(!read_add_request("{\"productId\":74,\"serialNumber\":4294967296}", d, message),
+              "a serial too big for the device's four bytes is refused");
+        check(!read_add_request("{\"productId\":256,\"serialNumber\":1}", d, message), "a product past 255 is refused");
+        check(!read_add_request("{\"productId\":74,\"serialNumber\":1,\"name\":5}", d, message),
+              "a name that is not text is refused");
+        check(!read_add_request("not json", d, message), "and a body that is not JSON");
+    }
+}
+
 int run_device_list_tests()
 {
     test_a_list_that_cannot_be_opened_is_not_fatal();
@@ -506,5 +719,10 @@ int run_device_list_tests()
     test_a_device_with_no_serial_is_listed_not_saved();
     test_naming_a_device();
     test_a_typed_name_is_read_as_typed();
+    test_adding_a_device_by_hand();
+    test_what_adding_by_hand_refuses();
+    test_adding_by_hand_is_refused_when_nothing_is_saved();
+    test_a_scan_finds_a_device_added_by_hand();
+    test_an_add_request_is_read();
     return 0;
 }
