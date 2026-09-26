@@ -215,7 +215,7 @@ namespace
         Run saved;
         run(panel, saved, ProductClassId::MiniPanelArm, Identity::MustConfirm);
         check(!saved.read.ok, "a device from the saved list is not read");
-        check(has(saved.read.error, "Scan, and then open Outputs again"), "  and is told to scan, then open Outputs");
+        check(has(saved.read.error, "Scan, or find it at its address on the Devices page, and then open Outputs again"), "  and is told to scan, then open Outputs");
         check_eq((long)saved.transport.sent.size(), 1, "  after the settings alone");
     }
 
@@ -485,7 +485,7 @@ namespace
         t.respond = refuses;
         const std::string json = read_planned_outputs(saved, plan_outputs_read(saved), t, instant(), invoke);
         check_eq((long)t.sent.size(), 1, "from the saved list: the settings, and nothing after");
-        check(has(json, "\"unavailable\":true") && has(json, "Scan, and then open Outputs again"),
+        check(has(json, "\"unavailable\":true") && has(json, "Scan, or find it at its address on the Devices page, and then open Outputs again"),
               "  and the page is told to scan first");
         check(has(json, "Not seen since T5000 started"), "  with the sighting");
         check(has(json, "\"outputs\":[]"), "  in the Outputs page's shape");

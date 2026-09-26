@@ -319,7 +319,7 @@ namespace
 
         Run saved;
         run(panel, saved, ProductClassId::MiniPanelArm, Identity::MustConfirm);
-        check(!saved.read.ok && has(saved.read.error, "Scan, and then open Variables again"),
+        check(!saved.read.ok && has(saved.read.error, "Scan, or find it at its address on the Devices page, and then open Variables again"),
               "a device from the saved list is not read, and is told to scan");
         check_eq((long)saved.transport.sent.size(), 1, "  after the settings alone");
     }
@@ -577,7 +577,7 @@ namespace
         uint8_t invoke = 0;
         const std::string json = read_planned_variables(saved, plan_variables_read(saved), t, instant(), invoke);
         check_eq((long)t.sent.size(), 1, "from the saved list: the settings, and nothing after");
-        check(has(json, "\"unavailable\":true") && has(json, "Scan, and then open Variables again"),
+        check(has(json, "\"unavailable\":true") && has(json, "Scan, or find it at its address on the Devices page, and then open Variables again"),
               "  and the page is told to scan first");
         check(has(json, "\"variables\":[]"), "  in the Variables page's shape");
     }

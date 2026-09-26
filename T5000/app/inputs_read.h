@@ -60,7 +60,7 @@ namespace t5000::app
     };
 
     // expected_serial is the serial the device was found with: by this
-    // session's scan, or in the saved list, as `identity` says.
+    // session's scan, by Find, or in the saved list, as `identity` says.
     InputsPageRead read_inputs_page(bacnet::ReadTransport& transport, const bacnet::Endpoint& device,
                                     device::ProductClassId product, uint32_t expected_serial,
                                     Identity identity, const bacnet::ReadSettings& settings,

@@ -255,7 +255,7 @@ namespace t5000::app
         }
 
         view.note = "Serial " + std::to_string(d.serial_number) +
-                    " was added by hand and no scan has found it. These are the inputs T5000 keeps for it: "
+                    " was added by hand and has not been found. These are the inputs T5000 keeps for it: "
                     "each as T3000 starts a new panel's, with the changes made here. They are saved in T5000's "
                     "device list, and nothing writes them to the device yet.";
         if (!view.saving)

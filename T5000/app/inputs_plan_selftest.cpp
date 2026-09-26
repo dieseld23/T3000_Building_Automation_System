@@ -384,7 +384,7 @@ namespace
         b.respond = refuses;
         const std::string json = read_planned_inputs(saved, plan_inputs_read(saved), b, instant(), invoke);
         check_eq((long)b.sent.size(), 1, "from the saved list: the settings, and nothing after");
-        check(has(json, "\"unavailable\":true") && has(json, "Scan, and then open Inputs again"),
+        check(has(json, "\"unavailable\":true") && has(json, "Scan, or find it at its address on the Devices page, and then open Inputs again"),
               "  and the page is told to scan first");
         check(has(json, "Not seen since T5000 started"), "  with the sighting");
     }

@@ -61,7 +61,7 @@ namespace t5000::app
     // open, since the name would be lost when T5000 closes.
     //
     // `mini_type`, when it is not kKeepModel, is the model chosen for an
-    // entry added by hand that no scan has found: a panel type of one of
+    // entry added by hand that has not been found: a panel type of one of
     // the product's models, or 0 for a model not known. Saved with the
     // placement, in one transaction. Refused for any other device, whose
     // panel type is the one it reports; and when inputs configured offline
@@ -93,10 +93,11 @@ namespace t5000::app
     // installed yet - to the list and the saved file, so it can be named and
     // placed before anyone can reach it.
     //
-    // Nothing is sent to it, now or when it is selected (plan_inputs_read).
-    // When a scan finds a device with its serial, that device takes the
-    // entry's place in the list, keeping the name and location given here
-    // (Registry::add_or_merge).
+    // Nothing is sent to it, now or when it is selected (plan_inputs_read),
+    // unless the operator clicks Find, which sends its one request to the
+    // address given (app/find_device.h). When a scan or Find finds a device
+    // with its serial, that device takes the entry's place in the list,
+    // keeping the name and location given here (Registry::add_or_merge).
     //
     // Refused for a serial that is not a usable key, a product T5000 has not
     // been taught about, a panel type that is no model of that product, a

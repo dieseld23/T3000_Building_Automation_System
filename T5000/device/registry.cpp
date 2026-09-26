@@ -66,7 +66,13 @@ namespace t5000::device
                 // a later response whose sender was not known would keep the
                 // old answered_from beside a new reported_ip, and the two
                 // could disagree about a device that never gave both.
-                if (device.observation_complete)
+                //
+                // And from Find, which is not a complete look at a device
+                // but is one answer from one address: answered from there,
+                // with no address reported. Without it, an earlier scan's
+                // pair would go on naming an address T5000 no longer
+                // contacts as the one it does.
+                if (device.observation_complete || device.provenance == Provenance::BacnetUnicast)
                 {
                     existing.answered_from = device.answered_from;
                     existing.reported_ip   = device.reported_ip;
@@ -118,8 +124,12 @@ namespace t5000::device
                 // Provenance upgrades towards "actually answered". A device
                 // typed in by hand that later answers a broadcast is no
                 // longer merely claimed to exist.
+                //
+                // One found by Find upgrades too: a scan that then finds it
+                // has vouched for its address, which Find had only checked.
                 if (existing.provenance == Provenance::ManuallyAdded ||
-                    existing.provenance == Provenance::Restored)
+                    existing.provenance == Provenance::Restored ||
+                    existing.provenance == Provenance::BacnetUnicast)
                 {
                     if (device.provenance != Provenance::ManuallyAdded &&
                         device.provenance != Provenance::Restored)
@@ -364,7 +374,7 @@ namespace t5000::device
         {
         case Provenance::ManuallyAdded:   return "added by hand";
         case Provenance::BacnetBroadcast: return "answered a broadcast";
-        case Provenance::BacnetUnicast:   return "answered at a known address";
+        case Provenance::BacnetUnicast:   return "found at an address given";
         case Provenance::SerialScan:      return "found by serial scan";
         case Provenance::Restored:        return "restored from the saved list";
         }

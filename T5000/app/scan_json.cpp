@@ -1,4 +1,5 @@
 #include "scan_json.h"
+#include "find_device.h"
 #include "points_json.h"
 
 namespace t5000::app
@@ -129,6 +130,9 @@ namespace t5000::app
             append_field(out, "lastSeen", (long long)d.last_seen);            out += ',';
             append_field(out, "answeredLastScan", registry.answered_last_scan(d)); out += ',';
             append_field(out, "seenThisSession", d.answered_scan != 0);       out += ',';
+
+            // Whether the page offers Find for it. The route asks again.
+            append_field(out, "canFind", why_not_findable(d).empty());       out += ',';
             append_field(out, "needsAttention", d.needs_attention());         out += ',';
             append_repairs(out, d);
             out += '}';

@@ -104,6 +104,8 @@
     <ClCompile Include="app\outputs_plan.cpp" />
     <ClCompile Include="app\inputs_read.cpp" />
     <ClCompile Include="app\inputs_read_selftest.cpp" />
+    <ClCompile Include="app\find_device.cpp" />
+    <ClCompile Include="app\find_device_selftest.cpp" />
     <ClCompile Include="app\offline_inputs.cpp" />
     <ClCompile Include="app\offline_inputs_selftest.cpp" />
     <ClCompile Include="app\panel_read.cpp" />
@@ -179,6 +181,7 @@
     <ClInclude Include="app\inputs_plan.h" />
     <ClInclude Include="app\outputs_plan.h" />
     <ClInclude Include="app\inputs_read.h" />
+    <ClInclude Include="app\find_device.h" />
     <ClInclude Include="app\offline_inputs.h" />
     <ClInclude Include="offline\input_edit.h" />
     <ClInclude Include="app\panel_read.h" />

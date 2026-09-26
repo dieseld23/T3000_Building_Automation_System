@@ -40,9 +40,9 @@ namespace t5000::app
         int rows   = 0;
     };
 
-    // An entry added by hand that no scan has found. The one kind of device
-    // whose Inputs page shows a configuration kept by T5000 rather than one
-    // read from the device.
+    // An entry added by hand that has not been found, by a scan or by Find.
+    // The one kind of device whose Inputs page shows a configuration kept by
+    // T5000 rather than one read from the device.
     bool is_configured_offline(const device::DeviceRecord& d);
 
     // Refused, with the reason, for a device a scan has found; for a product

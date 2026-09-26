@@ -239,13 +239,32 @@ namespace t5000::web
     <label>Building <input type="text" id="a-building" maxlength="60" list="dl-building" autocomplete="off"></label>
     <label>Floor <input type="text" id="a-floor" maxlength="60" list="dl-floor" autocomplete="off"></label>
     <label>Room <input type="text" id="a-room" maxlength="60" list="dl-room" autocomplete="off"></label>
-    <p class="note">The serial is how a scan recognises the device later, so use the one on its
-      label. Nothing is sent to it until a scan finds a device with that serial; that device
-      then takes this entry's place, with the name and location given here.</p>
+    <p class="note">The serial is how the device is recognised later, so use the one on its
+      label. Nothing is sent to it until a scan finds a device with that serial, or you click
+      Find and give its address; that device then takes this entry's place, with the name and
+      location given here.</p>
     <p class="err" id="add-error" hidden></p>
     <div class="buttons">
       <button type="button" id="add-cancel">Cancel</button>
       <button type="submit" id="add-save" class="primary">Add</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="find-dialog">
+  <form id="find-form">
+    <h2>Find at an address</h2>
+    <div class="dim" id="find-which"></div>
+    <p class="lead">For a device a scan does not reach, such as one on another subnet, across a
+      router.</p>
+    <label>IP address <input type="text" id="find-host" inputmode="decimal" autocomplete="off"
+      placeholder="192.168.1.50"></label>
+    <label>Port <input type="text" id="find-port" inputmode="numeric" autocomplete="off"></label>
+    <p class="note" id="find-note"></p>
+    <p class="err" id="find-error" hidden></p>
+    <div class="buttons">
+      <button type="button" id="find-cancel">Cancel</button>
+      <button type="submit" id="find-go" class="primary">Find</button>
     </div>
   </form>
 </dialog>
@@ -287,10 +306,16 @@ namespace t5000::web
 
   function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
 
-  // An entry the operator typed in that no scan has found. The server says
-  // so through the provenance; once a scan finds the serial it changes.
+  // An entry the operator typed in that has not been found. The server says
+  // so through the provenance; once a scan or Find finds the serial it
+  // changes.
   var BY_HAND = "added by hand";
   function byHand(d) { return d.provenance === BY_HAND; }
+
+  // Found by Find this session, at an address the operator gave, and not by
+  // a scan. Restored from the saved list next time, like any other device.
+  var FOUND = "found at an address given";
+  function foundByFind(d) { return d.provenance === FOUND && !d.seenThisSession; }
 
   function setBanner(kind, html) {
     var b = $("banner");
@@ -493,8 +518,8 @@ namespace t5000::web
     var td = document.createElement("td");
     if (byHand(d)) {
       td.appendChild(el("span", "pill pill-info", BY_HAND));
-      td.title = "Added by hand. No scan has found a device with this serial, so nothing has " +
-                 "been read from it and nothing is sent to it.";
+      td.title = "Added by hand, and not found yet, so nothing has been read from it. Nothing is " +
+                 "sent to it until a scan finds it, or you click Find and give its address.";
     } else if (d.answeredLastScan) {
       td.appendChild(el("span", "pill pill-ok", "answered"));
       td.title = "Answered the last scan (" + d.provenance + ").";
@@ -502,11 +527,15 @@ namespace t5000::web
       td.appendChild(el("span", "pill pill-warn", "not in last scan"));
       td.title = "Answered an earlier scan since T5000 started, but not the last one. " +
                  "Last seen " + when(d.lastSeen) + ".";
+    } else if (foundByFind(d)) {
+      td.appendChild(el("span", "pill pill-ok", "found"));
+      td.title = "Found by Find at " + d.address + ", " + when(d.lastSeen) + ", and not by a scan. " +
+                 "Each page checks its serial again before reading anything else.";
     } else if (d.lastSeen > 0) {
       td.className = "dim";
       td.textContent = ago(d.lastSeen);
       td.title = "From the saved list, and not seen since T5000 started. " +
-                 "Last answered a scan " + when(d.lastSeen) + ".";
+                 "Last seen " + when(d.lastSeen) + ".";
     } else {
       td.className = "dim";
       td.textContent = "never";
@@ -532,6 +561,18 @@ namespace t5000::web
       edit.title = "Name this device and say where it is. Kept in this list only.";
     }
     td.appendChild(edit);
+
+    // Only where it applies, which the server decides: a device with a
+    // serial, whose settings T5000 reads, that has not answered a scan
+    // since T5000 started.
+    if (d.canFind) {
+      var find = el("button", null, "Find");
+      find.type = "button";
+      find.setAttribute("data-act", "find");
+      find.title = "Look for this device at an address you give. One request is sent, for its " +
+                   "settings, and only when you click Find in the dialog.";
+      td.appendChild(find);
+    }
 
     var forget = el("button", null, "Forget");
     forget.type = "button";
@@ -578,7 +619,8 @@ namespace t5000::web
     var panel = el("td", d.panel.resolved && !byHand(d) ? null : "dim");
     panel.textContent = byHand(d) ? (d.panel.resolved ? d.panel.name : "—")
                                   : d.panel.resolved ? d.panel.name : "unknown";
-    panel.title = byHand(d) ? "Chosen when it was added by hand. Read from the device once a scan finds it."
+    panel.title = byHand(d) ? "Chosen when it was added by hand, and dropped once the device is found: Find " +
+                              "reads the device's own, and a scan does not report one."
                             : d.panel.reason;
     tr.appendChild(panel);
 
@@ -589,7 +631,7 @@ namespace t5000::web
     if (!d.address) {
       addr.className = "dim";
       addr.textContent = "—";
-      if (byHand(d)) addr.title = "Not known until a scan finds it.";
+      if (byHand(d)) addr.title = "Not known until a scan finds it, or Find finds it at an address you give.";
     }
     if (d.addressMismatch) {
       addr.appendChild(document.createTextNode(" "));
@@ -669,11 +711,13 @@ namespace t5000::web
       // Devices added by hand were never there, as far as T5000 knows, so
       // they are counted apart from the ones a scan found last time.
       var typed = devices.filter(byHand).length;
-      var found = devices.length - typed;
-      var more = typed
-        ? "<b>" + typed + "</b> " + (typed === 1 ? "device was" : "devices were") +
-          " added by hand, which no scan has found yet."
-        : "";
+      var located = devices.filter(foundByFind).length;
+      var found = devices.length - typed - located;
+      var more = [
+        typed ? "<b>" + typed + "</b> " + (typed === 1 ? "device was" : "devices were") +
+                " added by hand, and not found yet." : "",
+        located ? "<b>" + located + "</b> found by Find at an address given." : ""
+      ].filter(function (x) { return x; }).join(" ");
       if (found) {
         setBanner("info",
           "<b>" + found + "</b> " + (found === 1 ? "device" : "devices") +
@@ -682,7 +726,10 @@ namespace t5000::web
           " there last time - press Scan to see which are there now. " +
           (more ? more + " " : "") + "Scanning does not write to any device.");
       } else if (typed) {
-        setBanner("info", more + " Press Scan to look for them. Scanning does not write to any device.");
+        setBanner("info", more + " Press Scan to look for them, or Find to look at an address you give. " +
+          "Neither writes to any device.");
+      } else if (located) {
+        setBanner("info", more + " Scanning does not write to any device.");
       } else {
         setBanner("info",
           "Nothing has been scanned yet. Scanning sends one broadcast and listens - " +
@@ -867,13 +914,13 @@ namespace t5000::web
 
     var saved = d.hasStableIdentity && state.store.saving;
     var question = byHand(d)
-      ? "Forget " + describe(d) + "?\n\nIt was added by hand and no scan has found it, so it " +
+      ? "Forget " + describe(d) + "?\n\nIt was added by hand and has not been found, so it " +
         "is taken off the list and out of the saved file for good, with its name, its " +
         "location and any inputs configured for it. Nothing is sent to any device."
       : saved
       ? "Forget " + describe(d) + "?\n\nIt is taken off the list and out of the saved file, " +
-        "with any name and location given to it, and any inputs configured for it before a " +
-        "scan found it. Nothing is sent to the device. If it answers a later scan it is " +
+        "with any name and location given to it, and any inputs configured for it before it " +
+        "was found. Nothing is sent to the device. If it answers a later scan it is " +
         "listed again."
       : "Take " + describe(d) + " off the list?\n\nIt is not in the saved file, so only the " +
         "list changes. Nothing is sent to the device. If it answers a later scan it is " +
@@ -1083,6 +1130,67 @@ namespace t5000::web
 
   $("add-cancel").addEventListener("click", function () { $("add-dialog").close(); });
   $("add").addEventListener("click", openAdd);
+)PAGE"
+        R"PAGE(
+  // Find: one request, for the panel's settings, to the address typed, sent
+  // when Find in the dialog is clicked. The dialog stays open until the
+  // device is found, so a refusal is read beside the address it is about.
+  var finding = null;
+
+  function openFind(handle) {
+    var d = findDevice(handle);
+    if (!d || !d.canFind) return;
+
+    finding = handle;
+    $("find-which").textContent = describe(d) + ", " + d.productName;
+    $("find-host").value = d.address || "";
+    $("find-port").value = "47808";
+    $("find-note").textContent = "When you click Find, T5000 asks this address for the panel's " +
+      "settings, which cannot change anything: one request, sent once more if nothing answers. " +
+      "It is found if they give serial " + d.serialNumber + ". Its address is then kept, and its " +
+      "pages read from there.";
+    $("find-error").hidden = true;
+    $("find-go").disabled = false;
+    $("find-go").textContent = "Find";
+    $("find-dialog").showModal();
+    $("find-host").focus();
+  }
+
+  $("find-form").addEventListener("submit", async function (ev) {
+    ev.preventDefault();
+    if ($("find-go").disabled) return;
+    $("find-go").disabled = true;
+    $("find-go").textContent = "Finding\u2026";
+    $("find-error").hidden = true;
+    try {
+      // As typed. The server reads the address and says what is wrong with
+      // it, rather than the page guessing.
+      var data = await post("/api/devices/find", {
+        handle: finding,
+        host: $("find-host").value,
+        port: $("find-port").value.trim()
+      });
+      if (data.state) applyState(data.state);
+      var open = $("find-dialog").open;
+      if (data.ok) {
+        if (open) $("find-dialog").close();
+        setBanner("ok", "<b>Found.</b> " + esc(data.message));
+        return;
+      }
+      if (open) {
+        $("find-error").textContent = data.message || "The request failed.";
+        $("find-error").hidden = false;
+      } else {
+        // Closed while it was looking: the answer still goes somewhere seen.
+        setBanner("bad", "<b>Not found.</b> " + esc(data.message || "The request failed."));
+      }
+    } finally {
+      $("find-go").disabled = false;
+      $("find-go").textContent = "Find";
+    }
+  });
+
+  $("find-cancel").addEventListener("click", function () { $("find-dialog").close(); });
 
   $("scan").addEventListener("click", doScan);
   $("clear").addEventListener("click", forgetAll);
@@ -1097,6 +1205,7 @@ namespace t5000::web
     if (button) {
       var act = button.getAttribute("data-act");
       if (act === "edit") openEdit(handle);
+      else if (act === "find") openFind(handle);
       else if (act === "forget") forgetOne(handle);
       return;
     }

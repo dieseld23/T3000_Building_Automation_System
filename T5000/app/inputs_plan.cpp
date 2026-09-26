@@ -33,32 +33,46 @@ namespace t5000::app
         PointsPlan plan;
 
         // Before anything else, including the note below about a saved
-        // address: a device added by hand that no scan has found is an entry,
-        // not a device. Nothing has answered from any address for it, and its
-        // product is the operator's word, so there is nothing to read and
-        // nothing is sent. A scan that finds its serial changes its
-        // provenance (Registry::add_or_merge), and it is read like any other
-        // device from then on.
+        // address: a device added by hand that has not been found is an
+        // entry, not a device. Nothing has answered from any address for it,
+        // and its product is the operator's word, so there is nothing to read
+        // and nothing is sent. A scan that finds its serial, or Find at an
+        // address (app/find_device.h), changes its provenance
+        // (Registry::add_or_merge), and it is read from then on.
         //
         // ManuallyAdded is also what a record gets when whoever built it set
         // no provenance at all. Refusing that too is the safe way round.
         if (d.provenance == device::Provenance::ManuallyAdded)
         {
-            plan.reason = "There is no device to read. This entry was added by hand, and no scan has "
-                          "found a device with serial " +
+            plan.reason = "There is no device to read. This entry was added by hand, and no device with "
+                          "serial " +
                           std::to_string(d.serial_number) +
-                          ", so T5000 has no address for it. Nothing was sent. Once a scan finds "
-                          "it, it takes this entry's place in the list, with the name and location "
-                          "given here, and can be read.";
+                          " has been found, so T5000 has no address for it. Nothing was sent. Once a "
+                          "scan finds it, or Find on the Devices page finds it at an address you give, "
+                          "it takes this entry's place in the list, with the name and location given "
+                          "here, and can be read.";
             return plan;
         }
 
         // Decided first, so it is on the plan whatever else is refused.
         // answered_scan is set only by a scan in this session; a device
         // restored from the saved list starts at 0.
+        //
+        // A device Find found this session has not answered a scan either,
+        // and its address is the one the operator gave. BacnetUnicast with
+        // answered_scan 0 means exactly that: the saved list restores every
+        // device as Restored, and a scan that finds one upgrades it.
         plan.seen_this_session = d.answered_scan != 0;
         plan.identity = plan.seen_this_session ? Identity::VouchedForByScan : Identity::MustConfirm;
-        if (!plan.seen_this_session)
+        if (!plan.seen_this_session && d.provenance == device::Provenance::BacnetUnicast)
+        {
+            plan.identity = Identity::FoundAtAddress;
+            const std::string when = local_time_text(d.last_seen);
+            plan.sighting = "Found by Find at the address given" +
+                            (when.empty() ? std::string() : ", " + when) +
+                            ", not by a scan: every read first checks its serial in its settings.";
+        }
+        else if (!plan.seen_this_session)
         {
             const std::string when = local_time_text(d.last_seen);
             plan.sighting = "Not seen since T5000 started: this device has not answered a scan this "
@@ -135,10 +149,11 @@ namespace t5000::app
         info.address        = plan.endpoint.text();
         info.sighting       = plan.sighting;
 
-        // A read that got this far under MustConfirm had its serial checked:
-        // any other outcome of the settings read refuses it. Said, so the
-        // note about the saved address does not read as doubt about the data.
-        if (!info.sighting.empty() && plan.identity == Identity::MustConfirm)
+        // A read that got this far under MustConfirm or FoundAtAddress had
+        // its serial checked: any other outcome of the settings read refuses
+        // it. Said, so the note about the address does not read as doubt
+        // about the data.
+        if (!info.sighting.empty() && plan.identity != Identity::VouchedForByScan)
         {
             info.sighting += " Its settings give serial " + std::to_string(d.serial_number) +
                              ", the one saved for it, so it is the same device.";

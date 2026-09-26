@@ -217,7 +217,7 @@ namespace t5000::web
   function showBanner(data) {
     const rp = data.readPath || {};
 
-    // A device added by hand that no scan has found. Nothing was read, and
+    // A device added by hand that has not been found. Nothing was read, and
     // the banners say so before anything else.
     if (data.offline) {
       const o = data.offline;
@@ -236,8 +236,9 @@ namespace t5000::web
     const fixture = !!(data.device && data.device.isFixture);
 
     // Set only for a device no scan has found since T5000 started: when it
-    // was last seen, and that its address is the saved one. Said in both
-    // banners, as the reason a read was refused or the proof it was not.
+    // was last seen, and that its address is the saved one, or that Find
+    // found it at the address given. Said in both banners, as the reason a
+    // read was refused or the proof it was not.
     const sighting = (data.device && data.device.sighting) ? " " + esc(data.device.sighting) : "";
 
     // A device that was FOUND but cannot be read is its own state, and the

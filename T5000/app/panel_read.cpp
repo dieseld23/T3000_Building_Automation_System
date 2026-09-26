@@ -40,15 +40,20 @@ namespace t5000::app
     {
         using namespace bacnet;
 
-        const bool must_confirm = identity == Identity::MustConfirm;
+        const bool must_confirm = identity != Identity::VouchedForByScan;
         const std::string expected = std::to_string(expected_serial);
 
-        // Said with every refusal of a device known only from the saved list.
-        // The settings are the one read it has been sent; nothing follows.
+        // Said with every refusal of a device no scan has vouched for. The
+        // settings are the one read it has been sent; nothing follows.
         const std::string scan_first =
-            std::string(" Its address comes from the saved list, and another panel may have it now, so nothing "
-                        "more was read from it. Scan, and then open ") +
-            words.page + " again.";
+            identity == Identity::FoundAtAddress
+                ? std::string(" Its address is the one it was found at, and another panel may have it now, so "
+                              "nothing more was read from it. Find it again on the Devices page, and then open ") +
+                      words.page + " again."
+                : std::string(" Its address comes from the saved list, and another panel may have it now, so "
+                              "nothing more was read from it. Scan, or find it at its address on the Devices "
+                              "page, and then open ") +
+                      words.page + " again.";
 
         const ReadOutcome s = read_entities(transport, device, ReadCommand::Settings, 1, 1,
                                             (uint16_t)wire::kSettingsWireSize, settings, next_invoke_id);

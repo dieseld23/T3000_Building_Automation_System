@@ -148,8 +148,8 @@ another building, so the panel there now may be a different one. Nothing this
 session vouches for it, so its settings have to: unless they give its saved
 serial, nothing after the settings read is sent. A refusal, a reply that does
 not match the request, and serial 0 all stop the read, as a different serial
-does, and the page says to scan first (`Identity::MustConfirm`,
-`app/inputs_read.h`). A device that has answered a scan since T5000 started
+does, and the page says to scan, or to find it at its address, first
+(`Identity::MustConfirm`, `app/inputs_read.h`). A device that has answered a scan since T5000 started
 is read as the paragraph before this one says: only a different serial stops
 it, and a refusal, a reply that does not match or serial 0 leaves a note and
 the read goes on, because that scan saw the serial answer from that address.
@@ -157,16 +157,51 @@ It counts as seen whichever scan of the session it answered, not only the last.
 The page says when a device has not been seen this session, and when it last
 was (`plan_inputs_read`, `app/inputs_plan.cpp`).
 
-**A device added by hand is not read until a scan finds it.** It is an entry
+**A device added by hand is not read until it is found.** It is an entry
 the operator typed in: its product and model are their word, and nothing has answered
 from any address for it. `plan_inputs_read` refuses it before anything else,
 and nothing is sent. The page shows the inputs configured for it offline
 instead, when it can have them (`offline_inputs_payload`,
 `app/offline_inputs.cpp`), or says there is no device to read. A scan that
-finds its serial replaces the entry with the device, which is read from then
-on under the rules above. `ManuallyAdded` is also the provenance a record gets
+finds its serial, or Find, replaces the entry with the device, which is read
+from then on under the rules above and below. `ManuallyAdded` is also the provenance a record gets
 when whoever built it set none, so a record that says nothing about where it
 came from is refused the same way.
+
+**Find: a device at an address the operator gives.** A scan is a broadcast,
+and does not cross a router, so a device on another subnet is never found by
+one. Find, on the Devices page, sends the address and port the operator types
+one request - the settings read, which is on the whitelist and cannot change
+anything - when Find is clicked, and at no other time (`app/find_device.h`).
+It is sent once more if nothing answers, as every read is. The device is
+found only if the settings give its serial; another serial, serial 0, a
+refusal or silence is not found, and the list and the file are left as they
+were. Before anything is sent, the address must be four numbers from 0 to
+255 (a name is not looked up), and 0.0.0.0, the broadcast address, multicast
+and the reserved range from 240.0.0.0 are refused, and so are the broadcast
+address and the network address of each network this computer is on: a typo
+such as 192.168.1.255 would otherwise reach every device there. The socket is
+not allowed to broadcast, but that is not enough on its own: a send from it to
+127.255.255.255 went out. Find is not offered for a
+device that answered a scan this session - its address is the scan's - nor
+for one on another controller's bus, nor for a product whose settings T5000
+does not read.
+
+A device found is not vouched for the way a scan vouches for one: the address
+is the operator's, and another panel may have it by the time a page is
+opened. So every read of it is held to the rule for a device from the saved
+list (`Identity::FoundAtAddress`): unless its settings give its serial again,
+nothing more is read, and the page says to find it again. What the settings
+give - panel type, Modbus id, instance and name - is taken; the product stays
+the entry's, since the settings do not carry one, and the firmware is left
+for a scan, since its scale in the settings has not been checked against the
+scan's. The device is saved at that address and comes back next time from the
+saved list. A scan that later finds it vouches for it from then on.
+
+T3000's nearest equivalent, Add Remote Device (`BacnetAddRemoteDevice.cpp:146-300`),
+sends the address a Who-Is up to five times and then reads Modbus registers
+0-49 through BACnet. T5000 does not read Modbus registers yet; the settings
+read gives the serial by the path its pages read by.
 
 **Devices a controller answered for are not read.** A Minipanel or T3 answers
 the scan for the Tstats on its RS485 bus, from its own address, with the
