@@ -23,6 +23,11 @@ namespace t5000::display
         }
     }
 
+    std::wstring trim_like_t3000(const std::wstring& s)
+    {
+        return trim(s);
+    }
+
     size_t length_to_nul(const uint8_t* text, size_t max_length)
     {
         return text == nullptr ? 0 : strnlen((const char*)text, max_length);

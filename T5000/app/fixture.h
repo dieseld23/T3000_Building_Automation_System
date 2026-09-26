@@ -10,8 +10,17 @@
 #include <vector>
 
 #include "../wire/points.h"
+#include "points_json.h"
 
 namespace t5000::app
 {
     std::vector<wire::InputPoint> fixture_points();
+
+    // The Outputs page's sample: a panel whose settings are "known" - a
+    // Tiny MiniPanel, whose first eight outputs have hand-off-auto switches -
+    // so the switch column, the rows it marks and an external output all
+    // appear when the page is worked on. Flagged isFixture like the rest.
+    DeviceInfo                     fixture_outputs_device();
+    OutputsPanel                   fixture_outputs_panel();
+    std::vector<wire::OutputPoint> fixture_outputs();
 }

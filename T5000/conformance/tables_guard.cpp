@@ -16,6 +16,7 @@
 #include "../display/custom_ranges.h"
 #include "../display/tables.h"
 #include "../device/input_rows.h"
+#include "../device/output_rows.h"
 #include "../bacnet/point_read.h"
 #include "../testing/check.h"
 #include "../wire/panel.h"
@@ -226,6 +227,11 @@ namespace
               "refuses an escape it does not decode, rather than passing it through");
         check(!parse_table("const CString T[] = { _T(\"a\") };", "Missing", got, error),
               "and a table that is not there is an error");
+
+        // Output_Decom_Array is declared with its size, [2], not [].
+        check(parse_table("const CString Sized[2] =\n{\n\t_T(\"OK\"),\n\t_T(\"-\"),\n};\n", "Sized", got, error) &&
+                  got.size() == 2 && got[1] == "-",
+              "a table declared with its size is found, with its trailing comma");
     }
 
     void test_the_tables_are_pinned_by_hand()
@@ -242,6 +248,15 @@ namespace
         check_eq((long)count(kDigitalUnits), 23, "Digital_Units_Array has 23 entries");
         check_eq((long)count(kJumperStatus), 6, "JumperStatus has 6");
         check_eq((long)count(kInputStatus), 3, "Decom_Array has 3");
+
+        // The output tables are T3000's shortest. range < 9 picks an entry;
+        // a copy with a tenth would show a name where T3000 says "Out of
+        // range".
+        check_eq((long)count(kOutputAnalogRanges), 9, "OutPut_List_Analog_Range has 9 entries");
+        check_streq(kOutputAnalogRanges[3], "4   -> 20", "  and [3] has three spaces");
+        check_eq((long)count(kOutputAnalogUnits), 9, "OutPut_List_Analog_Units has 9");
+        check_streq(kOutputAnalogUnits[7], "%PWM", "  and [7] is %PWM");
+        check_eq((long)count(kOutputStatus), 2, "Output_Decom_Array has 2");
     }
 
     void test_the_constant_parser_on_its_own()
@@ -328,6 +343,61 @@ namespace
         check_constant(header, "PID_T3PT12", (long)MiniType::T3PT12);
         check_constant(header, "PID_T332AI", (long)MiniType::T332AI);
         check_constant(header, "PID_T36CTA", (long)MiniType::T36CTA);
+
+        // The Outputs grid: its counts, the panel types its chain and HOA
+        // list test for, each model's switched outputs, and the switch
+        // positions.
+        check_constant(header, "BAC_OUTPUT_ITEM_COUNT", t5000::bacnet::kOutputCount);
+        check_constant(header, "BAC_READ_OUTPUT_GROUP_NUMBER", t5000::bacnet::kOutputsPerRequest);
+
+        check_constant(header, "BIG_MINIPANEL", (long)MiniType::BigMiniPanel);
+        check_constant(header, "SMALL_MINIPANEL", (long)MiniType::SmallMiniPanel);
+        check_constant(header, "TINY_MINIPANEL", (long)MiniType::TinyMiniPanel);
+        check_constant(header, "MINIPANELARM", (long)MiniType::MiniPanelArm);
+        check_constant(header, "MINIPANELARM_LB", (long)MiniType::MiniPanelArmLb);
+        check_constant(header, "MINIPANELARM_TB", (long)MiniType::MiniPanelArmTb);
+        check_constant(header, "T3_TSTAT10", (long)MiniType::Tstat10);
+        check_constant(header, "T3_BMS", (long)MiniType::Bms);
+        check_constant(header, "T3_OEM", (long)MiniType::Oem);
+        check_constant(header, "T3_TB_11I", (long)MiniType::Tb11I);
+        check_constant(header, "T3_OEM_12I", (long)MiniType::Oem12I);
+        check_constant(header, "T3_ESP_RMC", (long)MiniType::EspRmc);
+        check_constant(header, "T3_ESP_LW", (long)MiniType::EspLw);
+        check_constant(header, "T3_NG3", (long)MiniType::Ng3);
+        check_constant(header, "T3_3IIC", (long)MiniType::ThreeIic);
+        check_constant(header, "T3_TSTAT11", (long)MiniType::Tstat11);
+
+        using namespace t5000::device;
+        struct Counts
+        {
+            const char*  prefix;
+            OutputCounts ours;
+        };
+        const Counts counts[] = {
+            { "BIG_MINIPANEL_OUT_", kBigMiniPanelOutputs },
+            { "SMALL_MINIPANEL_OUT_", kSmallMiniPanelOutputs },
+            { "TINY_MINIPANEL_OUT_", kTinyMiniPanelOutputs },
+            { "TINYEX_MINIPANEL_OUT_", kTinyExMiniPanelOutputs },
+            { "T3_ESP_LW_OUT_", kEspLwOutputs },
+            { "T3_TB_11I_OUT_", kTb11IOutputs },
+            { "T38AI8AO6DO_OUT_", kT38AI8AO6DOOutputs },
+            { "T322AI_OUT_", kT322AIOutputs },
+            { "T332AI_OUT_", kT332AIOutputs },
+            { "PWM_TRANSDUCER_OUT_", kPwmTransducerOutputs },
+            { "RMC_OUT_", kRmcOutputs },
+            { "RMC1232_OUT_", kRmc1232Outputs },
+            { "T3_BMS_OUT_", kBmsOutputs },
+            { "NG3_OUT_", kNg3Outputs },
+        };
+        for (const Counts& c : counts)
+        {
+            check_constant(header, (std::string(c.prefix) + "D").c_str(), c.ours.digital);
+            check_constant(header, (std::string(c.prefix) + "A").c_str(), c.ours.analog);
+        }
+
+        check_constant(header, "HW_SW_OFF", kSwitchOff);
+        check_constant(header, "HW_SW_AUTO", kSwitchAuto);
+        check_constant(header, "HW_SW_HAND", kSwitchHand);
     }
 
     void test_the_tables_match_t3000()
@@ -343,6 +413,9 @@ namespace
         compare(header, "Input_Analog_Units_Array", kInputAnalogRanges, "Input_Analog_Units_Array");
         compare(header, "JumperStatus",             kJumperStatus,      "JumperStatus");
         compare(header, "Decom_Array",              kInputStatus,       "Decom_Array");
+        compare(header, "OutPut_List_Analog_Range", kOutputAnalogRanges, "OutPut_List_Analog_Range");
+        compare(header, "OutPut_List_Analog_Units", kOutputAnalogUnits,  "OutPut_List_Analog_Units");
+        compare(header, "Output_Decom_Array",       kOutputStatus,       "Output_Decom_Array");
     }
 }
 

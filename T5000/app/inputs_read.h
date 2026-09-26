@@ -38,45 +38,12 @@
 
 #include "../bacnet/point_read.h"
 #include "../device/product.h"
-#include "../display/custom_ranges.h"
-#include "../wire/panel.h"
 #include "../wire/points.h"
+#include "panel_read.h"
 
 namespace t5000::app
 {
-    // How sure T5000 already is that the panel at the address is the device
-    // expected there, before its settings are read.
-    //
-    // Either way, settings that give another serial stop the read. The two
-    // differ over settings that cannot confirm the serial: refused, not
-    // decodable, or carrying serial 0.
-    enum class Identity
-    {
-        // It answered a scan this session, from this address, with this
-        // serial. The scan has vouched for it, so a panel whose settings
-        // cannot confirm the serial is read on, and the page says so.
-        VouchedForByScan,
-
-        // Known only from the saved list: it has not answered a scan since
-        // T5000 started, and the address is the one it had then. Another
-        // panel may have that address now, so unless the settings confirm
-        // the serial, nothing more is read and the page says to scan first.
-        MustConfirm,
-    };
-
-    struct PanelRead
-    {
-        // The settings answered and decoded.
-        bool                settings_known = false;
-        wire::PanelSettings settings;
-
-        display::CustomRanges ranges;
-
-        // What the page should be told about the panel: why the settings or
-        // some names are missing, or that the serial could not be checked.
-        // Empty when everything T3000 would have read was read.
-        std::string note;
-    };
+    // Identity and PanelRead are in panel_read.h, shared with Outputs.
 
     struct InputsPageRead
     {

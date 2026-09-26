@@ -6,6 +6,8 @@ namespace t5000::bacnet
     {
         switch (c)
         {
+        case ReadCommand::Outputs:
+            return "outputs";
         case ReadCommand::Inputs:
             return "inputs";
         case ReadCommand::CustomUnits:

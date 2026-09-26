@@ -101,8 +101,12 @@
     <ClCompile Include="app\fixture.cpp" />
     <ClCompile Include="app\inputs_plan.cpp" />
     <ClCompile Include="app\inputs_plan_selftest.cpp" />
+    <ClCompile Include="app\outputs_plan.cpp" />
     <ClCompile Include="app\inputs_read.cpp" />
     <ClCompile Include="app\inputs_read_selftest.cpp" />
+    <ClCompile Include="app\panel_read.cpp" />
+    <ClCompile Include="app\outputs_read.cpp" />
+    <ClCompile Include="app\outputs_read_selftest.cpp" />
     <ClCompile Include="app\points_json.cpp" />
     <ClCompile Include="app\product_json.cpp" />
     <ClCompile Include="app\scan_json.cpp" />
@@ -114,6 +118,8 @@
     <ClCompile Include="bacnet\private_transfer_selftest.cpp" />
     <ClCompile Include="display\input_text.cpp" />
     <ClCompile Include="display\input_text_selftest.cpp" />
+    <ClCompile Include="display\output_text.cpp" />
+    <ClCompile Include="display\output_text_selftest.cpp" />
     <ClCompile Include="display\custom_ranges.cpp" />
     <ClCompile Include="display\custom_ranges_selftest.cpp" />
     <ClCompile Include="display\device_text.cpp" />
@@ -123,6 +129,8 @@
     <ClCompile Include="device\product_selftest.cpp" />
     <ClCompile Include="device\input_rows.cpp" />
     <ClCompile Include="device\input_rows_selftest.cpp" />
+    <ClCompile Include="device\output_rows.cpp" />
+    <ClCompile Include="device\output_rows_selftest.cpp" />
     <ClCompile Include="device\registry.cpp" />
     <ClCompile Include="device\registry_selftest.cpp" />
     <ClCompile Include="device\read_path.cpp" />
@@ -156,7 +164,10 @@
     <ClInclude Include="app\device_list.h" />
     <ClInclude Include="app\fixture.h" />
     <ClInclude Include="app\inputs_plan.h" />
+    <ClInclude Include="app\outputs_plan.h" />
     <ClInclude Include="app\inputs_read.h" />
+    <ClInclude Include="app\panel_read.h" />
+    <ClInclude Include="app\outputs_read.h" />
     <ClInclude Include="app\points_json.h" />
     <ClInclude Include="app\product_json.h" />
     <ClInclude Include="app\scan_json.h" />
@@ -164,10 +175,12 @@
     <ClInclude Include="bacnet\point_read.h" />
     <ClInclude Include="bacnet\private_transfer.h" />
     <ClInclude Include="display\input_text.h" />
+    <ClInclude Include="display\output_text.h" />
     <ClInclude Include="display\tables.h" />
     <ClInclude Include="display\custom_ranges.h" />
     <ClInclude Include="display\device_text.h" />
     <ClInclude Include="device\input_rows.h" />
+    <ClInclude Include="device\output_rows.h" />
     <ClInclude Include="device\connection.h" />
     <ClInclude Include="device\registry.h" />
     <ClInclude Include="device\read_path.h" />
@@ -187,6 +200,7 @@
     <ClInclude Include="testing\temp_file.h" />
     <ClInclude Include="web\devices_page.h" />
     <ClInclude Include="web\inputs_page.h" />
+    <ClInclude Include="web\outputs_page.h" />
     <ClInclude Include="wire\decode.h" />
     <ClInclude Include="wire\panel.h" />
     <ClInclude Include="wire\points.h" />

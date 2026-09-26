@@ -250,7 +250,7 @@ namespace t5000::web
   <span id="readonly-note">Scanning is read-only. No register is written.</span>
   <span id="saved-note"></span>
   <span class="spacer"></span>
-  <span><a href="/inputs">Inputs</a></span>
+  <span><a href="/inputs">Inputs</a> &middot; <a href="/outputs">Outputs</a></span>
 </footer>
 )PAGE"
         R"PAGE(

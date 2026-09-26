@@ -8,11 +8,11 @@
 //
 // It finds devices, keeps a list of them between runs, takes devices added by
 // hand before any scan has found them, and reads a selected controller's
-// inputs. It cannot yet change anything on a device. The scan and
+// inputs and outputs. It cannot yet change anything on a device. The scan and
 // the reads are read-only by construction (see discovery/scanner.h and
 // bacnet/command.h), and problems the scan notices are staged as proposals
-// nobody has agreed to yet. With no device selected, the Inputs page gets the
-// fixture, flagged as such everywhere it is served. README.md says where the
+// nobody has agreed to yet. With no device selected, the Inputs and Outputs
+// pages get fixtures, flagged as such everywhere they are served. README.md says where the
 // project stands.
 
 #include <windows.h>
@@ -26,6 +26,7 @@
 #include "app/fixture.h"
 #include "app/inputs_plan.h"
 #include "app/inputs_read.h"
+#include "app/outputs_plan.h"
 #include "app/points_json.h"
 #include "app/product_json.h"
 #include "app/scan_json.h"
@@ -41,6 +42,7 @@
 #include "store/device_db.h"
 #include "web/devices_page.h"
 #include "web/inputs_page.h"
+#include "web/outputs_page.h"
 
 int run_selftests(int argc, char** argv);
 
@@ -198,6 +200,27 @@ namespace
 
         return app::read_planned_inputs(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id);
     }
+
+    // The same, for its outputs.
+    std::string read_selected_outputs(const t5000::device::DeviceRecord& d)
+    {
+        using namespace t5000;
+
+        const app::PointsPlan plan = app::plan_outputs_read(d);
+        if (!plan.can_read)
+            return app::build_unavailable_outputs_json((int)d.serial_number, d.address_note, plan.reason,
+                                                       plan.sighting);
+
+        bacnet::UdpReadTransport transport(plan.endpoint);
+        std::string error;
+        if (!transport.open(error))
+        {
+            return app::build_unavailable_outputs_json(
+                (int)d.serial_number, d.address_note, "Nothing was sent. " + error, plan.sighting);
+        }
+
+        return app::read_planned_outputs(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id);
+    }
 }
 
 int main(int argc, char** argv)
@@ -239,6 +262,10 @@ int main(int argc, char** argv)
 
     server.route("/inputs", [](const http::Request&) {
         return http::Response::html(web::kInputsPage);
+    });
+
+    server.route("/outputs", [](const http::Request&) {
+        return http::Response::html(web::kOutputsPage);
     });
 
     // Loaded once at startup and held in memory. A tool driven by one person at
@@ -543,6 +570,20 @@ int main(int argc, char** argv)
 
         return http::Response::json(
             app::build_inputs_json(device, decision, app::fixture_points()));
+    });
+
+    server.route("/api/outputs", [](const http::Request&) {
+        // As /api/inputs: a selected device is read, or says why not, and
+        // never gets the fixture.
+        if (const device::DeviceRecord* selected = g_registry.selected())
+            return http::Response::json(read_selected_outputs(*selected));
+
+        const app::DeviceInfo device = app::fixture_outputs_device();
+        const t5000::device::Decision decision =
+            t5000::device::choose_read_path(device.product_id, device.firmware, device.protocol);
+
+        return http::Response::json(
+            app::build_outputs_json(device, decision, app::fixture_outputs(), app::fixture_outputs_panel()));
     });
 
     char url[64];

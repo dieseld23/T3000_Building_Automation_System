@@ -82,7 +82,7 @@ is precisely the kind of behaviour this project exists to stop repeating.
 
 ## What T5000 now reads, and how
 
-Path 1 over BACnet/IP, for Inputs: `bacnet/private_transfer.cpp` (the bytes)
+Path 1 over BACnet/IP, for Inputs and Outputs: `bacnet/private_transfer.cpp` (the bytes)
 and `bacnet/point_read.cpp` (the requests). Everything else still reports why
 it is not read rather than reading it.
 
@@ -273,8 +273,26 @@ out. Where T3000 would show something T5000 cannot, the row carries a note
 instead of a guess - a custom range whose names did not come back, or a cell
 T3000 leaves holding the previous row's text.
 
-**Not yet:** the Panel and Type columns. Outputs and Variables, which will
-use this same path with their own commands. Path 2 (Modbus registers) and the
+**Outputs.** The same path, with `READOUTPUT_T3000` (1): seven requests of
+ten 45-byte points, or more on an ESP32 T3 from firmware 63.7. Before them
+the Outputs page (`app/outputs_read.cpp`) reads the settings and the custom
+digital range names, and not the analog table names, which only input ranges
+use: 9 requests in all. A failure of either is handled as on the Inputs page;
+the two share that code (`app/panel_read.cpp`). The points are decoded as
+`fill_in_output` decodes them (`wire/decode.cpp`), which is not quite as
+inputs are: a description that does not fit is cut to 18 characters rather
+than blanked, and a voltage above 12.0 V is zeroed. For both, whether text
+fits is decided by strlen over the wire, so the byte after a full field
+decides it. The grid is `BacnetOutput.cpp:658-1141`, ported in
+`display/output_text.cpp`, with the row limit, the outputs a hand-off-auto
+switch covers, and whether a model shows external outputs from the chain at
+`:418-545` (`device/output_rows.cpp`). A switched output at off or hand
+shows MAN-OFF or MAN-ON and a marked row, and its Auto/Man cell is empty,
+as T3000 leaves it on a first open; the note keeps the setting. An output
+on a T3 expansion module is external, and shows that module's switch.
+
+**Not yet:** the Panel and Type columns, on both pages, and Outputs' Product
+Name. Variables, which will use this same path with their own commands. Path 2 (Modbus registers) and the
 PTP tunnel are not implemented, and nor is reading a sub-device through its
 controller. The migration plan's [Next](../docs/t5000-migration-plan.md#next)
 list has the order.

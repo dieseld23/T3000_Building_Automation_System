@@ -14,12 +14,12 @@ those surveys, made by opening the files.
 **Nothing in T5000 has yet touched a live controller.** Every claim here is
 source-against-source, except the struct sizes, which the compiler asserts.
 
-**Where it stands, 2026-09-25:** Stage 0 is done, and the device list is now
+**Where it stands, 2026-09-26:** Stage 0 is done, and the device list is now
 saved between runs, as T3000's building database is ([The device
 list](#the-device-list-and-virtual-devices)). In Stage 1, Inputs are read and
 shown as T3000 shows them, after each panel's settings and custom range names
-(#17). The Panel and Type columns are still to do, and Outputs and Variables
-are not started. The stage table below has each stage's state, and
+(#17), and so are Outputs. The Panel and Type columns are still to do, and
+Variables is not started. The stage table below has each stage's state, and
 [Next](#next) is the list of what comes after.
 [`T5000/README.md`](../T5000/README.md) describes the tool as it is today.
 
@@ -173,7 +173,7 @@ Each ships on its own. Ordered by dependency, not by difficulty.
 | Stage | Delivers | Changed by all-products? | State, 2026-09-25 |
 |---|---|---|---|
 | **0** | Discovery, selection, firmware detection, **product-identity model** | **Larger** — two id axes, capability table | Done (#9, #12, #13, #15). The device list is saved between runs (#19), and takes devices added by hand |
-| **1** | Inputs + Outputs + Variables read | Unchanged — one shared layout | Inputs done (#14, #16, #17), except the Panel and Type columns. Outputs and Variables not started |
+| **1** | Inputs + Outputs + Variables read | Unchanged — one shared layout | Inputs done (#14, #16, #17), except the Panel and Type columns. Outputs done, except those and Product Name. Variables not started |
 | **2** | Write support for points, then Arrays, PVar | Unchanged | Not started |
 | **3** | Device settings, user login | Slightly larger — per-product field ranges | Not started. The settings block is already read and guarded, for Inputs |
 | **4** | PID loops, then Tstat | **Larger** — Tstat is a second data model | Not started |
@@ -201,8 +201,14 @@ be the thing to port rather than the two label helpers. It is in
 against `global_define.h` by `conformance/tables_guard.cpp` on every build of
 T3000's solution. `Device_Basic_Setting` is read too
 (`READ_SETTING_COMMAND`, `app/inputs_read.cpp`), and so are the custom range
-tables; the row limits and per-model labels they drive are ported. Still to
-come: the Panel and Type columns, and Outputs and Variables.
+tables; the row limits and per-model labels they drive are ported.
+
+*Done for Outputs,* the same way: the grid, `BacnetOutput.cpp:658-1141`, in
+`display/output_text.cpp`; the row limits, hand-off-auto switches and external
+outputs by model in `device/output_rows.cpp`; the reads in
+`app/outputs_read.cpp`, sharing the settings and custom-name reads with Inputs
+(`app/panel_read.cpp`). Still to come: the Panel and Type columns, Outputs'
+Product Name, and Variables.
 
 **Stage 2 is the cliff** — the first code that writes to live equipment.
 Writes get their own transport, separate from the read path, which cannot
@@ -227,9 +233,11 @@ In order:
    line. The owner has decided the rates (all six) and MS/TP (join the
    ring). Opening a port is not yet decided, so nothing opens one; see
    [Serial ports](#serial-ports).
-3. **Finish Inputs:** the Panel and Type columns.
-4. **Outputs and Variables.** Same struct path as Inputs, and their structs
-   are already guarded. T3000 also reads multi-state ranges
+3. **Finish Inputs and Outputs:** the Panel and Type columns, and Outputs'
+   Product Name. Type needs `GetOutputType` and its input counterpart, and
+   Product Name needs T3000's product names, which are not T5000's.
+4. **Variables.** Same struct path as Inputs and Outputs, and its struct is
+   already guarded. T3000 also reads multi-state ranges
    (`READ_MSV_COMMAND`) and variable units (`READVARUNIT_T3000`) when it
    connects (`BacnetView.cpp:6483-6575`); the port will need both.
 5. **The first hardware check,** once a controller is available and the owner

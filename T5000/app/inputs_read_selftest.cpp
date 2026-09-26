@@ -514,6 +514,19 @@ namespace
         check(has(unknown, "settings were not read"), "  with a note saying why");
     }
 
+    void test_the_payload_trims_the_label_only()
+    {
+        section("the label is trimmed, as T3000 trims it, and the full label is not");
+
+        std::vector<w::InputPoint> points(1);
+        memcpy(points[0].description, "  Zone Temp  ", 13);
+        memcpy(points[0].label, " ZT_1 ", 6);
+        const std::string json = build_inputs_json(from_wire(), t5000::device::Decision(), points);
+        check(has(json, "\"label\":\"ZT_1\""), "the label, trimmed (BacnetInput.cpp:1376)");
+        check(has(json, "\"fullLabel\":\"  Zone Temp  \""),
+              "the full label as sent: T3000's trim of it is thrown away (:981)");
+    }
+
     void test_the_payload_uses_the_panel_type()
     {
         section("the rows get the panel's model, for its own labels");
@@ -567,5 +580,6 @@ int run_inputs_read_tests()
     test_the_payload_leaves_out_the_rows_t3000_blanks();
     test_the_payload_uses_the_panel_type();
     test_the_payload_uses_the_names();
+    test_the_payload_trims_the_label_only();
     return 0;
 }
