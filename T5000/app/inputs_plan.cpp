@@ -23,9 +23,14 @@ namespace t5000::app
 
     InputsPlan plan_inputs_read(const device::DeviceRecord& d)
     {
+        return plan_points_read(d, "inputs");
+    }
+
+    PointsPlan plan_points_read(const device::DeviceRecord& d, const char* points)
+    {
         using device::Transport;
 
-        InputsPlan plan;
+        PointsPlan plan;
 
         // Before anything else, including the note below about a saved
         // address: a device added by hand that no scan has found is an entry,
@@ -63,8 +68,8 @@ namespace t5000::app
 
         if (d.connection.transport != Transport::BacnetIp)
         {
-            plan.reason = std::string("T5000 reads inputs over BACnet/IP only so far, and this "
-                                      "device is reached over ") +
+            plan.reason = std::string("T5000 reads ") + points +
+                          " over BACnet/IP only so far, and this device is reached over " +
                           device::transport_name(d.connection.transport) + ".";
             return plan;
         }
@@ -80,8 +85,8 @@ namespace t5000::app
                           ", which answered the scan for it, so the address in the scan is "
                           "that controller's. T3000 reads a device like this through its "
                           "controller, over Modbus; T5000 does not yet. A read sent to that "
-                          "address would come back with the controller's inputs under this "
-                          "device's serial, so none is sent.";
+                          "address would come back with the controller's " + points +
+                          " under this device's serial, so none is sent.";
             return plan;
         }
 
@@ -106,9 +111,9 @@ namespace t5000::app
             return plan;
         }
 
-        // How many inputs to read is decided by the read itself, from the
+        // How many points to read is decided by the read itself, from the
         // panel's settings: 64, or more on an ESP32 T3 on firmware 63.7 or
-        // later (app/inputs_read.cpp).
+        // later (app/inputs_read.cpp, app/outputs_read.cpp).
         plan.can_read = true;
         return plan;
     }

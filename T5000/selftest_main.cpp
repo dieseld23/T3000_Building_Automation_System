@@ -32,6 +32,7 @@ int run_custom_ranges_tests();
 int run_input_rows_tests();
 int run_output_rows_tests();
 int run_inputs_read_tests();
+int run_outputs_read_tests();
 int run_device_db_tests();
 int run_device_list_tests();
 int run_http_server_tests();
@@ -83,6 +84,8 @@ int run_selftests(int, char**)
     run_output_rows_tests();
     printf("\n");
     run_inputs_read_tests();
+    printf("\n");
+    run_outputs_read_tests();
     printf("\n");
     run_device_db_tests();
     printf("\n");

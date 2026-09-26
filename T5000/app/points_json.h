@@ -96,4 +96,27 @@ namespace t5000::app
                                               const std::string& address,
                                               const std::string& reason,
                                               const std::string& sighting = std::string());
+
+    // The panel the outputs came from: the same as for inputs.
+    using OutputsPanel = InputsPanel;
+
+    // The Outputs page's payload, shaped as the Inputs page's is: the same
+    // device, readPath and panel keys, "outputs" where that has "inputs",
+    // and only the custom digital ranges - no output range uses the analog
+    // tables, so they are not read.
+    //
+    // Only the rows T3000 shows with anything in them are included, as for
+    // inputs; a model with no outputs has none.
+    std::string build_outputs_json(const DeviceInfo& device,
+                                   const device::Decision& decision,
+                                   const std::vector<wire::OutputPoint>& points,
+                                   const OutputsPanel& panel = OutputsPanel());
+
+    // The payload for a device the tool has found but cannot read the
+    // outputs of. Every key build_outputs_json writes is here too, for the
+    // reason build_unavailable_inputs_json gives.
+    std::string build_unavailable_outputs_json(int serial_number,
+                                               const std::string& address,
+                                               const std::string& reason,
+                                               const std::string& sighting = std::string());
 }

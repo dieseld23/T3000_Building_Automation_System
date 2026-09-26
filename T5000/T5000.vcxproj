@@ -101,8 +101,12 @@
     <ClCompile Include="app\fixture.cpp" />
     <ClCompile Include="app\inputs_plan.cpp" />
     <ClCompile Include="app\inputs_plan_selftest.cpp" />
+    <ClCompile Include="app\outputs_plan.cpp" />
     <ClCompile Include="app\inputs_read.cpp" />
     <ClCompile Include="app\inputs_read_selftest.cpp" />
+    <ClCompile Include="app\panel_read.cpp" />
+    <ClCompile Include="app\outputs_read.cpp" />
+    <ClCompile Include="app\outputs_read_selftest.cpp" />
     <ClCompile Include="app\points_json.cpp" />
     <ClCompile Include="app\product_json.cpp" />
     <ClCompile Include="app\scan_json.cpp" />
@@ -160,7 +164,10 @@
     <ClInclude Include="app\device_list.h" />
     <ClInclude Include="app\fixture.h" />
     <ClInclude Include="app\inputs_plan.h" />
+    <ClInclude Include="app\outputs_plan.h" />
     <ClInclude Include="app\inputs_read.h" />
+    <ClInclude Include="app\panel_read.h" />
+    <ClInclude Include="app\outputs_read.h" />
     <ClInclude Include="app\points_json.h" />
     <ClInclude Include="app\product_json.h" />
     <ClInclude Include="app\scan_json.h" />

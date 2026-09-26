@@ -22,7 +22,9 @@ namespace t5000::app
     // for a device found by the UDP scan (MainFrm.cpp:7601).
     inline constexpr int kProtocolBacnetIp = 3;
 
-    struct InputsPlan
+    // Whether a device's points can be read, and from where. The same
+    // decision for every points page; only the words differ.
+    struct PointsPlan
     {
         bool can_read = false;
 
@@ -46,6 +48,12 @@ namespace t5000::app
         // since T5000 started, and when it last was. Empty otherwise.
         std::string sighting;
     };
+
+    using InputsPlan = PointsPlan;
+
+    // `points` names what the page reads - "inputs", "outputs" - in the
+    // reasons it gives.
+    PointsPlan plan_points_read(const device::DeviceRecord& device, const char* points);
 
     InputsPlan plan_inputs_read(const device::DeviceRecord& device);
 
