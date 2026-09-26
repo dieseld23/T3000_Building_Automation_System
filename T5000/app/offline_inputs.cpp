@@ -240,6 +240,7 @@ namespace t5000::app
             wire::decode_input_point(config.inputs[i].data(), wire::kInputPointWireSize, points[i]);
 
         OfflineInputsView view;
+        view.handle = to_number(d.handle);
         view.model  = plan.model;
         view.type   = plan.type;
         view.saving = status.saving && db.is_open();

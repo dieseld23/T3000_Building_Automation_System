@@ -153,8 +153,10 @@ namespace
             return;
 
         const std::string p = b.payload();
-        check(contains(p, "{\"offline\":{\"model\":\"T3-OEM\",\"saving\":true,\"edited\":0,"),
-              "the payload says it is configured offline, as a T3-OEM, being saved, with nothing changed");
+        check(contains(p, "{\"offline\":{\"handle\":\"" + std::to_string(to_number(b.handle)) +
+                              "\",\"model\":\"T3-OEM\",\"saving\":true,\"edited\":0,"),
+              "the payload says it is configured offline, for this device, as a T3-OEM, being saved, with nothing "
+              "changed");
         check(contains(p, "\"editable\":[\"fullLabel\",\"autoManual\",\"filter\",\"label\"]"),
               "  and which columns can be changed");
         check(contains(p, "\"isFixture\":false,\"readFromWire\":false"), "  and never that it was read");

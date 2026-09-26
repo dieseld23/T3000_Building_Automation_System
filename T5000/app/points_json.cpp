@@ -482,6 +482,7 @@ namespace t5000::app
         out.reserve(512 + points.size() * 208);
 
         out += "{\"offline\":{";
+        append_field(out, "handle", std::to_string(view.handle)); out += ',';
         append_field(out, "model", view.model); out += ',';
         append_bool(out, "saving", view.saving); out += ',';
         append_int(out, "edited", (long)view.edited); out += ',';

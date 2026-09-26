@@ -83,6 +83,9 @@ namespace t5000::app
     // inputs.
     struct OfflineInputsView
     {
+        // The device's handle, which a change to one of its inputs names.
+        uint64_t handle = 0;
+
         std::string model;      // the model chosen for it, "T3-OEM"
         device::MiniType type = device::MiniType::NotSet;
 

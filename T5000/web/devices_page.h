@@ -206,8 +206,9 @@ namespace t5000::web
 
 <dialog id="edit">
   <form id="edit-form">
-    <h2>Name and location</h2>
+    <h2 id="edit-title">Name and location</h2>
     <div class="dim" id="edit-which"></div>
+    <label id="f-model-row" hidden>Model <select id="f-model"></select></label>
     <label>Name <input type="text" id="f-name" maxlength="60" autocomplete="off"></label>
     <label>Building <input type="text" id="f-building" maxlength="60" list="dl-building" autocomplete="off"></label>
     <label>Floor <input type="text" id="f-floor" maxlength="60" list="dl-floor" autocomplete="off"></label>
@@ -215,6 +216,9 @@ namespace t5000::web
     <datalist id="dl-building"></datalist>
     <datalist id="dl-floor"></datalist>
     <datalist id="dl-room"></datalist>
+    <p class="note" id="f-model-note" hidden>The model is chosen, not read: a scan does not report one.
+      Once it is chosen, the device's inputs can be configured on the Inputs page before a scan
+      finds it.</p>
     <p class="note">Kept in T5000's device list only. Nothing is sent to the device.</p>
     <p class="err" id="edit-error" hidden></p>
     <div class="buttons">
@@ -522,6 +526,8 @@ namespace t5000::web
     } else if (!state.store.saving) {
       edit.disabled = true;
       edit.title = "The list is not being saved, so a name would be lost when T5000 closes.";
+    } else if (byHand(d)) {
+      edit.title = "Name this device, say where it is, and choose its model. Kept in this list only.";
     } else {
       edit.title = "Name this device and say where it is. Kept in this list only.";
     }
@@ -862,12 +868,13 @@ namespace t5000::web
     var saved = d.hasStableIdentity && state.store.saving;
     var question = byHand(d)
       ? "Forget " + describe(d) + "?\n\nIt was added by hand and no scan has found it, so it " +
-        "is taken off the list and out of the saved file for good, with its name and " +
-        "location. Nothing is sent to any device."
+        "is taken off the list and out of the saved file for good, with its name, its " +
+        "location and any inputs configured for it. Nothing is sent to any device."
       : saved
       ? "Forget " + describe(d) + "?\n\nIt is taken off the list and out of the saved file, " +
-        "with any name and location given to it. Nothing is sent to the device. If it " +
-        "answers a later scan it is listed again."
+        "with any name and location given to it, and any inputs configured for it before a " +
+        "scan found it. Nothing is sent to the device. If it answers a later scan it is " +
+        "listed again."
       : "Take " + describe(d) + " off the list?\n\nIt is not in the saved file, so only the " +
         "list changes. Nothing is sent to the device. If it answers a later scan it is " +
         "listed again.";
@@ -883,8 +890,9 @@ namespace t5000::web
     var typed = state.devices.filter(byHand).length;
     var question = state.store.saving
       ? "Forget all " + plural(n, "device", "devices") + "?\n\nThey are taken off the list and " +
-        "out of the saved file, with every name and location given to them. Nothing is sent " +
-        "to any device. Devices that answer a later scan are listed again" +
+        "out of the saved file, with every name and location given to them and every input " +
+        "configured offline. Nothing is sent to any device. Devices that answer a later scan " +
+        "are listed again" +
         (typed ? "; the " + plural(typed, "device", "devices") + " added by hand are not." : ".")
       : "Clear all " + plural(n, "device", "devices") + " from the list?\n\nThe list is not " +
         "being saved, so nothing on disk changes. Nothing is sent to any device.";
@@ -912,11 +920,40 @@ namespace t5000::web
     });
   }
 
-  function openEdit(handle) {
+  // The models an entry added by hand can be given: its product's, from
+  // the same list the Add dialog offers, "Model not known" among them. None
+  // for a device a scan has found, which reports its own, or a product
+  // T3000 names no models of.
+  async function fillModel(d) {
+    $("f-model-row").hidden = true;
+    $("f-model-note").hidden = true;
+    $("edit-title").textContent = "Name and location";
+    if (!byHand(d) || !(await loadModels())) return;
+
+    var group = models.filter(function (g) { return g.productId === d.productId; })[0];
+    if (!group) return;
+
+    var sel = $("f-model");
+    sel.innerHTML = "";
+    group.models.forEach(function (m) {
+      var o = el("option", null, m.name);
+      o.value = String(m.miniType);
+      sel.appendChild(o);
+    });
+    sel.value = String(d.panel.raw);
+    if (sel.value !== String(d.panel.raw)) sel.value = "0";
+
+    $("edit-title").textContent = "Name, location and model";
+    $("f-model-row").hidden = false;
+    $("f-model-note").hidden = false;
+  }
+
+  async function openEdit(handle) {
     var d = findDevice(handle);
     if (!d) return;
 
     editing = handle;
+    await fillModel(d);
     var p = d.placement || {};
     $("edit-which").textContent = describe(d) + ", " + d.productName;
     $("f-name").value = p.name || "";
@@ -935,13 +972,15 @@ namespace t5000::web
     ev.preventDefault();
     $("edit-save").disabled = true;
     try {
-      var data = await post("/api/devices/placement", {
+      var body = {
         handle: editing,
         name: $("f-name").value,
         building: $("f-building").value,
         floor: $("f-floor").value,
         room: $("f-room").value
-      });
+      };
+      if (!$("f-model-row").hidden) body.miniType = $("f-model").value;
+      var data = await post("/api/devices/placement", body);
       if (data.state) applyState(data.state);
       if (data.ok) {
         $("edit").close();
