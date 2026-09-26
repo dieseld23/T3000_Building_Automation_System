@@ -339,6 +339,27 @@ namespace
         check(!has(none, "the same device"), "  with no claim that it was confirmed");
     }
 
+    void test_offline_changes_are_said_whatever_the_read_gives()
+    {
+        section("inputs changed offline before a scan found the device are said, read or not");
+
+        const DeviceRecord d = scanned(ProductClassId::Cm5, "10.1.2.3", 47809);
+        InputsPlan plan = plan_inputs_read(d);
+        plan.offline_note = "THE OFFLINE NOTE.";
+
+        const std::string read = inputs_payload(d, plan, read_ok());
+        check(has(read, "\"readFromWire\":true") && has(read, "THE OFFLINE NOTE."), "read: the note is in the payload");
+
+        InputsPageRead refused;
+        refused.error = "THE READ'S OWN REASON.";
+        const std::string none = inputs_payload(d, plan, refused);
+        check(has(none, "\"message\":\"THE READ'S OWN REASON. THE OFFLINE NOTE.\""),
+              "not read: the note follows the read's reason");
+
+        plan.offline_note.clear();
+        check(!has(inputs_payload(d, plan, read_ok()), "OFFLINE"), "and with none, nothing is said");
+    }
+
     void test_the_read_is_held_to_the_plans_identity()
     {
         section("a planned read is held to the plan's identity, not one chosen where it is carried out");
@@ -386,5 +407,6 @@ int run_inputs_plan_tests()
     test_the_payload_for_a_device_seen_this_session();
     test_the_payload_for_a_restored_device();
     test_the_read_is_held_to_the_plans_identity();
+    test_offline_changes_are_said_whatever_the_read_gives();
     return 0;
 }
