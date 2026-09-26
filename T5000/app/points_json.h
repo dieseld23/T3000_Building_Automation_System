@@ -79,6 +79,41 @@ namespace t5000::app
                                   const std::vector<wire::InputPoint>& points,
                                   const InputsPanel& panel = InputsPanel());
 
+    // What the Inputs page shows for a device configured offline, beside its
+    // inputs.
+    struct OfflineInputsView
+    {
+        std::string model;      // the model chosen for it, "T3-OEM"
+        device::MiniType type = device::MiniType::NotSet;
+
+        // Whether the list is being saved. When it is not, a change could
+        // not be kept, and the page says so rather than offering one.
+        bool saving = false;
+
+        int edited = 0;         // inputs with changes
+        size_t rows = 0;        // how many T3000 shows for the model
+
+        // The columns that can be changed, by their payload names.
+        std::vector<std::string> editable;
+
+        // For each input, the columns changed from what it started as.
+        std::vector<std::vector<std::string>> changed;
+
+        std::string note;        // for the page's banner
+        std::string detail;      // readPath.detail: that nothing is read or sent
+        std::string panel_note;  // panel.note
+    };
+
+    // The Inputs page's payload for a device configured offline: shaped as
+    // build_inputs_json's, so the page shows it with the same grid, with an
+    // "offline" object first and each row's "changed" columns.
+    //
+    // readFromWire is false and readPath says nothing was read: these inputs
+    // are T5000's, not a device's. They are shown as T3000 would show them
+    // after reading them back from the device.
+    std::string build_offline_inputs_json(const DeviceInfo& device, const std::vector<wire::InputPoint>& points,
+                                          const OfflineInputsView& view);
+
     // The payload for a device the tool has FOUND but cannot read.
     //
     // It must carry every field build_inputs_json carries, because the page

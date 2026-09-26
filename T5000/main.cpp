@@ -8,7 +8,9 @@
 //
 // It finds devices, keeps a list of them between runs, takes devices added by
 // hand before any scan has found them, and reads a selected controller's
-// inputs, outputs and variables. It cannot yet change anything on a device.
+// inputs, outputs and variables. The inputs of a device added by hand can be
+// configured before then, and the configuration is kept in the list. It
+// cannot yet change anything on a device.
 // The scan and the reads are read-only by construction (see
 // discovery/scanner.h and bacnet/command.h), and problems the scan notices
 // are staged as proposals nobody has agreed to yet. With no device selected,
@@ -26,6 +28,7 @@
 #include "app/fixture.h"
 #include "app/inputs_plan.h"
 #include "app/inputs_read.h"
+#include "app/offline_inputs.h"
 #include "app/outputs_plan.h"
 #include "app/variables_plan.h"
 #include "app/points_json.h"
@@ -129,6 +132,27 @@ namespace
         return t5000::http::Response::json(body);
     }
 
+    // The answer to a change to an input configured offline: whether it was
+    // made, why not, and the device's Inputs payload as it now is - null
+    // when the device has gone from the list.
+    t5000::http::Response inputs_action_response(bool ok, const std::string& message, t5000::device::Handle handle)
+    {
+        const t5000::device::DeviceRecord* d = nullptr;
+        for (const auto& device : g_registry.devices())
+            if (device.handle == handle)
+                d = &device;
+
+        std::string body = "{\"ok\":";
+        body += ok ? "true" : "false";
+        if (!message.empty())
+            body += ",\"message\":\"" + t5000::app::json_escape(message) + "\"";
+        body += ",\"inputs\":";
+        body += d && t5000::app::is_configured_offline(*d) ? t5000::app::offline_inputs_payload(g_db, g_store, *d)
+                                                           : std::string("null");
+        body += '}';
+        return t5000::http::Response::json(body);
+    }
+
     std::string utf8_from_wide(const wchar_t* w)
     {
         const int n = WideCharToMultiByte(CP_UTF8, 0, w, -1, nullptr, 0, nullptr, nullptr);
@@ -187,9 +211,18 @@ namespace
     {
         using namespace t5000;
 
-        const app::InputsPlan plan = app::plan_inputs_read(d);
+        // A device added by hand that no scan has found is not read: its
+        // inputs are the configuration T5000 keeps for it. Decided before
+        // any plan to read, which would refuse it anyway.
+        if (app::is_configured_offline(d))
+            return app::offline_inputs_payload(g_db, g_store, d);
+
+        app::InputsPlan plan = app::plan_inputs_read(d);
+        plan.offline_note = app::pending_offline_note(g_db, d);
+        const std::string after = plan.offline_note.empty() ? "" : " " + plan.offline_note;
+
         if (!plan.can_read)
-            return app::build_unavailable_inputs_json((int)d.serial_number, d.address_note, plan.reason,
+            return app::build_unavailable_inputs_json((int)d.serial_number, d.address_note, plan.reason + after,
                                                       plan.sighting);
 
         bacnet::UdpReadTransport transport(plan.endpoint);
@@ -197,7 +230,7 @@ namespace
         if (!transport.open(error))
         {
             return app::build_unavailable_inputs_json(
-                (int)d.serial_number, d.address_note, "Nothing was sent. " + error, plan.sighting);
+                (int)d.serial_number, d.address_note, "Nothing was sent. " + error + after, plan.sighting);
         }
 
         return app::read_planned_inputs(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id);
@@ -528,12 +561,46 @@ int main(int argc, char** argv)
 
         device::Handle handle = device::kNoHandle;
         device::Placement placement;
+        int mini_type = app::kKeepModel;
         std::string message;
-        if (!app::read_placement_request(req.body, handle, placement, message))
+        if (!app::read_placement_request(req.body, handle, placement, mini_type, message))
             return bad_request(message);
 
-        const bool ok = app::place_device(g_registry, g_db, handle, placement, g_store, message);
+        const bool ok = app::place_device(g_registry, g_db, handle, placement, g_store, message, mini_type);
         return action_response(ok, message);
+    });
+
+    // A change to one input of a device added by hand, made before any scan
+    // has found it. Saved in the list, and nothing is sent to any device
+    // (app/offline_inputs.h). The answer carries the Inputs page's payload
+    // as it now is, so the page shows the change without asking again.
+    server.route("/api/inputs/edit", [](const http::Request& req) {
+        if (req.method != "POST")
+            return bad_request("An input is changed with POST.");
+
+        app::InputEditRequest request;
+        std::string message;
+        if (!app::read_input_edit_request(req.body, request, message))
+            return bad_request(message);
+
+        const bool ok = app::edit_offline_input(g_registry, g_db, g_store, request, message);
+        return inputs_action_response(ok, message, request.handle);
+    });
+
+    // Puts one input of a device added by hand back as it started: every
+    // change to it undone. Nothing is sent to any device.
+    server.route("/api/inputs/revert", [](const http::Request& req) {
+        if (req.method != "POST")
+            return bad_request("An input is put back with POST.");
+
+        device::Handle handle = device::kNoHandle;
+        int index = -1;
+        std::string message;
+        if (!app::read_input_revert_request(req.body, handle, index, message))
+            return bad_request(message);
+
+        const bool ok = app::revert_offline_input(g_registry, g_db, g_store, handle, index, message);
+        return inputs_action_response(ok, message, handle);
     });
 
     // Adds a device by hand: one T5000 has not found, entered so it can be

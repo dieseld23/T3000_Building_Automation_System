@@ -23,6 +23,11 @@
 // the same state, so there is nothing to key it on. The table refuses such a
 // row as well, so this does not rest on every caller remembering.
 //
+// It also holds the configuration the operator has prepared for a device
+// that cannot be reached yet: each point changed, kept as the ud_str.h bytes
+// it goes to the device as, with the bytes the change started from. Only the
+// points changed are kept; a point with no row is as it started.
+//
 // This is a file on the technician's machine. Nothing here sends anything to
 // a device.
 
@@ -41,7 +46,25 @@ namespace t5000::store
     //
     // 1: the devices table.
     // 2: added_by_hand, for a device the operator added before a scan found it.
-    constexpr int kSchemaVersion = 2;
+    // 3: offline_points, for a device's points changed before it can be
+    //    reached.
+    constexpr int kSchemaVersion = 3;
+
+    // One point the operator has changed on a device that cannot be reached:
+    // the bytes it goes to the device as (Str_in_point for an input), before
+    // and after.
+    //
+    // The two are kept, not only the result, so the change can be told from
+    // what it started from. When the device is reachable and T5000 can write,
+    // only the fields that differ are candidates, and each is compared with
+    // what the device holds by then: a field the device has changed since is
+    // shown to the operator rather than overwritten.
+    struct OfflinePoint
+    {
+        int                  index = 0;   // 0-based, as T3000 numbers points
+        std::vector<uint8_t> base;        // what the first change started from
+        std::vector<uint8_t> edited;      // what the operator has made it
+    };
 
     // T5000.db, beside the executable, as UTF-8. Beside it rather than in
     // %APPDATA% for the same reason as the connection settings: this is a tool
@@ -90,12 +113,30 @@ namespace t5000::store
         // that is not a usable key.
         bool add_by_hand(const device::DeviceRecord& device, std::string& error);
 
-        // Deletes one saved device, name and location included. Not an error
-        // when it was not saved.
+        // Deletes one saved device, name, location and offline changes
+        // included, in one transaction. Not an error when it was not saved.
         bool forget(uint32_t serial, std::string& error);
 
-        // Deletes every device: those found by a scan and those added by hand.
+        // Deletes every device: those found by a scan and those added by
+        // hand, with every offline change, in one transaction.
         bool forget_all_scanned(std::string& error);
+
+        // The inputs changed offline on the saved device with this serial, in
+        // index order. None for a device with no changes, or not saved.
+        bool load_offline_inputs(uint32_t serial, std::vector<OfflinePoint>& out, std::string& error);
+
+        // Saves one input's change, in one transaction.
+        //
+        // An input already changed keeps the base it has: that is what the
+        // first change started from, whatever this one did. The row goes
+        // when the input is made what its base is again, so a change undone
+        // by hand leaves nothing to write. Refused for a device that is not
+        // saved, and for bytes that are not one input.
+        bool save_offline_input(uint32_t serial, const OfflinePoint& point, std::string& error);
+
+        // Undoes every change to one input: it goes back to its base. Not an
+        // error when it had none.
+        bool revert_offline_input(uint32_t serial, int index, std::string& error);
 
     private:
         bool write(const device::DeviceRecord& d, bool with_placement, std::string& error);

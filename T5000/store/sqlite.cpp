@@ -114,6 +114,17 @@ namespace t5000::store
             fail("bind");
     }
 
+    void Statement::bind_blob(int index, const uint8_t* bytes, size_t length)
+    {
+        // A null pointer would bind NULL, which the offline tables refuse; a
+        // zero-length BLOB needs a pointer that is not null. SQLITE_TRANSIENT,
+        // as for text.
+        static const uint8_t kNothing = 0;
+        if (m_stmt && sqlite3_bind_blob(m_stmt, index, length != 0 ? (const void*)bytes : (const void*)&kNothing,
+                                        (int)length, SQLITE_TRANSIENT) != SQLITE_OK)
+            fail("bind");
+    }
+
     Statement::Step Statement::step()
     {
         if (!ok() || !m_stmt)
@@ -152,6 +163,18 @@ namespace t5000::store
         const unsigned char* text = sqlite3_column_text(m_stmt, index);
         const int n = sqlite3_column_bytes(m_stmt, index);
         return text ? std::string((const char*)text, (size_t)n) : std::string();
+    }
+
+    std::vector<uint8_t> Statement::column_blob(int index) const
+    {
+        if (!m_stmt)
+            return std::vector<uint8_t>();
+
+        // The pointer first, then the length, for the reason column_text
+        // gives.
+        const uint8_t* bytes = (const uint8_t*)sqlite3_column_blob(m_stmt, index);
+        const int n = sqlite3_column_bytes(m_stmt, index);
+        return bytes && n > 0 ? std::vector<uint8_t>(bytes, bytes + n) : std::vector<uint8_t>();
     }
 
     Transaction::Transaction(Database& db)

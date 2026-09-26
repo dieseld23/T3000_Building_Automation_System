@@ -121,7 +121,10 @@ namespace t5000::app
     std::string inputs_payload(const device::DeviceRecord& d, const InputsPlan& plan, const InputsPageRead& read)
     {
         if (!read.ok)
-            return build_unavailable_inputs_json((int)d.serial_number, d.address_note, read.error, plan.sighting);
+        {
+            const std::string reason = plan.offline_note.empty() ? read.error : read.error + " " + plan.offline_note;
+            return build_unavailable_inputs_json((int)d.serial_number, d.address_note, reason, plan.sighting);
+        }
 
         DeviceInfo info;
         info.serial_number  = (int)d.serial_number;
@@ -151,6 +154,8 @@ namespace t5000::app
         panel.product  = d.product;
         panel.ranges   = read.panel.ranges;
         panel.note     = read.panel.note;
+        if (!plan.offline_note.empty())
+            panel.note += (panel.note.empty() ? "" : " ") + plan.offline_note;
 
         return build_inputs_json(info, decision, read.points, panel);
     }

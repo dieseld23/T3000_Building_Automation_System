@@ -59,9 +59,19 @@ namespace t5000::app
     // Gives a device a name and a location, saved in the file. Refused for a
     // device with no serial, which cannot be saved, and when the file is not
     // open, since the name would be lost when T5000 closes.
+    //
+    // `mini_type`, when it is not kKeepModel, is the model chosen for an
+    // entry added by hand that no scan has found: a panel type of one of
+    // the product's models, or 0 for a model not known. Saved with the
+    // placement, in one transaction. Refused for any other device, whose
+    // panel type is the one it reports; and when inputs configured offline
+    // would be left past the new model's, which the configuration would then
+    // not show.
+    constexpr int kKeepModel = -1;
+
     bool place_device(device::Registry& registry, store::DeviceDb& db, device::Handle handle,
                       const device::Placement& placement, const StoreStatus& status,
-                      std::string& message);
+                      std::string& message, int mini_type = kKeepModel);
 
     // What the operator gives for a device added by hand.
     //
@@ -110,9 +120,13 @@ namespace t5000::app
     bool clean_placement(device::Placement& placement, std::string& message);
 
     // The bodies the page sends: {"handle":"12"}, and the same with name,
-    // building, floor and room. Read with json::parse_flat_object, because
-    // these carry text someone typed. A field left out is left empty.
+    // building, floor and room, and for an entry added by hand "miniType",
+    // as for adding one. Read with json::parse_flat_object, because these
+    // carry text someone typed. A field left out is left empty; miniType
+    // left out is kKeepModel, and empty is 0, a model not known.
     bool read_handle_request(const std::string& body, device::Handle& handle, std::string& message);
     bool read_placement_request(const std::string& body, device::Handle& handle,
                                 device::Placement& placement, std::string& message);
+    bool read_placement_request(const std::string& body, device::Handle& handle,
+                                device::Placement& placement, int& mini_type, std::string& message);
 }

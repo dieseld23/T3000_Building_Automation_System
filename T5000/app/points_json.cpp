@@ -152,6 +152,50 @@ namespace t5000::app
             out += ']';
         }
 
+        // One input's row, from its opening brace to the end of its "raw"
+        // fields, without the closing brace, so a caller can add keys.
+        //
+        // The columns as T3000 shows them - text, computed here so the
+        // self-test covers it - followed by the raw fields they came from.
+        void append_input_row(std::string& out, const wire::InputPoint& p, size_t i,
+                              const display::PanelContext& context)
+        {
+            const display::InputText t = display::input_text(p, (int)i, context);
+
+            out += '{';
+            append_int(out, "index", (long)i); out += ',';
+            append_int(out, "input", (long)i + 1); out += ',';
+            append_field(out, "fullLabel", acp_to_utf8(p.description, wire::kDescriptionLength)); out += ',';
+            // T3000 trims the label (BacnetInput.cpp:1376). It trims the full
+            // label too, at :981, but throws the result away.
+            append_field(out, "label",     display::wide_to_utf8(display::trim_like_t3000(
+                                               display::acp_to_wide(p.label, wire::kLabelLength)))); out += ',';
+            append_field(out, "autoManual",  t.auto_manual); out += ',';
+            append_field(out, "value",       t.value); out += ',';
+            append_field(out, "units",       t.units); out += ',';
+            append_field(out, "range",       t.range); out += ',';
+            append_field(out, "calibration", t.calibration); out += ',';
+            append_field(out, "sign",        t.sign); out += ',';
+            append_field(out, "filter",      t.filter); out += ',';
+            append_field(out, "status",      t.status); out += ',';
+            out += "\"alarm\":";
+            out += t.alarm ? "true" : "false";
+            out += ',';
+            append_field(out, "signalType",  t.signal_type); out += ',';
+            append_field(out, "note",        t.note); out += ',';
+
+            out += "\"raw\":{";
+            append_int(out, "value",         p.value); out += ',';
+            append_int(out, "range",         p.range); out += ',';
+            append_int(out, "digitalAnalog", p.digital_analog); out += ',';
+            append_int(out, "control",       p.control); out += ',';
+            append_int(out, "decom",         p.decom); out += ',';
+            append_int(out, "subId",         p.sub_id); out += ',';
+            append_int(out, "subProduct",    p.sub_product); out += ',';
+            append_int(out, "subNumber",     p.sub_number);
+            out += '}';
+        }
+
         // A device found but not read: every key the page reads, with nothing
         // known. `points` names the list and its counts - "inputs" gives
         // inputsRead, inputsShown and inputs. `more_ranges` is what the page's
@@ -423,45 +467,76 @@ namespace t5000::app
 
         for (size_t i = 0; i < shown; i++)
         {
-            const wire::InputPoint& p = points[i];
             if (i != 0) out += ',';
+            append_input_row(out, points[i], i, context);
+            out += '}';
+        }
+        out += "]}";
+        return out;
+    }
 
-            // The columns as T3000 shows them - text, computed here so the
-            // self-test covers it - followed by the raw fields they came from.
-            const display::InputText t = display::input_text(p, (int)i, context);
+    std::string build_offline_inputs_json(const DeviceInfo& device, const std::vector<wire::InputPoint>& points,
+                                          const OfflineInputsView& view)
+    {
+        std::string out;
+        out.reserve(512 + points.size() * 208);
 
-            out += '{';
-            append_int(out, "index", (long)i); out += ',';
-            append_int(out, "input", (long)i + 1); out += ',';
-            append_field(out, "fullLabel", acp_to_utf8(p.description, wire::kDescriptionLength)); out += ',';
-            // T3000 trims the label (BacnetInput.cpp:1376). It trims the full
-            // label too, at :981, but throws the result away.
-            append_field(out, "label",     display::wide_to_utf8(display::trim_like_t3000(
-                                               display::acp_to_wide(p.label, wire::kLabelLength)))); out += ',';
-            append_field(out, "autoManual",  t.auto_manual); out += ',';
-            append_field(out, "value",       t.value); out += ',';
-            append_field(out, "units",       t.units); out += ',';
-            append_field(out, "range",       t.range); out += ',';
-            append_field(out, "calibration", t.calibration); out += ',';
-            append_field(out, "sign",        t.sign); out += ',';
-            append_field(out, "filter",      t.filter); out += ',';
-            append_field(out, "status",      t.status); out += ',';
-            out += "\"alarm\":";
-            out += t.alarm ? "true" : "false";
-            out += ',';
-            append_field(out, "signalType",  t.signal_type); out += ',';
-            append_field(out, "note",        t.note); out += ',';
+        out += "{\"offline\":{";
+        append_field(out, "model", view.model); out += ',';
+        append_bool(out, "saving", view.saving); out += ',';
+        append_int(out, "edited", (long)view.edited); out += ',';
+        out += "\"editable\":[";
+        for (size_t i = 0; i < view.editable.size(); i++)
+        {
+            if (i != 0) out += ',';
+            out += '"' + json_escape(view.editable[i]) + '"';
+        }
+        out += "],";
+        append_field(out, "note", view.note);
+        out += "},";
 
-            out += "\"raw\":{";
-            append_int(out, "value",         p.value); out += ',';
-            append_int(out, "range",         p.range); out += ',';
-            append_int(out, "digitalAnalog", p.digital_analog); out += ',';
-            append_int(out, "control",       p.control); out += ',';
-            append_int(out, "decom",         p.decom); out += ',';
-            append_int(out, "subId",         p.sub_id); out += ',';
-            append_int(out, "subProduct",    p.sub_product); out += ',';
-            append_int(out, "subNumber",     p.sub_number);
-            out += "}}";
+        append_device(out, device);
+
+        // Present, and saying nothing was read, so the page's read-path band
+        // tells the truth rather than showing "unknown".
+        out += "\"readPath\":{";
+        append_field(out, "path", "none"); out += ',';
+        append_field(out, "summary", "configured offline"); out += ',';
+        append_field(out, "detail", view.detail);
+        out += "},";
+
+        // Nothing was read, so nothing is known from settings. The rows are
+        // what T3000 shows for the model chosen.
+        const size_t shown = view.rows < points.size() ? view.rows : points.size();
+        out += "\"panel\":{\"known\":false,";
+        append_int(out, "inputsRead",  (long)points.size()); out += ',';
+        append_int(out, "inputsShown", (long)shown); out += ',';
+        append_field(out, "note", view.panel_note);
+        out += "},";
+        out += "\"customRanges\":{\"digitalKnown\":false,\"digital\":[],\"analog\":[]},";
+
+        // As T3000 shows the model chosen: its per-model labels are the
+        // chosen model's. No custom range names are known.
+        display::PanelContext context;
+        context.known = true;
+        context.type  = view.type;
+
+        append_int(out, "count", (long)shown);
+        out += ",\"inputs\":[";
+        for (size_t i = 0; i < shown; i++)
+        {
+            if (i != 0) out += ',';
+            append_input_row(out, points[i], i, context);
+            out += ",\"changed\":[";
+            if (i < view.changed.size())
+            {
+                for (size_t k = 0; k < view.changed[i].size(); k++)
+                {
+                    if (k != 0) out += ',';
+                    out += '"' + json_escape(view.changed[i][k]) + '"';
+                }
+            }
+            out += "]}";
         }
         out += "]}";
         return out;
