@@ -199,7 +199,7 @@ scan's. The device is saved at that address and comes back next time from the
 saved list. A scan that later finds it vouches for it from then on.
 
 T3000's nearest equivalent, Add Remote Device (`BacnetAddRemoteDevice.cpp:146-300`),
-sends the address a Who-Is up to five times and then reads Modbus registers
+sends the address a Who-Is five times and then reads Modbus registers
 0-49 through BACnet. T5000 does not read Modbus registers yet; the settings
 read gives the serial by the path its pages read by.
 

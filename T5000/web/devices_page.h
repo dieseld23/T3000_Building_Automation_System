@@ -609,7 +609,7 @@ namespace t5000::web
       find.type = "button";
       find.setAttribute("data-act", "find");
       find.title = "Look for this device at an address you give. One request is sent, for its " +
-                   "settings, and only when you click Find in the dialog.";
+                   "settings (sent once more if nothing answers), and only when you click Find in the dialog.";
       td.appendChild(find);
     }
 
@@ -1175,12 +1175,19 @@ namespace t5000::web
   // Find: one request, for the panel's settings, to the address typed, sent
   // when Find in the dialog is clicked. The dialog stays open until the
   // device is found, so a refusal is read beside the address it is about.
+  //
+  // Each Find is numbered, and opening the dialog moves the number on. An
+  // answer is shown in the dialog only if the dialog is still waiting for
+  // it; one that comes back after the dialog was closed, or opened again for
+  // another device, goes in the banner, and leaves the dialog alone.
   var finding = null;
+  var findNumber = 0;
 
   function openFind(handle) {
     var d = findDevice(handle);
     if (!d || !d.canFind) return;
 
+    findNumber++;
     finding = handle;
     $("find-which").textContent = describe(d) + ", " + d.productName;
     $("find-host").value = d.address || "";
@@ -1199,6 +1206,7 @@ namespace t5000::web
   $("find-form").addEventListener("submit", async function (ev) {
     ev.preventDefault();
     if ($("find-go").disabled) return;
+    var mine = ++findNumber;
     $("find-go").disabled = true;
     $("find-go").textContent = "Finding\u2026";
     $("find-error").hidden = true;
@@ -1210,23 +1218,29 @@ namespace t5000::web
         host: $("find-host").value,
         port: $("find-port").value.trim()
       });
+
+      // The list as the server holds it after this Find. The server answers
+      // one request at a time, so a later Find's answer, with a later list,
+      // cannot come back before this one.
       if (data.state) applyState(data.state);
-      var open = $("find-dialog").open;
+
+      var waiting = mine === findNumber && $("find-dialog").open;
+      var message = data.message || "The request failed.";
       if (data.ok) {
-        if (open) $("find-dialog").close();
-        setBanner("ok", "<b>Found.</b> " + esc(data.message));
-        return;
-      }
-      if (open) {
-        $("find-error").textContent = data.message || "The request failed.";
+        if (waiting) $("find-dialog").close();
+        setBanner("ok", "<b>Found.</b> " + esc(message));
+      } else if (waiting) {
+        $("find-error").textContent = message;
         $("find-error").hidden = false;
       } else {
-        // Closed while it was looking: the answer still goes somewhere seen.
-        setBanner("bad", "<b>Not found.</b> " + esc(data.message || "The request failed."));
+        // The dialog has moved on: the answer still goes somewhere seen.
+        setBanner("bad", "<b>Not found.</b> " + esc(message));
       }
     } finally {
-      $("find-go").disabled = false;
-      $("find-go").textContent = "Find";
+      if (mine === findNumber) {
+        $("find-go").disabled = false;
+        $("find-go").textContent = "Find";
+      }
     }
   });
 

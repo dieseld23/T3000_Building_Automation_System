@@ -15,8 +15,8 @@
 // the serial the entry has. Nothing else is sent, and nothing is written.
 //
 // T3000's nearest equivalent is Add Remote Device
-// (BacnetAddRemoteDevice.cpp:146-300): a Who-Is sent to the address up to
-// five times, then Modbus registers 0-49 read through BACnet
+// (BacnetAddRemoteDevice.cpp:146-300): a Who-Is sent to the address five
+// times (:162-174), then Modbus registers 0-49 read through BACnet
 // (PROTOCOL_BIP_T0_MSTP_TO_MODBUS, :195-204), the serial from the first four.
 // T5000 does not read Modbus registers yet, and sends the one read its pages
 // rely on instead: it gives the serial by the path they read by.

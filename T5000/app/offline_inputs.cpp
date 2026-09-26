@@ -111,7 +111,8 @@ namespace t5000::app
 
         if (!is_configured_offline(d))
         {
-            plan.reason = "A scan has found this device, so its inputs are read from it, not configured offline.";
+            plan.reason = "This device has been found, by a scan or by Find, so its inputs are read from it, not "
+                          "configured offline.";
             return plan;
         }
 
@@ -386,12 +387,12 @@ namespace t5000::app
             return false;
         }
 
-        // Only where the changes can be seen: a device a scan has found shows
-        // what it holds, not these.
+        // Only where the changes can be seen: a device that has been found
+        // shows what it holds, not these.
         if (!is_configured_offline(*d))
         {
-            message = "A scan has found this device, so its inputs are read from it. Changes made offline "
-                      "before then are kept until T5000 can write them.";
+            message = "This device has been found, by a scan or by Find, so its inputs are read from it. Changes "
+                      "made offline before then are kept until T5000 can write them.";
             return false;
         }
 
@@ -420,7 +421,7 @@ namespace t5000::app
             return std::string();
 
         return "Changes to " + input_list(saved) +
-               " were made offline, before a scan found this device. They are kept in T5000's device list, "
+               " were made offline, before this device was found. They are kept in T5000's device list, "
                "and not written: T5000 cannot write to a device yet.";
     }
 

@@ -45,7 +45,7 @@ namespace t5000::store
     // step from the previous version added to DeviceDb::open.
     //
     // 1: the devices table.
-    // 2: added_by_hand, for a device the operator added before a scan found it.
+    // 2: added_by_hand, for a device the operator added before it was found.
     // 3: offline_points, for a device's points changed before it can be
     //    reached.
     constexpr int kSchemaVersion = 3;
