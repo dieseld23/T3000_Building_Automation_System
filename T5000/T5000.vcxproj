@@ -109,6 +109,7 @@
     <ClCompile Include="app\outputs_read_selftest.cpp" />
     <ClCompile Include="app\variables_plan.cpp" />
     <ClCompile Include="app\variables_read.cpp" />
+    <ClCompile Include="app\variables_read_selftest.cpp" />
     <ClCompile Include="app\points_json.cpp" />
     <ClCompile Include="app\product_json.cpp" />
     <ClCompile Include="app\scan_json.cpp" />
@@ -123,7 +124,9 @@
     <ClCompile Include="display\output_text.cpp" />
     <ClCompile Include="display\output_text_selftest.cpp" />
     <ClCompile Include="display\variable_ranges.cpp" />
+    <ClCompile Include="display\variable_ranges_selftest.cpp" />
     <ClCompile Include="display\variable_text.cpp" />
+    <ClCompile Include="display\variable_text_selftest.cpp" />
     <ClCompile Include="display\custom_ranges.cpp" />
     <ClCompile Include="display\custom_ranges_selftest.cpp" />
     <ClCompile Include="display\device_text.cpp" />

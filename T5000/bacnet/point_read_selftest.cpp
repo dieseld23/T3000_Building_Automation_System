@@ -587,6 +587,97 @@ namespace
         check_streq((const char*)r.points[199].label, "OUT199", "point 199 is point 199");
     }
 
+    Bytes variable_entity(int n)
+    {
+        Bytes e(39, 0);
+        const std::string label = "VAR" + std::to_string(n);
+        memcpy(&e[21], label.data(), label.size());
+        const int32_t value = n * 1000;
+        e[30] = (uint8_t)(value & 0xFF);
+        e[31] = (uint8_t)((value >> 8) & 0xFF);
+        e[32] = (uint8_t)((value >> 16) & 0xFF);
+        e[33] = (uint8_t)((value >> 24) & 0xFF);
+        e[38] = 7;   // range
+        return e;
+    }
+
+    void variables_device(const FakeTransport::Sent& s, size_t, FakeTransport& t)
+    {
+        Bytes entities;
+        for (int i = 0; i < s.request.count(); i++)
+        {
+            const Bytes e = variable_entity(s.request.first + i);
+            entities.insert(entities.end(), e.begin(), e.end());
+        }
+        t.reply(ack(s.request, s.invoke_id, entities));
+    }
+
+    void test_all_128_variables()
+    {
+        section("all 128 variables, in T3000's thirteen requests");
+
+        FakeTransport t;
+        t.respond = variables_device;
+        uint8_t invoke = 10;
+
+        const VariablesRead r = read_variables(t, device_at(), instant(), invoke);
+        check(r.ok, "the read succeeds");
+        if (!require(r.points.size() == 128, "128 points"))
+            return;
+        check_streq((const char*)r.points[0].label, "VAR0", "point 0 is point 0");
+        check_streq((const char*)r.points[127].label, "VAR127", "point 127 is point 127");
+        check_eq(r.points[41].value, 41000, "and each carries its own value");
+        check_eq(r.points[41].range, 7, "and the fields after the value");
+
+        if (!require(t.sent.size() == 13, "thirteen requests"))
+            return;
+        bool ranges = true;
+        for (int i = 0; i < 13; i++)
+        {
+            const int last = i == 12 ? 127 : i * 10 + 9;
+            ranges = ranges && t.sent[i].request.first == i * 10 && t.sent[i].request.last == last &&
+                     t.sent[i].request.entity_size == 39 && t.sent[i].request.command == ReadCommand::Variables;
+        }
+        check(ranges, "0-9, 10-19 ... 120-127, all 39-byte variables");
+        check_eq(invoke, 23, "one invoke id each");
+    }
+
+    void test_more_than_128_variables()
+    {
+        section("an ESP32 with 255 variables is read in twenty-six requests");
+
+        FakeTransport t;
+        t.respond = variables_device;
+        uint8_t invoke = 0;
+
+        const VariablesRead r = read_variables(t, device_at(), instant(), invoke, 255);
+        check(r.ok, "the read succeeds");
+        check_eq((long)r.points.size(), 255, "255 points");
+        if (!require(t.sent.size() == 26, "twenty-six requests"))
+            return;
+        check(t.sent[25].request.first == 250 && t.sent[25].request.last == 254, "the last is 250-254");
+        check_streq((const char*)r.points[254].label, "VAR254", "point 254 is point 254");
+    }
+
+    void test_outputs_are_not_variables()
+    {
+        section("an answer made of outputs is not taken for variables");
+
+        FakeTransport t;
+        t.respond = [](const FakeTransport::Sent& s, size_t, FakeTransport& tr)
+        {
+            ReadRequest as_outputs = s.request;
+            as_outputs.entity_size = 45;
+            tr.reply(answer(as_outputs, s.invoke_id));
+        };
+        uint8_t invoke = 0;
+
+        const VariablesRead r = read_variables(t, device_at(), instant(), invoke);
+        check(!r.ok, "the read fails");
+        check(r.points.empty(), "and returns no points");
+        check(!r.error.empty(), "and says why");
+    }
+
     void test_inputs_are_not_outputs()
     {
         section("an answer made of inputs is not taken for outputs");
@@ -684,6 +775,9 @@ int run_point_read_tests()
     test_all_64_outputs();
     test_more_than_64_outputs();
     test_inputs_are_not_outputs();
+    test_all_128_variables();
+    test_more_than_128_variables();
+    test_outputs_are_not_variables();
     test_a_read_from_the_middle();
     test_silence_and_refusal_are_told_apart();
     test_other_traffic_is_ignored();
