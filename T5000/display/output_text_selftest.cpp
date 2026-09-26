@@ -156,6 +156,7 @@ namespace
         t = output_text(digital_point(25, 1), 0, named);
         check(t.range == "Shut/Run" && t.value == "Run", "custom range 3, with its names: Run");
         check(t.note.empty(), "  exactly as T3000");
+        check(output_text(digital_point(25, 0), 0, named).value == "Shut", "  and control 0: Shut");
         t = output_text(digital_point(26, 0), 0, named);
         check(t.range == "A/B/C" && t.value.empty(), "names that do not split in two: no value");
         check(!t.note.empty(), "  with a note");
@@ -181,6 +182,14 @@ namespace
 
         OutputText t = output_text(p, 0, kUnknownPanel);
         check(t.hoa.empty() && t.auto_manual == "Manual" && !t.hand, "settings not read: no switch column");
+
+        // Not known is not known, whatever type the context carries.
+        OutputPanel unread = panel_of(kBigMiniPanel);
+        unread.known = false;
+        p.hw_switch_status = 0;
+        t = output_text(p, 0, unread);
+        check(t.hoa.empty() && !t.hand && t.auto_manual == "Manual", "  even with a switched panel type in it");
+        p.hw_switch_status = 1;
 
         t = output_text(p, 0, panel_of(kCm5));
         check(t.hoa.empty() && t.auto_manual == "Manual", "a CM5: no switch column");

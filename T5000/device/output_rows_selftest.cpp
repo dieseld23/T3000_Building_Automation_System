@@ -84,6 +84,8 @@ namespace
         check_eq(outputs_to_read(esp32, panel(1, 637, 96)), 96, "63.7 with max_out 96: 96 read");
         check_eq(outputs_to_read(esp32, panel(1, 636, 96)), 64, "63.6: 64, whatever max_out says");
         check_eq(outputs_to_read(esp32, panel(1, 637, 64)), 64, "max_out 64: 64");
+        check_eq(outputs_to_read(esp32, panel(1, 637, 63)), 64, "max_out 63: 64, not 63");
+        check_eq(outputs_to_read(esp32, panel(1, 637, 65)), 65, "max_out 65: 65");
         check_eq(outputs_to_read(esp32, panel(1, 637, 20)), 64, "max_out below 64: still 64, as T3000 on a first open");
         check_eq(outputs_to_read(esp32, panel(1, 637, 255)), 255, "max_out 255: 255");
         check_eq(outputs_to_read(ProductClassId::MiniPanelArm, panel(1, 700, 96)), 64,

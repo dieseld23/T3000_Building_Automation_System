@@ -445,6 +445,28 @@ namespace
         check(!plan_outputs_read(by_hand).can_read, "a device added by hand is not read");
     }
 
+    void test_a_restored_device_whose_serial_is_confirmed()
+    {
+        section("a device from the saved list whose settings give its serial is read, and the page says so");
+
+        DeviceRecord saved = scanned();
+        saved.provenance    = t5000::device::Provenance::Restored;
+        saved.answered_scan = 0;
+
+        const Panel panel;
+        FakeTransport t;
+        t.respond = [&panel](const FakeTransport::Sent& s, size_t, FakeTransport& tr)
+        {
+            panel.respond(s, tr);
+        };
+        uint8_t invoke = 0;
+        const std::string json = read_planned_outputs(saved, plan_outputs_read(saved), t, instant(), invoke);
+        check(has(json, "\"readFromWire\":true"), "read");
+        check(has(json, "Not seen since T5000 started"), "  with the sighting");
+        check(has(json, "Its settings give serial " + std::to_string(kSerial) + ", the one saved for it"),
+              "  and that its settings confirmed it is the same device");
+    }
+
     void test_the_read_is_held_to_the_plans_identity()
     {
         section("a planned Outputs read is held to the plan's identity");
@@ -485,6 +507,7 @@ int run_outputs_read_tests()
     test_the_unavailable_payload_has_every_key();
     test_the_inputs_payloads_did_not_change();
     test_the_plan();
+    test_a_restored_device_whose_serial_is_confirmed();
     test_the_read_is_held_to_the_plans_identity();
     return 0;
 }
