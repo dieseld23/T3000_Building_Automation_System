@@ -667,7 +667,9 @@ namespace t5000::web
     // The address shown is the one the device answered from, which is the
     // one T5000 contacts. When the device describes itself differently,
     // say so, rather than leave the operator to wonder which is in use.
-    var addr = el("td", "opt", d.address);
+    // With the port when it is not BACnet/IP's own, as a device found at
+    // another port is read there.
+    var addr = el("td", "opt", d.address && d.port && d.port !== 47808 ? d.address + ":" + d.port : d.address);
     if (!d.address) {
       addr.className = "dim opt";
       addr.textContent = "—";
@@ -1191,7 +1193,7 @@ namespace t5000::web
     finding = handle;
     $("find-which").textContent = describe(d) + ", " + d.productName;
     $("find-host").value = d.address || "";
-    $("find-port").value = "47808";
+    $("find-port").value = String(d.port || 47808);
     $("find-note").textContent = "When you click Find, T5000 asks this address for the panel's " +
       "settings, which cannot change anything: one request, sent once more if nothing answers. " +
       "It is found if they give serial " + d.serialNumber + ". Its address is then kept, and its " +

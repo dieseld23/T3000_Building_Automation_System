@@ -978,8 +978,9 @@ namespace
         Registry registry;
         registry.add_or_merge(typed_in(920001));
         DeviceRecord scanned = restored(920002, "10.0.0.6");
-        scanned.provenance    = Provenance::BacnetBroadcast;
-        scanned.answered_scan = registry.begin_scan();
+        scanned.provenance          = Provenance::BacnetBroadcast;
+        scanned.answered_scan       = registry.begin_scan();
+        scanned.connection.udp_port = 47900;
         registry.add_or_merge(scanned);
 
         const std::string json = build_devices_json(registry, ScanSummary());
@@ -988,6 +989,8 @@ namespace
             return;
         check(has(json.substr(0, second), "\"canFind\":true"), "an entry added by hand: offered");
         check(has(json.substr(second), "\"canFind\":false"), "a device the scan found: not");
+        check(has(json.substr(0, second), "\"port\":47808"), "the port it would be read at, 47808 by default");
+        check(has(json.substr(second), "\"port\":47900"), "  or its own, so Find opens on it");
     }
 }
 

@@ -103,6 +103,10 @@ namespace t5000::app
             append_field(out, "modbusId", (long long)d.modbus_id_reported); out += ',';
             append_field(out, "parentSerial", (long long)d.parent_serial);    out += ',';
             append_field(out, "address", d.address_note);                     out += ',';
+
+            // The UDP port it is read at, so Find opens on the port it was
+            // found at rather than on 47808.
+            append_field(out, "port", (long long)d.connection.udp_port);      out += ',';
             append_field(out, "answeredFrom", d.answered_from);               out += ',';
             append_field(out, "reportedIp", d.reported_ip);                   out += ',';
             append_field(out, "addressMismatch", d.address_mismatch());       out += ',';

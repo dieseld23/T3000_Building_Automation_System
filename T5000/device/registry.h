@@ -280,8 +280,8 @@ namespace t5000::device
         Placement placement;
 
         // Unix seconds, 0 when not known. first_seen is when the device first
-        // answered a scan that was saved; last_seen is when it last answered
-        // one, in this session or an earlier one.
+        // answered a scan, or Find, and was saved; last_seen is when it last
+        // answered one, in this session or an earlier one.
         int64_t first_seen = 0;
         int64_t last_seen  = 0;
 
