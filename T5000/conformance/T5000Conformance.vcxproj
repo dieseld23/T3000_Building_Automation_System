@@ -111,9 +111,15 @@
       <AdditionalIncludeDirectories>..\..\BacNetDllforVc\;..\..\BacNetDllforVc\MainCpp\;..\..\BacNetDllforVc\include\;..\..\BacNetDllforVc\object\;..\..\BacNetDllforVc\handler\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>PRINT_ENABLED=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <!--
+      T3000's CRC tables, from ModbusDllforVc\ModbusDllforVc\crc.h, are
+      included by path from this one file.
+    -->
+    <ClCompile Include="crc_oracle.cpp" />
     <!-- The T5000 code the checks run, compiled here as T5000 compiles it. -->
     <ClCompile Include="..\bacnet\private_transfer.cpp" />
     <ClCompile Include="..\device\product.cpp" />
+    <ClCompile Include="..\serial\rtu.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cm5_header.h" />

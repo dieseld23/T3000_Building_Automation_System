@@ -506,6 +506,29 @@ namespace
         check(has(one, "Ethernet"), "the name a person recognises");
         check(has(one, "\"isUp\":true"), "and whether it is up");
     }
+
+    void test_serial_ports_are_listed_beside_interfaces()
+    {
+        section("the serial ports are listed beside the interfaces");
+
+        std::vector<t5000::net::Interface> none;
+        const std::string empty = build_interfaces_json(none, std::string());
+        check(has(empty, "\"serialPorts\":[]"), "no ports");
+        check(has(empty, "\"serialError\":\"\""), "and no error");
+
+        t5000::serial::Port p;
+        p.name   = "COM3";
+        p.number = 3;
+        p.device = "\\Device\\VCP0";
+        p.usb    = true;
+        const std::string one = build_interfaces_json(none, std::string(), { p }, std::string());
+        check(has(one, "{\"name\":\"COM3\",\"number\":3,\"device\":\"\\\\Device\\\\VCP0\",\"usb\":true}"),
+              "a port's name, number, device, and whether it looks like USB, with the backslashes escaped");
+
+        const std::string broken = build_interfaces_json(none, std::string(), {}, "registry error 5");
+        check(has(broken, "\"serialError\":\"registry error 5\""), "a failure to list them is reported");
+        check(has(broken, "\"error\":\"\""), "and kept apart from the interfaces' error");
+    }
 }
 
 namespace
@@ -601,6 +624,7 @@ int run_scan_json_tests()
     test_the_parent_reaches_the_page();
     test_both_addresses_reach_the_page();
     test_interfaces_report_their_failure();
+    test_serial_ports_are_listed_beside_interfaces();
     test_inputs_carry_what_t3000_shows();
     test_the_saved_list_reaches_the_page();
     test_a_list_not_being_saved_says_why();

@@ -32,6 +32,8 @@ on:
       - 'T3000/BacnetSetting.cpp'
       - 'T3000/CM5/**'
       - 'BacNetDllforVc/**'
+      - 'ModbusDllforVc/ModbusDllforVc/crc.h'
+      - 'ModbusDllforVc/ModbusDllforVc/crc.cpp'
   pull_request:
     branches: [ master ]
     paths:
@@ -44,6 +46,8 @@ on:
       - 'T3000/BacnetSetting.cpp'
       - 'T3000/CM5/**'
       - 'BacNetDllforVc/**'
+      - 'ModbusDllforVc/ModbusDllforVc/crc.h'
+      - 'ModbusDllforVc/ModbusDllforVc/crc.cpp'
   workflow_dispatch:
 
 # A newer push to the same branch or pull request supersedes a run still going.
