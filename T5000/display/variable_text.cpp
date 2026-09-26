@@ -143,9 +143,12 @@ namespace t5000::display
                 }
                 else
                 {
+                    // T3000 writes neither cell (:348-356). The names are
+                    // still the range's, so they are shown as its units, and
+                    // the note says T3000 does not show them.
                     add_note(t.note, "The device's names for custom digital range " + std::to_string(which) +
-                                         " do not split into two states, so T3000 writes neither Value nor "
-                                         "Units: each " + kKeepsItsText + ".");
+                                         " do not split into two states. T5000 shows them as the units; T3000 "
+                                         "writes neither Value nor Units: each " + kKeepsItsText + ".");
                 }
                 return;
             }

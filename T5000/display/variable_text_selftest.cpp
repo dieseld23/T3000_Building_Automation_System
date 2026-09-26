@@ -208,7 +208,8 @@ namespace
 
         t = variable_text(digital(30, 1), named);
         check(t.units == "one/two/three" && t.value.empty(), "names that do not split in two: no value");
-        check(has(t.note, "writes neither Value nor Units"), "  and T3000 writes neither cell, as the note says");
+        check(has(t.note, "T5000 shows them as the units") && has(t.note, "writes neither Value nor Units"),
+              "  and the note says the units are T5000's, and that T3000 writes neither cell");
 
         t = variable_text(digital(24, 1), kNothingRead);
         check(t.units == "custom range 2" && t.value == "1", "not read: named by its number, the state as 1");
