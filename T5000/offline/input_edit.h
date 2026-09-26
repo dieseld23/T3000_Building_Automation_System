@@ -27,6 +27,18 @@ namespace t5000::offline
 {
     using InputBytes = std::array<uint8_t, wire::kInputPointWireSize>;
 
+    // How many of each point a panel T3000 has not read holds
+    // (global_define.h:441-445), and so how many names Check_FullLabel_Exsit
+    // compares a new full label with. T5000Conformance checks each.
+    namespace t3000_counts
+    {
+        inline constexpr int kInputs    = 64;    // BAC_INPUT_ITEM_COUNT
+        inline constexpr int kOutputs   = 64;    // BAC_OUTPUT_ITEM_COUNT
+        inline constexpr int kVariables = 128;   // BAC_VARIABLE_ITEM_COUNT
+        inline constexpr int kPvars     = 48;    // BAC_PVAR_ITEM_COUNT
+        inline constexpr int kPrograms  = 16;    // BAC_PROGRAM_ITEM_COUNT
+    }
+
     // Where each field of Str_in_point (ud_str.h:288-306) sits, as
     // decode_input_point reads them.
     namespace input_at

@@ -12,9 +12,11 @@
 #                windows-2022, whose Visual Studio 2022 carries MFC for the
 #                v143 toolset. It needs no .NET.
 #
-# It runs when T5000 changes, or when one of the T3000 files the conformance
-# checks read changes. T3000 itself is no longer built on every push: see
-# T3000.yml, which is run by hand.
+# It runs when T5000 changes, or when anything under T3000/ does: the
+# conformance checks read T3000's headers and source by name, and one of them
+# (offline_guard.cpp) reads every source file there, to find a setlocale.
+# Listing the files one by one missed the ones added later. T3000 itself is no
+# longer built on every push: see T3000.yml, which is run by hand.
 #
 # scripts/ci-local.ps1 runs both jobs locally, against a clean checkout.
 
@@ -27,11 +29,7 @@ on:
       - 'T5000/**'
       - '.github/workflows/T5000.yml'
       - 'T3000 - VS2019.sln'
-      - 'T3000/ProductModel.h'
-      - 'T3000/global_define.h'
-      - 'T3000/global_function.cpp'
-      - 'T3000/BacnetSetting.cpp'
-      - 'T3000/CM5/**'
+      - 'T3000/**'
       - 'BacNetDllforVc/**'
       - 'ModbusDllforVc/ModbusDllforVc/crc.h'
       - 'ModbusDllforVc/ModbusDllforVc/crc.cpp'
@@ -41,11 +39,7 @@ on:
       - 'T5000/**'
       - '.github/workflows/T5000.yml'
       - 'T3000 - VS2019.sln'
-      - 'T3000/ProductModel.h'
-      - 'T3000/global_define.h'
-      - 'T3000/global_function.cpp'
-      - 'T3000/BacnetSetting.cpp'
-      - 'T3000/CM5/**'
+      - 'T3000/**'
       - 'BacNetDllforVc/**'
       - 'ModbusDllforVc/ModbusDllforVc/crc.h'
       - 'ModbusDllforVc/ModbusDllforVc/crc.cpp'

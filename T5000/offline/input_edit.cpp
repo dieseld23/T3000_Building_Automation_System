@@ -9,15 +9,6 @@ namespace t5000::offline
 {
     namespace
     {
-        // How many of each point a panel T3000 has not read holds, and so how
-        // many names Check_FullLabel_Exsit compares a new one with
-        // (global_define.h:441-445). T5000Conformance checks each.
-        constexpr int kInputItemCount    = 64;    // BAC_INPUT_ITEM_COUNT
-        constexpr int kOutputItemCount   = 64;    // BAC_OUTPUT_ITEM_COUNT
-        constexpr int kVariableItemCount = 128;   // BAC_VARIABLE_ITEM_COUNT
-        constexpr int kPvarItemCount     = 48;    // BAC_PVAR_ITEM_COUNT
-        constexpr int kProgramItemCount  = 16;    // BAC_PROGRAM_ITEM_COUNT
-
         constexpr size_t kDescriptionLength = wire::kDescriptionLength;   // STR_IN_DESCRIPTION_LENGTH
         constexpr size_t kLabelLength       = wire::kLabelLength;         // STR_IN_LABEL
 
@@ -103,10 +94,10 @@ namespace t5000::offline
                 int         count;
             };
             static const Kind kKinds[] = {
-                { "OUT", kOutputItemCount },
-                { "VAR", kVariableItemCount },
-                { "PVAR", kPvarItemCount },
-                { "PRG", kProgramItemCount },
+                { "OUT", t3000_counts::kOutputs },
+                { "VAR", t3000_counts::kVariables },
+                { "PVAR", t3000_counts::kPvars },
+                { "PRG", t3000_counts::kPrograms },
             };
 
             for (const Kind& k : kKinds)
@@ -265,7 +256,7 @@ namespace t5000::offline
                 // Check_FullLabel_Exsit (:3151-3235), case-sensitive: the
                 // first BAC_INPUT_ITEM_COUNT inputs' full labels, then the
                 // other kinds' names.
-                for (size_t i = 0; i < inputs.size() && i < (size_t)kInputItemCount; i++)
+                for (size_t i = 0; i < inputs.size() && i < (size_t)t3000_counts::kInputs; i++)
                 {
                     wire::InputPoint other;
                     wire::decode_input_point(inputs[i].data(), wire::kInputPointWireSize, other);

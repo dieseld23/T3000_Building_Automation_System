@@ -17,6 +17,9 @@
 //     models_guard.cpp             the models in device/product.cpp, read
 //                                  against T3000's Add virtual device list
 //                                  and its panel type names as text
+//     offline_guard.cpp            the rules offline/input_edit.cpp takes a
+//                                  change to an input by, read against
+//                                  T3000's Inputs grid as text
 //     private_transfer_oracle.cpp  a read request, byte for byte, against the
 //                                  one T3000's BACnet stack DLL sends
 //     crc_oracle.cpp               the serial scan's CRC and frames, against
@@ -42,6 +45,7 @@ int run_models_guard_tests();
 int run_private_transfer_oracle_tests();
 int run_crc_oracle_tests();
 int run_variables_guard_tests();
+int run_offline_guard_tests();
 
 int main(int argc, char** argv)
 {
@@ -63,6 +67,8 @@ int main(int argc, char** argv)
     run_models_guard_tests();
     printf("\n");
     run_variables_guard_tests();
+    printf("\n");
+    run_offline_guard_tests();
     printf("\n");
     run_private_transfer_oracle_tests();
     printf("\n");
