@@ -107,8 +107,10 @@ namespace t5000::app
                                 words.points + " anyway, but without the settings: " + words.without_settings);
             if (product == device::ProductClassId::Esp32T3Series)
             {
-                add(panel.note, std::string("An ESP32 T3 on newer firmware can have more than 64 ") + words.points +
-                                    ", and says how many in its settings, so only the first 64 were read.");
+                const std::string usual = std::to_string(words.usual_count);
+                add(panel.note, "An ESP32 T3 on newer firmware can have more than " + usual + " " + words.points +
+                                    ", and says how many in its settings, so only the first " + usual +
+                                    " were read.");
             }
         }
         return true;
@@ -164,5 +166,67 @@ namespace t5000::app
         {
             add(panel.note, "The custom analog table names were not read: " + why_not(first_four));
         }
+    }
+
+    void read_msv_tables(bacnet::ReadTransport& transport, const bacnet::Endpoint& device,
+                         const bacnet::ReadSettings& settings, uint8_t& next_invoke_id,
+                         PanelRead& panel, display::VariableRanges& names, int& requests_sent)
+    {
+        using namespace bacnet;
+
+        // Table 3 is used only for the Units of a variable on range 104, so
+        // a panel whose firmware is not known is not asked for a table it
+        // may not have.
+        const bool four = panel.settings_known && panel.settings.firmware() > kLastThreeTableFirmware;
+        const int second = four ? 2 : 1;
+
+        const struct
+        {
+            int first;
+            int count;
+        } asks[] = { { 0, 2 }, { 2, second } };
+
+        for (size_t i = 0; i < sizeof(asks) / sizeof(asks[0]); i++)
+        {
+            if (i != 0)
+                pause_between_reads(settings);
+
+            const int first = asks[i].first;
+            const int count = asks[i].count;
+            for (int t = first; t < first + count; t++)
+                names.msv_asked[t] = true;
+
+            const ReadOutcome o = read_entities_from(transport, device, ReadCommand::MsvTables, first, count, count,
+                                                     (uint16_t)wire::kMsvTableWireSize, settings, next_invoke_id);
+            requests_sent += o.requests_sent;
+            if (o.ok)
+            {
+                display::take_msv_tables(o.entities.data(), o.entities.size(), first, count, names);
+            }
+            else
+            {
+                const std::string which = count == 1 ? "Multi-state table " + std::to_string(first + 1) + " was"
+                                                     : "Multi-state tables " + std::to_string(first + 1) + "-" +
+                                                           std::to_string(first + count) + " were";
+                add(panel.note, which + " not read: " + why_not(o));
+            }
+        }
+    }
+
+    void read_variable_units(bacnet::ReadTransport& transport, const bacnet::Endpoint& device,
+                             const bacnet::ReadSettings& settings, uint8_t& next_invoke_id,
+                             PanelRead& panel, display::VariableRanges& names, int& requests_sent)
+    {
+        using namespace bacnet;
+
+        const ReadOutcome units = read_entities(transport, device, ReadCommand::VariableUnits,
+                                                wire::kVariableUnitCount, wire::kVariableUnitCount,
+                                                (uint16_t)wire::kVariableUnitWireSize, settings, next_invoke_id);
+        requests_sent += units.requests_sent;
+        if (units.ok)
+            display::take_variable_units(units.entities.data(), units.entities.size(), 0, wire::kVariableUnitCount,
+                                         names);
+        else
+            add(panel.note, "The custom variable units were not read: " + why_not(units));
     }
 }

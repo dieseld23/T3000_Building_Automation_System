@@ -172,8 +172,9 @@ namespace
         dest.len = 0;
 
         // Every read T5000 sends, in the shapes it sends them - which are
-        // T3000's own calls (BacnetView.cpp:5905, :6472, :6563-6565, and the
-        // Outputs read at :5353-5377). The
+        // T3000's own calls (BacnetView.cpp:5905, :6472, :6563-6565, the
+        // Outputs read at :5353-5377, the Variables read at :4539-4589, and
+        // the multi-state tables and custom units at :6486-6571). The
         // Settings read is the first whose entity size needs its high byte:
         // 400 is 0x0190, so a header that dropped or swapped a byte would
         // pass every Inputs case and fail only here.
@@ -196,6 +197,13 @@ namespace
             { ReadCommand::CustomUnits, READUNIT_T3000, 0, 7, (int16_t)sizeof(Str_Units_element) },
             { ReadCommand::AnalogCustomTables, READANALOG_CUS_TABLE_T3000, 0, 3, (int16_t)sizeof(Str_table_point) },
             { ReadCommand::AnalogCustomTables, READANALOG_CUS_TABLE_T3000, 4, 4, (int16_t)sizeof(Str_table_point) },
+            { ReadCommand::Variables, READVARIABLE_T3000, 0, 9, (int16_t)sizeof(Str_variable_point) },
+            { ReadCommand::Variables, READVARIABLE_T3000, 120, 127, (int16_t)sizeof(Str_variable_point) },
+            { ReadCommand::Variables, READVARIABLE_T3000, 250, 254, (int16_t)sizeof(Str_variable_point) },
+            { ReadCommand::VariableUnits, READVARUNIT_T3000, 0, 4, (int16_t)sizeof(Str_variable_uint_point) },
+            { ReadCommand::MsvTables, READ_MSV_COMMAND, 0, 1, (int16_t)sizeof(Str_MSV) },
+            { ReadCommand::MsvTables, READ_MSV_COMMAND, 2, 2, (int16_t)sizeof(Str_MSV) },
+            { ReadCommand::MsvTables, READ_MSV_COMMAND, 2, 3, (int16_t)sizeof(Str_MSV) },
         };
 
         for (const Case& c : cases)

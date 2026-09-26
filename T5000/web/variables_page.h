@@ -1,31 +1,29 @@
 #pragma once
 
-// The Outputs page, embedded in the executable for the same reason the
+// The Variables page, embedded in the executable for the same reason the
 // Inputs page is (inputs_page.h). Its banners follow that page's rules: a
 // reading is claimed only on readFromWire, and a device that was not read
 // says so, never as an empty grid under a "read from" line.
 
 namespace t5000::web
 {
-    inline constexpr const char* kOutputsPage = R"PAGE(<!DOCTYPE html>
+    inline constexpr const char* kVariablesPage = R"PAGE(<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Outputs</title>
+<title>Variables</title>
 <style>
   :root {
     --bg:#fff; --surface:#f7f8fa; --border:#e3e6ea; --text:#1a1d21; --dim:#6b7280;
     --accent:#0b6bcb; --row-alt:#fafbfc; --ok:#0f7b3f; --ok-bg:#e6f4ec;
     --warn:#8a5300; --warn-bg:#fdf1dc; --info:#0b4ea2; --info-bg:#e8f0fe;
-    --hand:#b42318; --hand-bg:#fdecea;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg:#16181c; --surface:#1d2025; --border:#2c3036; --text:#e6e8ea; --dim:#9aa1ab;
       --accent:#4d9bf0; --row-alt:#191c20; --ok:#5bd18b; --ok-bg:#16301f;
       --warn:#e0b060; --warn-bg:#33270f; --info:#7fb4f0; --info-bg:#16283f;
-      --hand:#f97066; --hand-bg:#3a1a17;
     }
   }
   *{box-sizing:border-box}
@@ -66,15 +64,10 @@ namespace t5000::web
   tbody td{padding:5px 10px;border-bottom:1px solid var(--border);white-space:pre}
   tbody tr:nth-child(even){background:var(--row-alt)}
   tbody tr:hover{background:var(--info-bg)}
-  /* T3000 draws a row red while its hand-off-auto switch is at off or hand:
-     the output is under a person's control, not the program's. */
-  tbody tr.hand td{color:var(--hand)}
-  tbody tr.hand{background:var(--hand-bg)}
   .num{text-align:right;font-variant-numeric:tabular-nums}
   .dim{color:var(--dim)}
   .pill{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600}
   .pill-man{background:var(--info-bg);color:var(--info)}
-  .pill-hand{background:var(--hand);color:var(--bg)}
   .pill-note{background:var(--info-bg);color:var(--info);cursor:help}
 
   .empty{display:flex;align-items:center;justify-content:center;height:100%;
@@ -99,8 +92,8 @@ namespace t5000::web
 <body>
 
 <header>
-  <h1>Outputs</h1>
-  <nav><a href="/">Devices</a><a href="/inputs">Inputs</a><a href="/variables">Variables</a></nav>
+  <h1>Variables</h1>
+  <nav><a href="/">Devices</a><a href="/inputs">Inputs</a><a href="/outputs">Outputs</a></nav>
   <span class="meta">Device <b id="serial">&mdash;</b></span>
   <span class="meta"><b id="count">0</b> points</span>
   <span class="spacer"></span>
@@ -121,23 +114,21 @@ namespace t5000::web
   <table id="grid" hidden>
     <thead>
       <tr>
-        <th>Output</th><th>Full Label</th><th class="opt">Auto/Man</th><th>HOA Switch</th>
-        <th class="num">Value</th><th class="opt">Units</th><th class="opt">Range</th>
-        <th class="num opt">Low V</th><th class="num opt">High V</th><th class="num opt">PWM Period</th>
-        <th>Status</th><th class="opt">Label</th>
+        <th>Variable</th><th>Full Label</th><th class="opt">Auto/Manual</th>
+        <th class="num">Value</th><th>Units</th><th class="opt">Label</th>
       </tr>
     </thead>
     <tbody id="rows"></tbody>
   </table>
 </div>
 
-<footer id="status">Read-only. T3000's Panel, Type and Product Name columns are not shown yet.</footer>
+<footer id="status">Read-only. Nothing is written to the device.</footer>
 
 <script>
   const $ = id => document.getElementById(id);
   const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g,
     c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
-  const FOOTER = "Read-only. T3000's Panel, Type and Product Name columns are not shown yet.";
+  const FOOTER = "Read-only. Nothing is written to the device.";
 
   let allRows = [];
 
@@ -200,11 +191,6 @@ namespace t5000::web
     return t;
   }
 
-  function hoaCell(r) {
-    if (r.hand) return '<span class="pill pill-hand">' + esc(r.hoa) + '</span>';
-    return '<span class="dim">' + esc(r.hoa) + '</span>';
-  }
-
   function autoManualCell(r) {
     if (r.autoManual === "Manual") return '<span class="pill pill-man">Manual</span>';
     return '<span class="dim">' + esc(r.autoManual) + '</span>';
@@ -213,7 +199,7 @@ namespace t5000::web
   function render() {
     const needle = $("filter").value.trim().toLowerCase();
     const rows = needle
-      ? allRows.filter(r => (r.fullLabel + " " + r.label + " OUT" + r.output).toLowerCase().includes(needle))
+      ? allRows.filter(r => (r.fullLabel + " " + r.label + " VAR" + r.variable).toLowerCase().includes(needle))
       : allRows;
 
     $("count").textContent = rows.length;
@@ -226,20 +212,13 @@ namespace t5000::web
     }
 
     $("rows").innerHTML = rows.map(r => `
-      <tr${r.hand ? ' class="hand"' : ''}>
-        <td>OUT${esc(r.output)}${r.note
+      <tr>
+        <td>VAR${esc(r.variable)}${r.note
               ? ' <span class="pill pill-note" title="' + esc(r.note) + '">?</span>' : ''}</td>
         <td>${esc(r.fullLabel) || '<span class="dim">(unnamed)</span>'}</td>
         <td class="opt">${autoManualCell(r)}</td>
-        <td>${hoaCell(r)}</td>
         <td class="num">${esc(r.value)}</td>
-        <td class="dim opt">${esc(r.units)}</td>
-        <td class="dim opt">${esc(r.range)}</td>
-)PAGE"
-        R"PAGE(        <td class="num dim opt">${esc(r.lowVoltage)}</td>
-        <td class="num dim opt">${esc(r.highVoltage)}</td>
-        <td class="num dim opt">${esc(r.pwmPeriod)}</td>
-        <td class="dim">${esc(r.status)}</td>
+        <td class="dim">${esc(r.units)}</td>
         <td class="dim opt">${esc(r.label)}</td>
       </tr>`).join("");
   }
@@ -247,26 +226,22 @@ namespace t5000::web
   async function load() {
     $("status").textContent = "Reading…";
     try {
-      const res = await fetch("/api/outputs", { cache: "no-store" });
+      const res = await fetch("/api/variables", { cache: "no-store" });
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
 
       $("serial").textContent = data.device && data.device.serialNumber
         ? data.device.serialNumber : "—";
 
-      allRows = data.outputs || [];
+      allRows = data.variables || [];
       showBanner(data);
 
       if (allRows.length === 0) {
-        // Three different empties. A device that was not read; a panel
-        // that was read and has no outputs T3000 shows; and nothing at all.
-        const panel = data.panel || {};
+        // Two different empties. A device that was not read, and nothing at
+        // all - every panel has variables.
         if (data.unavailable) {
           $("empty-title").textContent = "This device has not been read";
           $("empty-detail").textContent = data.message || "";
-        } else if (panel.known && panel.outputsRead > 0) {
-          $("empty-title").textContent = "This panel has no outputs to show";
-          $("empty-detail").textContent = panel.note || "";
         } else {
           $("empty-title").textContent = "No points returned";
           $("empty-detail").textContent = (data.readPath && data.readPath.detail) || "";

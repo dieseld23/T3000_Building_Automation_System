@@ -205,4 +205,46 @@ namespace t5000::display
         "OK", // 0
         "-",  // 1
     };
+
+    // Variable_Analog_Units_Array (global_define.h:1196). The Units column of
+    // an analog variable, by range - and "Unused", [0], of a digital one on
+    // a range that is not a state pair. 34 entries: range < 34 picks one, so
+    // the device's own units, 34-38, are reached only because there are no
+    // more (BacnetVariable.cpp:388-407).
+    inline constexpr const char* const kVariableUnits[] = {
+        "Unused",             // 0
+        "\xC2\xB0" "C",       // 1
+        "\xC2\xB0" "F",       // 2
+        "FPM",                // 3
+        "Pa",                 // 4
+        "KPa",                // 5
+        "PSI",                // 6
+        "inWC",               // 7
+        "W",                  // 8
+        "kW",                 // 9
+        "kWH",                // 10
+        "V",                  // 11
+        "kV",                 // 12
+        "A",                  // 13
+        "mA",                 // 14
+        "CFM",                // 15
+        "s",                  // 16
+        "min",                // 17
+        "h",                  // 18
+        "d",                  // 19
+        "Time",               // 20  shown as a time - see variable_text.cpp
+        "\xCE\xA9",           // 21  ohm
+        "%",                  // 22
+        "%RH",                // 23
+        "PPM",                // 24
+        "Counts",             // 25
+        "%Open",              // 26
+        "kg",                 // 27
+        "L/h",                // 28
+        "GPH",                // 29
+        "GAL",                // 30
+        "CF",                 // 31
+        "BTU",                // 32
+        "m" "\xC2\xB3" "/h",  // 33
+    };
 }

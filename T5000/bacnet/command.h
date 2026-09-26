@@ -36,8 +36,11 @@ namespace t5000::bacnet
 #define T5000_READ_COMMANDS(X)                                                \
     X(Outputs, 1, READOUTPUT_T3000)                  /* ud_str.h:41 */        \
     X(Inputs, 2, READINPUT_T3000)                    /* ud_str.h:42 */        \
+    X(Variables, 3, READVARIABLE_T3000)              /* ud_str.h:43 */        \
     X(CustomUnits, 14, READUNIT_T3000)               /* ud_str.h:54 */        \
     X(AnalogCustomTables, 34, READANALOG_CUS_TABLE_T3000) /* ud_str.h:73 */   \
+    X(VariableUnits, 36, READVARUNIT_T3000)          /* ud_str.h:74 */        \
+    X(MsvTables, 42, READ_MSV_COMMAND)               /* ud_str.h:79 */        \
     X(Settings, 98, READ_SETTING_COMMAND)            /* ud_str.h:92 */
 
     enum class ReadCommand : uint8_t

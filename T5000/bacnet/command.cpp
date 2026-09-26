@@ -10,10 +10,16 @@ namespace t5000::bacnet
             return "outputs";
         case ReadCommand::Inputs:
             return "inputs";
+        case ReadCommand::Variables:
+            return "variables";
         case ReadCommand::CustomUnits:
             return "custom digital ranges";
         case ReadCommand::AnalogCustomTables:
             return "custom analog tables";
+        case ReadCommand::VariableUnits:
+            return "custom variable units";
+        case ReadCommand::MsvTables:
+            return "multi-state tables";
         case ReadCommand::Settings:
             return "panel settings";
         }

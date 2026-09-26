@@ -41,6 +41,7 @@ int run_tables_guard_tests();
 int run_models_guard_tests();
 int run_private_transfer_oracle_tests();
 int run_crc_oracle_tests();
+int run_variables_guard_tests();
 
 int main(int argc, char** argv)
 {
@@ -60,6 +61,8 @@ int main(int argc, char** argv)
     run_tables_guard_tests();
     printf("\n");
     run_models_guard_tests();
+    printf("\n");
+    run_variables_guard_tests();
     printf("\n");
     run_private_transfer_oracle_tests();
     printf("\n");

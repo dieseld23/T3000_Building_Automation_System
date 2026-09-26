@@ -28,48 +28,10 @@ namespace
 {
     using namespace t5000::device;
     using namespace t5000::testing;
+    using t5000::conformance::function_body;
     using t5000::conformance::parse_constant;
     using t5000::conformance::read_source;
     using t5000::conformance::strip_comments;
-
-    // The body of the one function with this signature, without its braces.
-    // Comments are stripped from the signature on, not from the whole file:
-    // the files hold GBK text, whose second bytes can be a backslash, and a
-    // string that seems to end late would throw the stripper out of step
-    // before it got here. Both functions read are ASCII.
-    bool function_body(const std::string& text, const std::string& signature, std::string& body,
-                       std::string& error)
-    {
-        const size_t at = text.find(signature);
-        if (at == std::string::npos || text.find(signature, at + 1) != std::string::npos)
-        {
-            error = signature + (at == std::string::npos ? " is not found" : " is found more than once");
-            return false;
-        }
-
-        const std::string code = strip_comments(text.substr(at));
-        const size_t open = code.find('{');
-        if (open == std::string::npos)
-        {
-            error = signature + " has no body";
-            return false;
-        }
-        int depth = 0;
-        for (size_t i = open; i < code.size(); i++)
-        {
-            if (code[i] == '{')
-            {
-                depth++;
-            }
-            else if (code[i] == '}' && --depth == 0)
-            {
-                body = code.substr(open + 1, i - open - 1);
-                return true;
-            }
-        }
-        error = signature + " has no closing brace";
-        return false;
-    }
 
     // Drops each #if 0 block, #if blocks inside it counted, up to its #endif.
     // T3000's list ends with one: an INI reader that sets the same fields

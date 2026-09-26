@@ -111,13 +111,19 @@ namespace t5000::wire
         uint8_t  pwm_period;
     };
 
+    enum : int
+    {
+        kVariableDescriptionLength = 21,   // STR_VARIABLE_DESCRIPTION_LENGTH
+        kVariableLabelLength       = 9,    // STR_VARIABLE_LABEL
+    };
+
     struct VariablePoint
     {
-        // Plain [21] here, declared literally rather than through a macro -
-        // so this one does NOT have the STR_OUT_DESCRIPTION_LENGTH-2 trap that
-        // makes the output description 19. Checked, not assumed.
-        uint8_t  description[21];       // STR_VARIABLE_DESCRIPTION_LENGTH
-        uint8_t  label[9];              // STR_VARIABLE_LABEL
+        // Plain [21] in ud_str.h, declared literally rather than through a
+        // macro - so this one does NOT have the STR_OUT_DESCRIPTION_LENGTH-2
+        // trap that makes the output description 19. Checked, not assumed.
+        uint8_t  description[kVariableDescriptionLength];
+        uint8_t  label[kVariableLabelLength];
         int32_t  value;
 
         uint8_t  auto_manual;           // 0 = auto, 1 = manual

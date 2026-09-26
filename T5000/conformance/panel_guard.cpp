@@ -59,4 +59,19 @@ namespace
     static_assert(sizeof(::Str_table_point) == w::kAnalogTableWireSize, "Str_table_point is not 105 bytes");
     static_assert(offsetof(::Str_table_point, table_name) == w::analog_table_at::name, "table_name moved");
     static_assert(sizeof(::Str_table_point{}.table_name) == w::analog_table_at::name_length, "table_name changed size");
+
+    // The custom variable units: one name, whatever ud_str.h's "= 40" says.
+    static_assert(sizeof(::Str_variable_uint_point) == w::kVariableUnitWireSize,
+        "Str_variable_uint_point is not 20 bytes");
+
+    // The multi-state tables: eight packed items of status, name and value.
+    static_assert(sizeof(::Str_MSV) == w::kMsvTableWireSize, "Str_MSV is not 184 bytes");
+    static_assert(sizeof(::multiple_struct) == w::kMsvItemWireSize, "multiple_struct is not 23 bytes");
+    static_assert(sizeof(::Str_MSV{}.msv_data) / sizeof(::Str_MSV{}.msv_data[0]) == w::kMsvItemCount,
+        "Str_MSV no longer has eight items");
+    static_assert(offsetof(::multiple_struct, status) == w::msv_item_at::status, "status moved");
+    static_assert(offsetof(::multiple_struct, msv_name) == w::msv_item_at::name, "msv_name moved");
+    static_assert(sizeof(::multiple_struct{}.msv_name) == w::msv_item_at::name_length, "msv_name changed size");
+    static_assert(offsetof(::multiple_struct, msv_value) == w::msv_item_at::value, "msv_value moved");
+    static_assert(sizeof(::multiple_struct{}.msv_value) == 2, "msv_value is not 2 bytes");
 }

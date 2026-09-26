@@ -12,6 +12,7 @@
 #include "../device/product.h"
 #include "../device/read_path.h"
 #include "../display/custom_ranges.h"
+#include "../display/variable_ranges.h"
 #include "../wire/panel.h"
 #include "../wire/points.h"
 
@@ -119,4 +120,31 @@ namespace t5000::app
                                                const std::string& address,
                                                const std::string& reason,
                                                const std::string& sighting = std::string());
+
+    // The panel the variables came from: as for inputs, with the names only
+    // variables use.
+    struct VariablesPanel : InputsPanel
+    {
+        display::VariableRanges names;
+    };
+
+    // The Variables page's payload, shaped as the others are: the same
+    // device, readPath and panel keys, "variables" where they have "inputs",
+    // and in customRanges the digital range names, the custom units and the
+    // multi-state tables' names - no variable range uses the analog tables.
+    //
+    // Every variable read is included: T3000 has no per-model limit on the
+    // Variables grid.
+    std::string build_variables_json(const DeviceInfo& device,
+                                     const device::Decision& decision,
+                                     const std::vector<wire::VariablePoint>& points,
+                                     const VariablesPanel& panel = VariablesPanel());
+
+    // The payload for a device the tool has found but cannot read the
+    // variables of. Every key build_variables_json writes is here too, for
+    // the reason build_unavailable_inputs_json gives.
+    std::string build_unavailable_variables_json(int serial_number,
+                                                 const std::string& address,
+                                                 const std::string& reason,
+                                                 const std::string& sighting = std::string());
 }

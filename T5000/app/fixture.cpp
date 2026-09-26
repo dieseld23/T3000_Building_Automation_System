@@ -2,6 +2,8 @@
 
 #include <string.h>
 
+#include "../bacnet/point_read.h"
+
 namespace t5000::app
 {
     namespace
@@ -174,6 +176,100 @@ namespace t5000::app
             p.sub_number       = r.sub_number;
 
             points.push_back(p);
+        }
+        return points;
+    }
+
+    DeviceInfo fixture_variables_device()
+    {
+        return fixture_outputs_device();
+    }
+
+    VariablesPanel fixture_variables_panel()
+    {
+        VariablesPanel panel;
+        static_cast<OutputsPanel&>(panel) = fixture_outputs_panel();
+
+        // Firmware 60.0: tables 1-3 asked for, and all three came back.
+        // Built as the device would send them and cut out as a reply is, so
+        // the sample's names are what T5000 makes of those bytes.
+        const struct
+        {
+            int         table;
+            int         item;
+            uint16_t    value;
+            const char* name;
+        } states[] = {
+            { 0, 0, 0, "Off" },
+            { 0, 1, 1, "Cool" },
+            { 0, 2, 2, "Heat" },
+            { 0, 3, 3, "Auto" },
+            { 1, 0, 0, "Pump A" },
+            { 1, 1, 1, "Pump B" },
+        };
+        std::vector<uint8_t> tables(3 * wire::kMsvTableWireSize, 0);
+        for (const auto& s : states)
+        {
+            uint8_t* item = &tables[s.table * wire::kMsvTableWireSize + s.item * wire::kMsvItemWireSize];
+            item[wire::msv_item_at::status] = 1;
+            set_text(item + wire::msv_item_at::name, wire::msv_item_at::name_length, s.name);
+            item[wire::msv_item_at::value]     = (uint8_t)(s.value & 0xFF);
+            item[wire::msv_item_at::value + 1] = (uint8_t)(s.value >> 8);
+        }
+        display::VariableRanges& names = panel.names;
+        for (int t = 0; t < 3; t++)
+            names.msv_asked[t] = true;
+        display::take_msv_tables(tables.data(), tables.size(), 0, 3, names);
+
+        std::vector<uint8_t> units(wire::kVariableUnitCount * wire::kVariableUnitWireSize, 0);
+        memcpy(units.data(), "L/s", 3);
+        display::take_variable_units(units.data(), units.size(), 0, wire::kVariableUnitCount, names);
+        return panel;
+    }
+
+    std::vector<wire::VariablePoint> fixture_variables()
+    {
+        // Values are thousandths, as the device sends them. Not an
+        // imitation of any real installation.
+        struct Row
+        {
+            const char* description;
+            const char* label;
+            int32_t     value;
+            uint8_t     auto_manual;
+            uint8_t     digital_analog;   // 0 digital, 1 analog
+            uint8_t     control;          // a digital variable's state
+            uint8_t     range;
+        };
+
+        static const Row rows[] = {
+            { "Zone Temp Setpoint", "ZN_SP",    21500,   0, 1, 0, 1 },    // degrees C
+            { "Occupied",           "OCC",      0,       0, 0, 1, 10 },   // Unoccupy/Occupy
+            { "Fan Run Time",       "FAN_RT",   5430000, 0, 1, 0, 20 },   // a time: 01:30:30
+            { "Static Press SP",    "SP_SP",    250000,  1, 1, 0, 4 },    // Pa, manual
+            { "Chiller Mode",       "CH_MODE",  2000,    0, 0, 0, 101 },  // multi-state table 1: Heat
+            { "Alarm Horn",         "HORN",     0,       0, 0, 1, 23 },   // custom range 1: Sound
+            { "Flow Rate",          "FLOW",     12750,   0, 1, 0, 34 },   // custom unit 1: L/s
+            { "Energy Today",       "KWH_DAY",  184250,  0, 1, 0, 10 },   // kWH
+            { "Economizer Pos",     "ECON",     35000,   0, 1, 0, 26 },   // %Open
+            { "Pump Lead",          "PMP_LEAD", 1000,    0, 1, 0, 102 },  // multi-state table 2: Pump B
+            { "Night Setback",      "NSB",      0,       1, 0, 0, 1 },    // Off/On, manual
+            { "Space Humidity",     "RH",       45500,   0, 1, 0, 23 },   // %RH
+        };
+
+        std::vector<wire::VariablePoint> points((size_t)bacnet::kVariableCount);
+        for (size_t i = 0; i < sizeof(rows) / sizeof(rows[0]); i++)
+        {
+            const Row& r = rows[i];
+            wire::VariablePoint& p = points[i];
+            set_text(p.description, wire::kVariableDescriptionLength, r.description);
+            set_text(p.label,       wire::kVariableLabelLength,       r.label);
+
+            p.value          = r.value;
+            p.auto_manual    = r.auto_manual;
+            p.digital_analog = r.digital_analog;
+            p.control        = r.control;
+            p.range          = r.range;
         }
         return points;
     }

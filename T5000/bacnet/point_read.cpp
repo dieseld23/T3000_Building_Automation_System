@@ -35,12 +35,18 @@ namespace t5000::bacnet
                 return "outputs " + span;
             case ReadCommand::Inputs:
                 return "points " + span;
+            case ReadCommand::Variables:
+                return "variables " + span;
             case ReadCommand::Settings:
                 return "the panel's settings";
             case ReadCommand::CustomUnits:
                 return "custom digital ranges " + span;
             case ReadCommand::AnalogCustomTables:
                 return "custom analog tables " + span;
+            case ReadCommand::VariableUnits:
+                return "custom variable units " + span;
+            case ReadCommand::MsvTables:
+                return "multi-state tables " + span;
             }
             return "entities " + span;
         }
@@ -421,6 +427,37 @@ namespace t5000::bacnet
             {
                 result.points.clear();
                 result.error = "Output " + std::to_string(i) + " could not be decoded.";
+                return result;
+            }
+        }
+
+        result.ok = true;
+        return result;
+    }
+
+    VariablesRead read_variables(ReadTransport& transport, const Endpoint& device,
+                                 const ReadSettings& settings, uint8_t& next_invoke_id,
+                                 int count)
+    {
+        VariablesRead result;
+        result.transfer = read_entities(transport, device, ReadCommand::Variables,
+                                        count, kVariablesPerRequest,
+                                        (uint16_t)wire::kVariablePointWireSize,
+                                        settings, next_invoke_id);
+        if (!result.transfer.ok)
+        {
+            result.error = result.transfer.error;
+            return result;
+        }
+
+        result.points.resize((size_t)count);
+        for (int i = 0; i < count; i++)
+        {
+            const uint8_t* at = result.transfer.entities.data() + (size_t)i * wire::kVariablePointWireSize;
+            if (!wire::decode_variable_point(at, wire::kVariablePointWireSize, result.points[i]))
+            {
+                result.points.clear();
+                result.error = "Variable " + std::to_string(i) + " could not be decoded.";
                 return result;
             }
         }

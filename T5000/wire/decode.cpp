@@ -143,4 +143,46 @@ namespace t5000::wire
 
         return (size_t)(p - buffer) == kOutputPointWireSize;
     }
+
+    bool decode_variable_point(const uint8_t* buffer, size_t length, VariablePoint& out)
+    {
+        if (buffer == nullptr || length < kVariablePointWireSize)
+            return false;
+
+        const uint8_t* p = buffer;
+
+        // As fill_in_input, not fill_in_output (:3720-3729): text that does
+        // not fit is blanked, and strlen runs over the wire. A 21-character
+        // description is kept when the label is empty and blanked when it is
+        // not; a 9-character label is kept or blanked by the value's first
+        // byte. Both bytes are in the point.
+        if (strnlen((const char*)p, kVariableDescriptionLength + 1) > kVariableDescriptionLength)
+            memset(out.description, 0, kVariableDescriptionLength);
+        else
+            memcpy(out.description, p, kVariableDescriptionLength);
+        p += kVariableDescriptionLength;
+
+        if (strnlen((const char*)p, kVariableLabelLength + 1) > kVariableLabelLength)
+            memset(out.label, 0, kVariableLabelLength);
+        else
+            memcpy(out.label, p, kVariableLabelLength);
+        p += kVariableLabelLength;
+
+        // The same folding as an input's label (:3733-3746).
+        sanitize_label(out.label, kVariableLabelLength);
+
+        out.value = (int32_t)(((uint32_t)p[3] << 24) |
+                              ((uint32_t)p[2] << 16) |
+                              ((uint32_t)p[1] << 8)  |
+                              ((uint32_t)p[0]));
+        p += 4;
+
+        out.auto_manual    = *p++;
+        out.digital_analog = *p++;
+        out.control        = *p++;
+        out.unused         = *p++;
+        out.range          = *p++;
+
+        return (size_t)(p - buffer) == kVariablePointWireSize;
+    }
 }

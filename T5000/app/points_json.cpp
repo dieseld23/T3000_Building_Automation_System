@@ -6,6 +6,7 @@
 #include "../display/device_text.h"
 #include "../display/input_text.h"
 #include "../display/output_text.h"
+#include "../display/variable_text.h"
 
 #include <windows.h>
 
@@ -153,9 +154,11 @@ namespace t5000::app
 
         // A device found but not read: every key the page reads, with nothing
         // known. `points` names the list and its counts - "inputs" gives
-        // inputsRead, inputsShown and inputs.
+        // inputsRead, inputsShown and inputs. `more_ranges` is what the page's
+        // customRanges has after its digital names, with nothing known.
         std::string unavailable_json(int serial_number, const std::string& address, const std::string& reason,
-                                     const std::string& sighting, const std::string& points, bool analog_tables)
+                                     const std::string& sighting, const std::string& points,
+                                     const std::string& more_ranges)
         {
             std::string out = "{\"unavailable\":true,\"device\":{";
             append_int(out, "serialNumber", serial_number); out += ',';
@@ -181,10 +184,7 @@ namespace t5000::app
             // with nothing known, so the page never reads a missing field as
             // a value.
             out += "\"panel\":{\"known\":false,\"" + points + "Read\":0,\"" + points + "Shown\":0,\"note\":\"\"},";
-            out += "\"customRanges\":{\"digitalKnown\":false,\"digital\":[]";
-            if (analog_tables)
-                out += ",\"analog\":[]";
-            out += "},";
+            out += "\"customRanges\":{\"digitalKnown\":false,\"digital\":[]" + more_ranges + "},";
 
             append_int(out, "count", 0);
 
@@ -203,7 +203,7 @@ namespace t5000::app
                                               const std::string& reason,
                                               const std::string& sighting)
     {
-        return unavailable_json(serial_number, address, reason, sighting, "inputs", true);
+        return unavailable_json(serial_number, address, reason, sighting, "inputs", ",\"analog\":[]");
     }
 
     std::string build_unavailable_outputs_json(int serial_number,
@@ -211,7 +211,135 @@ namespace t5000::app
                                                const std::string& reason,
                                                const std::string& sighting)
     {
-        return unavailable_json(serial_number, address, reason, sighting, "outputs", false);
+        return unavailable_json(serial_number, address, reason, sighting, "outputs", "");
+    }
+
+    // The names only variables use, with nothing known: what
+    // append_variable_ranges writes for a panel none were read from.
+    namespace
+    {
+        const char* const kNoVariableRanges = ",\"units\":[],\"msvKnown\":false,\"msv\":[]";
+
+        // ,"units":[...],"msvKnown":...,"msv":[...] - after the digital
+        // names, before customRanges closes. The units only when they were
+        // read, as the digital names are; the tables that came back, each
+        // with the text the Units column shows for its range.
+        void append_variable_ranges(std::string& out, const display::VariableRanges& names)
+        {
+            bool units = true;
+            for (bool read : names.unit_read)
+                units = units && read;
+
+            out += ",\"units\":[";
+            for (int i = 0; units && i < wire::kVariableUnitCount; i++)
+            {
+                if (i != 0) out += ',';
+                out += '"' + json_escape(names.units[i]) + '"';
+            }
+            out += "],";
+            append_bool(out, "msvKnown", names.msv_known());
+            out += ",\"msv\":[";
+            bool first = true;
+            for (int t = 0; t < wire::kMsvTableCount; t++)
+            {
+                if (!names.msv[t].read)
+                    continue;
+                if (!first) out += ',';
+                first = false;
+                out += '{';
+                append_int(out, "table", t + 1); out += ',';
+                append_field(out, "range", names.msv[t].range);
+                out += '}';
+            }
+            out += ']';
+        }
+    }
+
+    std::string build_unavailable_variables_json(int serial_number,
+                                                 const std::string& address,
+                                                 const std::string& reason,
+                                                 const std::string& sighting)
+    {
+        return unavailable_json(serial_number, address, reason, sighting, "variables", kNoVariableRanges);
+    }
+
+    std::string build_variables_json(const DeviceInfo& device,
+                                     const device::Decision& decision,
+                                     const std::vector<wire::VariablePoint>& points,
+                                     const VariablesPanel& panel)
+    {
+        std::string out;
+        out.reserve(256 + points.size() * 192);
+
+        out += '{';
+        append_device(out, device);
+        append_read_path(out, decision);
+
+        display::VariablePanel context;
+        context.ranges = panel.ranges;
+        context.names  = panel.names;
+
+        std::string note = panel.note;
+        if (panel.known)
+        {
+            if (points.size() > (size_t)bacnet::kVariableCount)
+            {
+                add_note(note, "Its settings give it " + std::to_string(points.size()) +
+                                   " variables, which an ESP32 T3 on firmware 63.7 or later may have, so all " +
+                                   std::to_string(points.size()) + " were read.");
+            }
+        }
+        else if (note.empty())
+        {
+            note = "The panel's settings were not read, so the first 128 variables are shown, and multi-state "
+                   "tables 1-3 were asked for, as on firmware 60.7 and older.";
+        }
+
+        out += "\"panel\":{";
+        append_bool(out, "known", panel.known); out += ',';
+        if (panel.known)
+            append_panel_identity(out, panel.settings);
+        append_int(out, "variablesRead",  (long)points.size()); out += ',';
+        append_int(out, "variablesShown", (long)points.size()); out += ',';
+        append_field(out, "note", note);
+        out += "},";
+
+        // The names as the device sent them, for reference; the rows below
+        // already use them.
+        append_digital_ranges(out, panel.ranges);
+        append_variable_ranges(out, panel.names);
+        out += "},";
+
+        append_int(out, "count", (long)points.size());
+        out += ",\"variables\":[";
+        for (size_t i = 0; i < points.size(); i++)
+        {
+            const wire::VariablePoint& p = points[i];
+            if (i != 0) out += ',';
+
+            // The columns as T3000 shows them, then the raw fields.
+            const display::VariableText t = display::variable_text(p, context);
+
+            out += '{';
+            append_int(out, "index", (long)i); out += ',';
+            append_int(out, "variable", (long)i + 1); out += ',';
+            append_field(out, "fullLabel",  t.full_label); out += ',';
+            append_field(out, "autoManual", t.auto_manual); out += ',';
+            append_field(out, "value",      t.value); out += ',';
+            append_field(out, "units",      t.units); out += ',';
+            append_field(out, "label",      t.label); out += ',';
+            append_field(out, "note",       t.note); out += ',';
+
+            out += "\"raw\":{";
+            append_int(out, "value",         p.value); out += ',';
+            append_int(out, "range",         p.range); out += ',';
+            append_int(out, "digitalAnalog", p.digital_analog); out += ',';
+            append_int(out, "control",       p.control); out += ',';
+            append_int(out, "autoManual",    p.auto_manual);
+            out += "}}";
+        }
+        out += "]}";
+        return out;
     }
 
     std::string build_inputs_json(const DeviceInfo& device,
