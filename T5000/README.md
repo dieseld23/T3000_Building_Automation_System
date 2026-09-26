@@ -21,7 +21,7 @@ are in:
 
 ## Where it stands
 
-As of 2026-09-25. **Nothing in T5000 has been run against a real controller
+As of 2026-09-26. **Nothing in T5000 has been run against a real controller
 yet.** Everything below is checked against T3000's source and against
 synthetic devices on loopback.
 
@@ -34,14 +34,15 @@ synthetic devices on loopback.
 | Devices added by hand | First part done. A device no scan has found - on another network, or not installed yet - can be added with its model and serial, named and placed. The models are T3000's Add virtual device list (a T3-OEM is a TSTAT10 set up as panel type T3_OEM), held to T3000's source by the conformance checks, with "Model not known" for each product and every other product as itself. It is saved and shown as "added by hand", and nothing is sent to it: its Inputs page says there is no device to read. When a scan finds its serial, that device takes its place, keeping the name and location. Configuring one offline is designed but not built; see the migration plan. |
 | Virtual devices | Not started. Designed with devices added by hand; see the migration plan. |
 | Inputs | Done for the five BACnet private-data products (CM5, MiniPanel, MiniPanel ARM, ESP32 T3, TSTAT10) over BACnet/IP. The grid matches T3000's column by column, including the panel's own custom range names and its row count per model. The Panel and Type columns are not done. |
-| Outputs, Variables | Not started. They use the same point-struct path as Inputs, and their structs are already guarded. |
+| Outputs | Done for the same five products over BACnet/IP. The grid matches T3000's column by column: the HOA Switch column and the rows it marks, each model's row count, the panel's custom digital range names, and outputs on T3 expansion modules. The Panel, Type and Product Name columns are not done. |
+| Variables | Not started. It uses the same point-struct path, and its struct is already guarded; it also needs multi-state ranges and variable units. |
 | Every other screen | Not started. See the migration plan's stages. |
 | Writes | Not started. They will come as a separate transport, with per-action approval and a read-back that confirms each one. |
 | Tstats and Modbus modules | Identified in the device list; not read. They need the register path, which does not exist yet. |
 | Devices behind a controller | Refused, with the controller named. T3000 reaches them through the controller over Modbus; T5000 does not yet. |
 
-The Inputs page shows built-in fixture points when no device is selected,
-labelled as such. The Connection dialog saves transport settings to
+The Inputs and Outputs pages show built-in fixture points when no device is
+selected, labelled as such. The Connection dialog saves transport settings to
 `T5000.connection.json` beside the exe. Nothing reads them yet: a scanned
 device is read at the address its scan response came from, and a device from
 the saved list at the address it answered from last time. A device no scan has
@@ -70,7 +71,7 @@ by hand that no scan has found is sent nothing at all.
   runs (`from_this_tool`, `http/server.h`). Remote access is a later decision
   that will come with authentication.
 - **Test against loopback synthetic devices, never real ones.** Selecting a
-  device and opening Inputs sends it real requests, and that includes a
+  device and opening Inputs or Outputs sends it real requests, and that includes a
   device from the saved list, at its saved address: at least the settings
   read, which is how T5000 checks it is still the same panel. Start T5000 with
   `--no-browser` and `--db` naming a scratch file, scan with interface
@@ -120,7 +121,7 @@ those run. Build
 
 | Folder | Holds |
 | --- | --- |
-| `app/` | What the routes serve: the Inputs read in page order, the device list kept in step with its saved copy, and the JSON the pages get |
+| `app/` | What the routes serve: the Inputs and Outputs reads in page order, the device list kept in step with its saved copy, and the JSON the pages get |
 | `bacnet/` | Private-transfer requests and replies, and the command whitelist |
 | `conformance/` | The checks against T3000: its headers, its tables and its BACnet stack. A separate project, `T5000Conformance.vcxproj`, built by `T3000 - VS2019.sln` |
 | `device/` | Product identity (`ProductClassId` and `MiniType`, kept as distinct types), the device registry, read-path choice, row limits, connection settings |
@@ -129,7 +130,7 @@ those run. Build
 | `http/`, `json/`, `net/` | A small loopback HTTP server, a JSON reader, local interfaces |
 | `store/` | The saved device list, on the SQLite that ships with Windows |
 | `testing/` | The check macros, a scripted transport, and temporary files for the tests |
-| `web/` | The two pages, embedded as strings |
+| `web/` | The pages, embedded as strings |
 | `wire/` | The struct layouts from `T3000/CM5/ud_str.h`, each offset T5000 uses guarded by `conformance/` |
 
 New source files go in `T5000.vcxproj`, and must not include anything
