@@ -22,8 +22,10 @@
 // Every value goes in through bind(). Nothing a device or an operator
 // supplied is ever spliced into SQL text.
 
+#include <stddef.h>
 #include <stdint.h>
 #include <string>
+#include <vector>
 
 struct sqlite3;
 struct sqlite3_stmt;
@@ -75,6 +77,10 @@ namespace t5000::store
         void bind(int index, int64_t value);
         void bind(int index, const std::string& utf8);
 
+        // Bytes, stored as a BLOB: exactly these, with no terminator and no
+        // text conversion. Zero bytes are an empty BLOB, not NULL.
+        void bind_blob(int index, const uint8_t* bytes, size_t length);
+
         enum class Step
         {
             Row,    // a row is ready to be read with column_*
@@ -89,6 +95,9 @@ namespace t5000::store
         // Columns are numbered from 0, as SQLite numbers them.
         int64_t     column_int(int index) const;
         std::string column_text(int index) const;
+
+        // A BLOB column's bytes. Empty for NULL and for an empty BLOB.
+        std::vector<uint8_t> column_blob(int index) const;
 
     private:
         void fail(const char* what);

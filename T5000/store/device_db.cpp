@@ -2,6 +2,8 @@
 
 #include <windows.h>
 
+#include "../wire/decode.h"
+
 namespace t5000::store
 {
     namespace
@@ -58,6 +60,35 @@ namespace t5000::store
             "ALTER TABLE devices ADD COLUMN added_by_hand INTEGER NOT NULL DEFAULT 0"
             "  CHECK (added_by_hand IN (0, 1));";
 
+        // Version 3: points changed on a device before it can be reached.
+        //
+        // Keyed on the device's row, not its serial, so the changes belong to
+        // that entry: when a scan finds a device added by hand it updates the
+        // same row (write()), and the changes stay with it. Forgetting the
+        // device deletes them first; the reference refuses the other order,
+        // since open() turns foreign keys on, so no change can outlive its
+        // device and be handed to the next one given that row's id.
+        //
+        // kind is 'input' only for now. The pages for outputs and variables
+        // add theirs, and a CHECK cannot be changed in place, so the next one
+        // rebuilds this table.
+        //
+        // idx is one byte on the wire, so 0-254. A point is its ud_str.h
+        // struct, whole: 46 bytes for Str_in_point.
+        const char* const kUpgradeToV3 =
+            "CREATE TABLE offline_points ("
+            "  device_id INTEGER NOT NULL REFERENCES devices (id),"
+            "  kind      TEXT    NOT NULL CHECK (kind IN ('input')),"
+            "  idx       INTEGER NOT NULL CHECK (idx BETWEEN 0 AND 254),"
+            "  base      BLOB    NOT NULL CHECK (typeof(base) = 'blob'),"
+            "  edited    BLOB    NOT NULL CHECK (typeof(edited) = 'blob'),"
+            "  CHECK (kind <> 'input' OR (length(base) = 46 AND length(edited) = 46)),"
+            "  PRIMARY KEY (device_id, kind, idx)"
+            ");";
+
+        static_assert(t5000::wire::kInputPointWireSize == 46,
+                      "offline_points checks an input's length as 46; change it with the struct");
+
         bool read_int(Database& db, const char* sql, int64_t& out, std::string& error)
         {
             Statement q(db, sql);
@@ -113,6 +144,14 @@ namespace t5000::store
         if (!read_int(m_db, "PRAGMA user_version", version, error))
         {
             // What SQLite says about a file that is not one of its own.
+            close();
+            return false;
+        }
+
+        // So that offline_points' reference to devices is held, not only
+        // declared. Per connection, and outside a transaction, so here.
+        if (!m_db.exec("PRAGMA foreign_keys = ON", error))
+        {
             close();
             return false;
         }
@@ -180,6 +219,8 @@ namespace t5000::store
                 ok = m_db.exec(kCreateV1, error);
             if (ok && version < 2)
                 ok = m_db.exec(kUpgradeToV2, error);
+            if (ok && version < 3)
+                ok = m_db.exec(kUpgradeToV3, error);
             if (ok)
                 ok = m_db.exec(set_version.c_str(), error);
             if (ok)
@@ -483,8 +524,196 @@ namespace t5000::store
 
     bool DeviceDb::forget(uint32_t serial, std::string& error)
     {
+        Transaction t(m_db);
+        if (!t.began())
+        {
+            error = t.error();
+            return false;
+        }
+
+        // The changes first: the reference refuses the device while they
+        // point at it.
+        Statement points(m_db,
+                         "DELETE FROM offline_points WHERE device_id IN"
+                         " (SELECT id FROM devices WHERE kind = 'scanned' AND serial = ?1)");
+        points.bind(1, (int64_t)serial);
+        if (points.step() != Statement::Step::Done)
+        {
+            error = points.error();
+            return false;
+        }
+
         Statement q(m_db, "DELETE FROM devices WHERE kind = 'scanned' AND serial = ?1");
         q.bind(1, (int64_t)serial);
+        if (q.step() != Statement::Step::Done)
+        {
+            error = q.error();
+            return false;
+        }
+
+        if (!t.commit())
+        {
+            error = t.error();
+            return false;
+        }
+        return true;
+    }
+
+    bool DeviceDb::forget_all_scanned(std::string& error)
+    {
+        Transaction t(m_db);
+        if (!t.began())
+        {
+            error = t.error();
+            return false;
+        }
+
+        Statement points(m_db,
+                         "DELETE FROM offline_points WHERE device_id IN"
+                         " (SELECT id FROM devices WHERE kind = 'scanned')");
+        if (points.step() != Statement::Step::Done)
+        {
+            error = points.error();
+            return false;
+        }
+
+        Statement q(m_db, "DELETE FROM devices WHERE kind = 'scanned'");
+        if (q.step() != Statement::Step::Done)
+        {
+            error = q.error();
+            return false;
+        }
+
+        if (!t.commit())
+        {
+            error = t.error();
+            return false;
+        }
+        return true;
+    }
+
+    bool DeviceDb::load_offline_inputs(uint32_t serial, std::vector<OfflinePoint>& out, std::string& error)
+    {
+        out.clear();
+
+        Statement q(m_db,
+                    "SELECT idx, base, edited FROM offline_points"
+                    " WHERE kind = 'input' AND device_id ="
+                    "       (SELECT id FROM devices WHERE kind = 'scanned' AND serial = ?1)"
+                    " ORDER BY idx");
+        q.bind(1, (int64_t)serial);
+
+        for (;;)
+        {
+            const Statement::Step s = q.step();
+            if (s == Statement::Step::Done)
+                return true;
+            if (s == Statement::Step::Error)
+            {
+                error = q.error();
+                out.clear();
+                return false;
+            }
+
+            OfflinePoint p;
+            p.index  = (int)q.column_int(0);
+            p.base   = q.column_blob(1);
+            p.edited = q.column_blob(2);
+            out.push_back(p);
+        }
+    }
+
+    bool DeviceDb::save_offline_input(uint32_t serial, const OfflinePoint& point, std::string& error)
+    {
+        // Said here in words; the table's CHECKs would refuse both in
+        // SQLite's.
+        if (point.base.size() != wire::kInputPointWireSize || point.edited.size() != wire::kInputPointWireSize)
+        {
+            error = "an input is " + std::to_string(wire::kInputPointWireSize) + " bytes";
+            return false;
+        }
+        if (point.index < 0 || point.index > 254)
+        {
+            error = "input " + std::to_string(point.index + 1) + " is not one a panel can have";
+            return false;
+        }
+
+        Transaction t(m_db);
+        if (!t.began())
+        {
+            error = t.error();
+            return false;
+        }
+
+        Statement device(m_db, "SELECT id FROM devices WHERE kind = 'scanned' AND serial = ?1");
+        device.bind(1, (int64_t)serial);
+        const Statement::Step found = device.step();
+        if (found == Statement::Step::Error)
+        {
+            error = device.error();
+            return false;
+        }
+        if (found != Statement::Step::Row)
+        {
+            error = "serial " + std::to_string(serial) + " is not in the saved list";
+            return false;
+        }
+        const int64_t id = device.column_int(0);
+
+        Statement existing(m_db, "SELECT base FROM offline_points WHERE device_id = ?1 AND kind = 'input' AND idx = ?2");
+        existing.bind(1, id);
+        existing.bind(2, (int64_t)point.index);
+        const Statement::Step had = existing.step();
+        if (had == Statement::Step::Error)
+        {
+            error = existing.error();
+            return false;
+        }
+
+        // The base already saved wins over the one given: it is what the
+        // first change started from.
+        const std::vector<uint8_t> base = had == Statement::Step::Row ? existing.column_blob(0) : point.base;
+
+        const char* sql = nullptr;
+        if (point.edited == base)
+            sql = "DELETE FROM offline_points WHERE device_id = ?1 AND kind = 'input' AND idx = ?2";
+        else if (had == Statement::Step::Row)
+            sql = "UPDATE offline_points SET edited = ?3 WHERE device_id = ?1 AND kind = 'input' AND idx = ?2";
+        else
+            sql = "INSERT INTO offline_points (device_id, kind, idx, base, edited)"
+                  " VALUES (?1, 'input', ?2, ?4, ?3)";
+
+        Statement write(m_db, sql);
+        write.bind(1, id);
+        write.bind(2, (int64_t)point.index);
+        if (point.edited != base)
+        {
+            write.bind_blob(3, point.edited.data(), point.edited.size());
+            if (had != Statement::Step::Row)
+                write.bind_blob(4, base.data(), base.size());
+        }
+        if (write.step() != Statement::Step::Done)
+        {
+            error = write.error();
+            return false;
+        }
+
+        if (!t.commit())
+        {
+            error = t.error();
+            return false;
+        }
+        return true;
+    }
+
+    bool DeviceDb::revert_offline_input(uint32_t serial, int index, std::string& error)
+    {
+        // One statement, so all or nothing without a transaction.
+        Statement q(m_db,
+                    "DELETE FROM offline_points WHERE kind = 'input' AND idx = ?2 AND device_id ="
+                    " (SELECT id FROM devices WHERE kind = 'scanned' AND serial = ?1)");
+        q.bind(1, (int64_t)serial);
+        q.bind(2, (int64_t)index);
         if (q.step() != Statement::Step::Done)
         {
             error = q.error();
@@ -493,14 +722,9 @@ namespace t5000::store
         return true;
     }
 
-    bool DeviceDb::forget_all_scanned(std::string& error)
+    bool DeviceDb::references_held()
     {
-        Statement q(m_db, "DELETE FROM devices WHERE kind = 'scanned'");
-        if (q.step() != Statement::Step::Done)
-        {
-            error = q.error();
-            return false;
-        }
-        return true;
+        Statement q(m_db, "PRAGMA foreign_keys");
+        return q.step() == Statement::Step::Row && q.column_int(0) == 1;
     }
 }

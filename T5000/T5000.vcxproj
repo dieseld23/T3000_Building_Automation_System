@@ -104,6 +104,8 @@
     <ClCompile Include="app\outputs_plan.cpp" />
     <ClCompile Include="app\inputs_read.cpp" />
     <ClCompile Include="app\inputs_read_selftest.cpp" />
+    <ClCompile Include="app\offline_inputs.cpp" />
+    <ClCompile Include="app\offline_inputs_selftest.cpp" />
     <ClCompile Include="app\panel_read.cpp" />
     <ClCompile Include="app\outputs_read.cpp" />
     <ClCompile Include="app\outputs_read_selftest.cpp" />
@@ -151,6 +153,8 @@
     <ClCompile Include="discovery\serial_scan.cpp" />
     <ClCompile Include="discovery\serial_scan_selftest.cpp" />
     <ClCompile Include="net\interfaces.cpp" />
+    <ClCompile Include="offline\input_edit.cpp" />
+    <ClCompile Include="offline\input_edit_selftest.cpp" />
     <ClCompile Include="http\server.cpp" />
     <ClCompile Include="http\server_selftest.cpp" />
     <ClCompile Include="json\read.cpp" />
@@ -175,6 +179,8 @@
     <ClInclude Include="app\inputs_plan.h" />
     <ClInclude Include="app\outputs_plan.h" />
     <ClInclude Include="app\inputs_read.h" />
+    <ClInclude Include="app\offline_inputs.h" />
+    <ClInclude Include="offline\input_edit.h" />
     <ClInclude Include="app\panel_read.h" />
     <ClInclude Include="app\outputs_read.h" />
     <ClInclude Include="app\variables_plan.h" />

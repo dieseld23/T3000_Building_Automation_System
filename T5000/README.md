@@ -31,7 +31,7 @@ synthetic devices on loopback.
 | Serial ports | First part done. The Devices page lists the computer's COM ports, read from the registry without opening any. A serial scan is built and tested against a scripted line: it listens first, finds each device by halving the id range as T3000 does, and cannot send a write. Nothing opens a port yet, so no serial device can be found. See the migration plan. |
 | Device list | Done. Identifies each product and flags problems the scan noticed, as repairs for someone to approve later. Nothing is written to a device. |
 | Saved device list | Done. Every device with a serial number that answers a scan is saved in `T5000.db` and listed again the next time T5000 starts, with when it was last seen. (A device reporting no serial is listed but cannot be saved: there is nothing to know it by next time.) Each can be given a name, building, floor and room, and the list is grouped by them. A device can be forgotten. |
-| Devices added by hand | First part done. A device no scan has found - on another network, or not installed yet - can be added with its model and serial, named and placed. The models are T3000's Add virtual device list (a T3-OEM is a TSTAT10 set up as panel type T3_OEM), held to T3000's source by the conformance checks, with "Model not known" for each product and every other product as itself. It is saved and shown as "added by hand", and nothing is sent to it: its Inputs page says there is no device to read. When a scan finds its serial, that device takes its place, keeping the name and location. Configuring one offline is designed but not built; see the migration plan. |
+| Devices added by hand | Partly done. A device no scan has found - on another network, or not installed yet - can be added with its model and serial, named and placed. The models are T3000's Add virtual device list (a T3-OEM is a TSTAT10 set up as panel type T3_OEM), held to T3000's source by the conformance checks, with "Model not known" for each product and every other product as itself. It is saved and shown as "added by hand", and nothing is sent to it. Once its model is chosen (Edit; a CM5 needs none), its inputs can be configured on the Inputs page before any scan finds it: Full Label, Label, Auto/Manual and Filter, by T3000's rules, kept in `T5000.db`. When a scan finds its serial, that device takes its place, keeping the name, the location and those changes, which its Inputs page says are not written yet. The inputs' other columns, and outputs and variables, are still to do; see the migration plan. |
 | Virtual devices | Not started. Designed with devices added by hand; see the migration plan. |
 | Inputs | Done for the five BACnet private-data products (CM5, MiniPanel, MiniPanel ARM, ESP32 T3, TSTAT10) over BACnet/IP. The grid matches T3000's column by column, including the panel's own custom range names and its row count per model. The Panel and Type columns are not done. |
 | Outputs | Done for the same five products over BACnet/IP. The grid matches T3000's column by column: the HOA Switch column and the rows it marks, each model's row count, the panel's custom digital range names, and outputs on T3 expansion modules. The Panel, Type and Product Name columns are not done. |
@@ -61,7 +61,8 @@ by hand that no scan has found is sent nothing at all.
   the whitelist against T3000's command codes and against a list of codes
   that must never be sent (`conformance/command_guard.cpp`).
 - **The device list is a file on this machine.** Saving it, naming a device,
-  adding one by hand and forgetting one change `T5000.db` and nothing else.
+  adding one by hand, configuring one offline and forgetting one change
+  `T5000.db` and nothing else.
   None of it is sent to a device. T5000 will not write to a database it did not create, such as one
   of T3000's.
 - **The UI is bound to loopback, and answers only its own page.** The server
@@ -108,12 +109,15 @@ T5000's copies of T3000 to the originals:
 - the point, settings and command layouts against `CM5/ud_str.h`;
 - every product code against `ProductModel.h`;
 - the display tables and copied constants against `global_define.h`;
+- what the ports copy that no constant names - the models, the Variables
+  grid, and the rules an offline change to an input follows - against
+  T3000's source, as text;
 - the oracle: T3000's BACnet DLL encodes a request, and T5000's bytes must
   match it.
 
 A change to `wire/`, `bacnet/command.h`, `bacnet/private_transfer.cpp`,
-`device/product.h` or `display/tables.h` is not checked against T3000 until
-those run. Build
+`device/product.h`, `display/tables.h` or `offline/` is not checked against
+T3000 until those run. Build
 `-t:T5000Conformance` or run `scripts/ci-local.ps1` before pushing one.
 [`README_Build.md`](../README_Build.md) has both.
 
@@ -128,7 +132,8 @@ those run. Build
 | `discovery/` | The scan: the query, parsing the responses, the scanner |
 | `display/` | Ports of how T3000 turns a point into grid text, and the tables it uses |
 | `http/`, `json/`, `net/` | A small loopback HTTP server, a JSON reader, local interfaces |
-| `store/` | The saved device list, on the SQLite that ships with Windows |
+| `offline/` | The rules a change to an input of a device configured offline follows, ported from T3000's Inputs grid. No transport: nothing here can reach a device |
+| `store/` | The saved device list and the offline configurations, on the SQLite that ships with Windows |
 | `testing/` | The check macros, a scripted transport, and temporary files for the tests |
 | `web/` | The pages, embedded as strings |
 | `wire/` | The struct layouts from `T3000/CM5/ud_str.h`, each offset T5000 uses guarded by `conformance/` |

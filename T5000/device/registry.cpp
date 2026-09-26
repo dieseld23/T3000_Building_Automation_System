@@ -219,6 +219,16 @@ namespace t5000::device
         return true;
     }
 
+    bool Registry::set_mini_type(Handle handle, int mini_type)
+    {
+        const int i = index_of(handle);
+        if (i < 0)
+            return false;
+
+        m_devices[i].mini_type = mini_type;
+        return true;
+    }
+
     int Registry::index_of(Handle handle) const
     {
         if (handle == kNoHandle)

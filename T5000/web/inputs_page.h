@@ -20,12 +20,14 @@ namespace t5000::web
     --bg:#fff; --surface:#f7f8fa; --border:#e3e6ea; --text:#1a1d21; --dim:#6b7280;
     --accent:#0b6bcb; --row-alt:#fafbfc; --ok:#0f7b3f; --ok-bg:#e6f4ec;
     --warn:#8a5300; --warn-bg:#fdf1dc; --info:#0b4ea2; --info-bg:#e8f0fe;
+    --changed-bg:#fff2c2;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg:#16181c; --surface:#1d2025; --border:#2c3036; --text:#e6e8ea; --dim:#9aa1ab;
       --accent:#4d9bf0; --row-alt:#191c20; --ok:#5bd18b; --ok-bg:#16301f;
       --warn:#e0b060; --warn-bg:#33270f; --info:#7fb4f0; --info-bg:#16283f;
+      --changed-bg:#3a3012;
     }
   }
   *{box-sizing:border-box}
@@ -70,6 +72,16 @@ namespace t5000::web
   .pill-ok{background:var(--ok-bg);color:var(--ok)}
   .pill-warn{background:var(--warn-bg);color:var(--warn)}
   .pill-man{background:var(--info-bg);color:var(--info)}
+
+  /* An input configured offline: the cells that can be changed, and the ones
+     that have been, tinted as T3000 tints a changed cell
+     (LIST_ITEM_CHANGED_BKCOLOR). */
+  td.edit{cursor:pointer}
+  td.edit:hover{outline:1px dashed var(--accent);outline-offset:-3px}
+  tbody td.changed{background:var(--changed-bg)}
+  td.edit input{font:inherit;color:var(--text);background:var(--bg);width:100%;min-width:64px;
+    border:1px solid var(--accent);border-radius:4px;padding:1px 5px}
+  button.undo{padding:1px 8px;font-size:11px}
 
   .empty{display:flex;align-items:center;justify-content:center;height:100%;
          color:var(--dim);text-align:center;padding:32px}
@@ -131,6 +143,7 @@ namespace t5000::web
 
 <div class="banner info" id="banner">Loading&hellip;</div>
 <div class="banner" id="path-banner" hidden></div>
+<div class="banner warn" id="edit-msg" role="alert" hidden></div>
 
 <div class="scroll">
   <div class="empty" id="empty" hidden>
@@ -145,7 +158,7 @@ namespace t5000::web
         <th>Input</th><th>Full Label</th><th class="num">Value</th><th>Units</th>
         <th>Auto/Man</th><th>Status</th><th class="opt">Range</th>
         <th class="num opt">Calibration</th><th class="num opt">Filter</th>
-        <th class="opt">Signal Type</th><th class="opt">Label</th>
+        <th class="opt">Signal Type</th><th class="opt">Label</th><th id="undo-head" class="opt" hidden></th>
       </tr>
     </thead>
     <tbody id="rows"></tbody>
@@ -183,15 +196,43 @@ namespace t5000::web
 
 <footer id="status">Read-only. Editing arrives once the write path is verified against hardware.</footer>
 
-<script>
+)PAGE"
+        R"PAGE(<script>
   const $ = id => document.getElementById(id);
   const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g,
     c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 
   let allRows = [];
 
+  // The "offline" object of a configuration T5000 keeps for a device added
+  // by hand, or null for points read from a device or the fixture.
+  let offline = null;
+
+  // True while a cell is being typed in. The grid is not rebuilt then: the
+  // answer to a change made in another cell can arrive meanwhile, and
+  // rebuilding would take away the cell and what is typed in it. It is
+  // rebuilt, from the latest payload, when the cell closes.
+  let editing = false;
+
   function showBanner(data) {
     const rp = data.readPath || {};
+
+    // A device added by hand that no scan has found. Nothing was read, and
+    // the banners say so before anything else.
+    if (data.offline) {
+      const o = data.offline;
+      $("banner").className = "banner " + (o.saving ? "info" : "warn");
+      $("banner").innerHTML = "<b>Configured offline.</b> " + esc(o.note);
+
+      const pb = $("path-banner");
+      pb.hidden = false;
+      pb.className = "banner ok";
+      pb.innerHTML = "<b>Model " + esc(o.model) + ".</b> " + esc(rp.detail || "") + " "
+        + esc(o.edited === 0 ? "No input has been changed."
+                             : o.edited + (o.edited === 1 ? " input has" : " inputs have") + " been changed.")
+        + esc(panelText(data.panel));
+      return;
+    }
     const fixture = !!(data.device && data.device.isFixture);
 
     // Set only for a device no scan has found since T5000 started: when it
@@ -268,7 +309,24 @@ namespace t5000::web
     return t;
   }
 
+  // The cell's attributes: its classes, and in an offline configuration
+  // whether it can be changed and whether it has been.
+  function cell(r, field, cls) {
+    let c = cls || "";
+    if (offline && offline.saving && offline.editable.includes(field)) c += " edit";
+    if (r.changed && r.changed.includes(field)) c += " changed";
+    return (c.trim() ? ' class="' + c.trim() + '"' : "") + ' data-f="' + field + '"';
+  }
+
+  function undoCell(r) {
+    if (!offline) return "";
+    return '<td class="opt">' + (offline.saving && r.changed && r.changed.length
+      ? '<button class="undo" data-undo="' + esc(r.index) + '" title="Put this input back as it started">Undo</button>'
+      : "") + "</td>";
+  }
+
   function render() {
+    if (editing) return;
     const needle = $("filter").value.trim().toLowerCase();
     const rows = needle
       ? allRows.filter(r => (r.fullLabel + " " + r.label + " " + r.input).toLowerCase().includes(needle))
@@ -284,57 +342,149 @@ namespace t5000::web
     }
 
     $("rows").innerHTML = rows.map(r => `
-      <tr>
+      <tr data-i="${esc(r.index)}">
         <td class="num">${esc(r.input)}</td>
-        <td>${esc(r.fullLabel) || '<span class="dim">(unnamed)</span>'}</td>
-        <td class="num">${esc(r.value)}${r.note
+        <td${cell(r, "fullLabel")}>${esc(r.fullLabel) || '<span class="dim">(unnamed)</span>'}</td>
+        <td${cell(r, "value", "num")}>${esc(r.value)}${r.note
               ? ' <span class="pill pill-man" title="' + esc(r.note) + '">?</span>' : ''}</td>
         <td class="dim">${esc(r.units)}</td>
-        <td>${r.autoManual === "Manual"
+        <td${cell(r, "autoManual")}>${r.autoManual === "Manual"
               ? '<span class="pill pill-man">Manual</span>'
               : '<span class="dim">Auto</span>'}</td>
-        <td>${r.alarm
+        <td${cell(r, "status")}>${r.alarm
               ? '<span class="pill pill-warn">' + esc(r.status) + '</span>'
               : '<span class="dim">' + esc(r.status) + '</span>'}</td>
-        <td class="dim opt">${esc(r.range)}</td>
 )PAGE"
-        R"PAGE(        <td class="num opt">${r.calibration ? esc(r.sign + r.calibration) : ''}</td>
-        <td class="num dim opt">${esc(r.filter)}</td>
-        <td class="dim opt">${esc(r.signalType)}</td>
-        <td class="dim opt">${esc(r.label)}</td>
+        R"PAGE(        <td${cell(r, "range", "dim opt")}>${esc(r.range)}</td>
+        <td${cell(r, "calibration", "num opt")}>${r.calibration ? esc(r.sign + r.calibration) : ''}</td>
+        <td${cell(r, "filter", "num dim opt")}>${esc(r.filter)}</td>
+        <td${cell(r, "signalType", "dim opt")}>${esc(r.signalType)}</td>
+        <td${cell(r, "label", "dim opt")}>${esc(r.label)}</td>
+        ${undoCell(r)}
       </tr>`).join("");
+  }
+
+  const READ_ONLY = "Read-only. Editing arrives once the write path is verified against hardware.";
+  const KEPT = "Changes are kept in T5000's device list. Nothing is sent to any device.";
+  const NOT_KEPT = "The device list is not being saved, so nothing here can be changed. Nothing is sent to any device.";
+
+  // A payload, from a read or from a change: the grid and its banners.
+  function show(data) {
+    offline = data.offline || null;
+    $("serial").textContent = data.device && data.device.serialNumber
+      ? data.device.serialNumber : "—";
+
+    allRows = data.inputs || [];
+    showBanner(data);
+    $("undo-head").hidden = !offline;
+
+    if (allRows.length === 0) {
+      $("empty-title").textContent = data.unavailable
+        ? "This device has not been read"
+        : "No points returned";
+      $("empty-detail").textContent =
+        data.message || (data.readPath && data.readPath.detail) || "";
+    }
+
+    render();
+    $("status").textContent = !offline ? READ_ONLY : offline.saving ? KEPT : NOT_KEPT;
   }
 
   async function load() {
     $("status").textContent = "Reading…";
+    $("edit-msg").hidden = true;
     try {
       const res = await fetch("/api/inputs", { cache: "no-store" });
       if (!res.ok) throw new Error("HTTP " + res.status);
-      const data = await res.json();
-
-      $("serial").textContent = data.device && data.device.serialNumber
-        ? data.device.serialNumber : "—";
-
-      allRows = data.inputs || [];
-      showBanner(data);
-
-      if (allRows.length === 0) {
-        $("empty-title").textContent = data.unavailable
-          ? "This device has not been read"
-          : "No points returned";
-        $("empty-detail").textContent =
-          data.message || (data.readPath && data.readPath.detail) || "";
-      }
-
-      render();
-      $("status").textContent =
-        "Read-only. Editing arrives once the write path is verified against hardware.";
+      show(await res.json());
     } catch (err) {
       $("banner").className = "banner warn";
       $("banner").innerHTML = "<b>Could not reach the backend.</b> " + esc(err.message);
       $("status").textContent = "Not connected.";
     }
   }
+
+  // ------------------------------------------------------ offline changes
+
+  function refuse(message) {
+    $("edit-msg").hidden = false;
+    $("edit-msg").innerHTML = "<b>Not changed.</b> " + esc(message);
+  }
+
+  // A change or an undo. The answer carries the payload as it now is, so
+  // the grid shows what was saved, not what was typed.
+  async function send(url, body) {
+    $("edit-msg").hidden = true;
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (data.inputs) show(data.inputs); else render();
+      if (!data.ok) refuse(data.message || "The change was refused.");
+    } catch (err) {
+      render();
+      refuse("The request failed: " + err.message);
+    }
+  }
+
+  // Text is typed in place, as in T3000's grid: Enter or leaving the cell
+  // saves it, Escape does not. The server holds it to T3000's rules.
+  function openEditor(td, row, field) {
+    const was = String(row[field] == null ? "" : row[field]);
+    const input = document.createElement("input");
+    input.value = was;
+    input.maxLength = field === "fullLabel" ? 20 : field === "label" ? 8 : 3;
+    input.setAttribute("aria-label", "Input " + row.input + " " + field);
+    td.textContent = "";
+    td.appendChild(input);
+    editing = true;
+    input.focus();
+    input.select();
+
+    let done = false;
+    const finish = save => {
+      if (done) return;
+      done = true;
+      editing = false;
+      if (save && input.value !== was) {
+        send("/api/inputs/edit", { handle: offline.handle, index: String(row.index), field: field, value: input.value });
+      } else {
+        render();
+      }
+    };
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter") { e.preventDefault(); finish(true); }
+      else if (e.key === "Escape") { e.preventDefault(); finish(false); }
+    });
+    input.addEventListener("blur", () => finish(true));
+  }
+
+  $("rows").addEventListener("click", ev => {
+    if (!offline || !offline.saving) return;
+
+    const undo = ev.target.closest("button[data-undo]");
+    if (undo) {
+      send("/api/inputs/revert", { handle: offline.handle, index: undo.dataset.undo });
+      return;
+    }
+
+    const td = ev.target.closest("td.edit");
+    if (!td || td.querySelector("input")) return;
+    const index = td.parentElement.dataset.i;
+    const row = allRows.find(r => String(r.index) === index);
+    if (!row) return;
+
+    // Auto/Manual changes on a click, as in T3000.
+    if (td.dataset.f === "autoManual") {
+      send("/api/inputs/edit", { handle: offline.handle, index: index, field: "autoManual",
+                                 value: row.autoManual === "Manual" ? "Auto" : "Manual" });
+      return;
+    }
+    openEditor(td, row, td.dataset.f);
+  });
 
 
   // ------------------------------------------------------------- connection

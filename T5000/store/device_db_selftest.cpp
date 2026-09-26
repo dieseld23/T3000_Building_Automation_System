@@ -670,6 +670,316 @@ namespace
         check_eq((long)single_int(raw, "SELECT count(*) FROM pragma_table_info('devices')"
                                        " WHERE name = 'added_by_hand' AND dflt_value = '0' AND \"notnull\" = 1"),
                  1, "with added_by_hand as the upgrade adds it");
+        check_eq((long)single_int(raw, "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'offline_points'"),
+                 1, "and offline_points");
+    }
+
+    // ------------------------------------------------ offline configuration
+
+    // 46 bytes, as an input is, told apart by one byte.
+    std::vector<uint8_t> an_input(uint8_t mark)
+    {
+        std::vector<uint8_t> b(46, 0);
+        b[0]  = 'I';
+        b[1]  = 'N';
+        b[2]  = mark;
+        b[34] = 5;
+        return b;
+    }
+
+    OfflinePoint a_change(int index, uint8_t base, uint8_t edited)
+    {
+        OfflinePoint p;
+        p.index  = index;
+        p.base   = an_input(base);
+        p.edited = an_input(edited);
+        return p;
+    }
+
+    std::vector<OfflinePoint> changes(DeviceDb& db, uint32_t serial)
+    {
+        std::vector<OfflinePoint> out;
+        std::string error;
+        check(db.load_offline_inputs(serial, out, error), "the offline changes load");
+        return out;
+    }
+
+    // A BLOB literal of n bytes, for SQL written by hand.
+    std::string zeros(size_t n)
+    {
+        return "X'" + std::string(n * 2, '0') + "'";
+    }
+
+    void test_bytes_are_stored_as_they_are()
+    {
+        section("bytes go in as a BLOB and come back exactly, zeros and quotes included");
+
+        Database db;
+        std::string error;
+        if (!require(db.open(":memory:", error), "a database in memory opens") ||
+            !require(db.exec("CREATE TABLE t (n INTEGER, b BLOB)", error), "with a table"))
+            return;
+
+        const uint8_t bytes[] = { 0, 1, 0, 0xFF, '\'', 0 };
+        Statement i(db, "INSERT INTO t VALUES (1, ?1)");
+        i.bind_blob(1, bytes, sizeof(bytes));
+        check(i.step() == Statement::Step::Done, "six bytes are stored");
+
+        Statement e(db, "INSERT INTO t VALUES (2, ?1)");
+        e.bind_blob(1, nullptr, 0);
+        check(e.step() == Statement::Step::Done, "and none");
+
+        Statement q(db, "SELECT b, typeof(b), length(b) FROM t ORDER BY n");
+        if (require(q.step() == Statement::Step::Row, "the first comes back"))
+        {
+            check(q.column_blob(0) == std::vector<uint8_t>(bytes, bytes + sizeof(bytes)), "  byte for byte");
+            check(q.column_text(1) == "blob", "  as a BLOB");
+            check_eq((long)q.column_int(2), 6, "  of six bytes, the zeros counted");
+        }
+        if (require(q.step() == Statement::Step::Row, "the second comes back"))
+        {
+            check(q.column_blob(0).empty(), "  with no bytes");
+            check(q.column_text(1) == "blob", "  as an empty BLOB, not NULL");
+        }
+    }
+
+    void test_offline_changes_keep_their_base()
+    {
+        section("an input changed offline keeps the base it started from, and goes when put back");
+
+        DeviceDb db;
+        std::string error;
+        if (!open_memory(db) || !require(db.add_by_hand(typed_in(8301), error), "a device is added by hand"))
+            return;
+
+        check(changes(db, 8301).empty(), "it starts with no changes");
+
+        check(db.save_offline_input(8301, a_change(3, 'a', 'b'), error), "input 4 is changed");
+        auto saved = changes(db, 8301);
+        if (require(saved.size() == 1, "  and saved"))
+        {
+            check_eq(saved[0].index, 3, "  as input 4");
+            check(saved[0].base == an_input('a') && saved[0].edited == an_input('b'), "  with both sets of bytes");
+        }
+
+        check(db.save_offline_input(8301, a_change(3, 'x', 'c'), error), "it is changed again");
+        saved = changes(db, 8301);
+        check(saved.size() == 1 && saved[0].base == an_input('a') && saved[0].edited == an_input('c'),
+              "  and keeps the base the first change started from, not the one given now");
+
+        check(db.save_offline_input(8301, a_change(3, 'x', 'a'), error), "it is changed back to its base");
+        check(changes(db, 8301).empty(), "  and its row is gone: nothing is left to write");
+
+        check(db.save_offline_input(8301, a_change(5, 'x', 'x'), error), "an input 'changed' to what it was");
+        check(changes(db, 8301).empty(), "  saves nothing");
+
+        check(db.save_offline_input(8301, a_change(9, 'a', 'b'), error) &&
+                  db.save_offline_input(8301, a_change(2, 'a', 'b'), error),
+              "inputs 10 and 3 are changed");
+        saved = changes(db, 8301);
+        check(saved.size() == 2 && saved[0].index == 2 && saved[1].index == 9, "  and come back in index order");
+
+        check(db.revert_offline_input(8301, 9, error), "input 10 is put back");
+        saved = changes(db, 8301);
+        check(saved.size() == 1 && saved[0].index == 2, "  and only input 3's change is left");
+        check(db.revert_offline_input(8301, 40, error), "putting back an input with no changes is not an error");
+
+        check(db.add_by_hand(typed_in(8302), error), "a second device is added");
+        check(db.save_offline_input(8302, a_change(2, 'q', 'r'), error), "  and its input 3 changed");
+        check(changes(db, 8301).size() == 1 && changes(db, 8301)[0].edited == an_input('b'),
+              "each device's changes are its own");
+    }
+
+    void test_an_offline_change_must_be_one_input_of_a_saved_device()
+    {
+        section("an offline change is refused unless it is one input of a device in the list");
+
+        DeviceDb db;
+        std::string error;
+        if (!open_memory(db) || !require(db.add_by_hand(typed_in(8351), error), "a device is added by hand"))
+            return;
+
+        check(db.references_held(), "the list holds each change to its device");
+
+        check(!db.save_offline_input(8399, a_change(0, 'a', 'b'), error), "a serial not in the list is refused");
+        check(error.find("not in the saved list") != std::string::npos, "  saying so");
+
+        OfflinePoint short_one = a_change(0, 'a', 'b');
+        short_one.edited.pop_back();
+        check(!db.save_offline_input(8351, short_one, error), "45 bytes are refused");
+        check(error.find("46 bytes") != std::string::npos, "  saying an input is 46");
+
+        OfflinePoint long_base = a_change(0, 'a', 'b');
+        long_base.base.push_back(0);
+        check(!db.save_offline_input(8351, long_base, error), "a 47-byte base is refused");
+
+        check(!db.save_offline_input(8351, a_change(255, 'a', 'b'), error), "index 255 is refused");
+        check(error.find("not one a panel can have") != std::string::npos, "  saying so, before the table does");
+        check(!db.save_offline_input(8351, a_change(-1, 'a', 'b'), error), "  and -1");
+        check(db.save_offline_input(8351, a_change(254, 'a', 'b'), error), "index 254, the last a panel can have, is not");
+        check(changes(db, 8351).size() == 1, "only that one was saved");
+    }
+
+    void test_the_offline_table_refuses_what_is_not_an_input()
+    {
+        section("the offline table itself refuses what is not one whole input of a saved device");
+
+        TempFile file(L"offline");
+        {
+            DeviceDb db;
+            std::string error;
+            if (!require(db.open(file.utf8(), error), "a list is made") ||
+                !require(db.add_by_hand(typed_in(8401), error), "with a device added by hand"))
+                return;
+        }
+
+        Database raw;
+        std::string error;
+        if (!require(raw.open(file.utf8(), error), "the file opens directly") ||
+            !require(raw.exec("PRAGMA foreign_keys = ON", error), "with its references held"))
+            return;
+
+        const std::string id = std::to_string(single_int(raw, "SELECT id FROM devices WHERE serial = 8401"));
+        auto insert = [&](const std::string& idx, const std::string& kind, const std::string& base,
+                          const std::string& edited, const std::string& device) {
+            std::string e;
+            return raw.exec(("INSERT INTO offline_points (device_id, kind, idx, base, edited) VALUES (" + device +
+                             ", " + kind + ", " + idx + ", " + base + ", " + edited + ")").c_str(),
+                            e);
+        };
+
+        // One that is right, so each refusal below is for its one difference.
+        check(insert("0", "'input'", zeros(46), zeros(46), id), "one input of the device is taken");
+
+        check(!insert("1", "'input'", zeros(45), zeros(46), id), "a 45-byte base is refused");
+        check(!insert("1", "'input'", zeros(46), zeros(47), id), "a 47-byte edit is refused");
+        check(!insert("1", "'output'", zeros(46), zeros(46), id), "a kind other than input is refused");
+        check(!insert("255", "'input'", zeros(46), zeros(46), id), "index 255 is refused");
+        check(!insert("-1", "'input'", zeros(46), zeros(46), id), "  and -1");
+        check(!insert("1", "'input'", "'" + std::string(46, 'a') + "'", zeros(46), id),
+              "text of 46 characters is refused as a base: a point is bytes");
+        check(!insert("1", "'input'", zeros(46), "NULL", id), "no edit at all is refused");
+        check(!insert("1", "'input'", zeros(46), zeros(46), "9999"), "a device not in the list is refused");
+        check(!insert("0", "'input'", zeros(46), zeros(46), id), "a second row for the same input is refused");
+
+        check(!raw.exec("DELETE FROM devices WHERE serial = 8401", error),
+              "and the device cannot be deleted while a change points at it");
+        check_eq((long)single_int(raw, "SELECT count(*) FROM offline_points"), 1, "only the right one was taken");
+    }
+
+    void test_scans_and_names_leave_offline_changes_alone()
+    {
+        section("a scan that finds the device, and a name given it, leave its offline changes alone");
+
+        DeviceDb db;
+        std::string error;
+        if (!open_memory(db) || !require(db.add_by_hand(typed_in(8501), error), "a device is added by hand"))
+            return;
+        check(db.save_offline_input(8501, a_change(1, 'a', 'b'), error), "input 2 is changed offline");
+
+        check(db.save_scanned({ scanned(8501, 3000) }, error), "a scan finds it");
+        check(changes(db, 8501).size() == 1, "  and the change is still there");
+
+        DeviceRecord named = scanned(8501, 3000);
+        named.placement = a_placement();
+        check(db.save_placement(named, error), "it is named");
+        check(changes(db, 8501).size() == 1, "  and the change is still there");
+    }
+
+    void test_forgetting_takes_offline_changes()
+    {
+        section("forgetting a device takes its offline changes, and only its");
+
+        DeviceDb db;
+        std::string error;
+        if (!open_memory(db) || !require(db.add_by_hand(typed_in(8601), error), "a device is added by hand") ||
+            !require(db.add_by_hand(typed_in(8602), error), "and another"))
+            return;
+        check(db.save_offline_input(8601, a_change(0, 'a', 'b'), error) &&
+                  db.save_offline_input(8602, a_change(0, 'a', 'c'), error),
+              "each has an input changed");
+
+        check(db.forget(8601, error), "the first is forgotten, its change pointing at it and all");
+        check(changes(db, 8601).empty(), "  and its change is gone");
+        check(changes(db, 8602).size() == 1, "  and the other's is not");
+
+        check(db.add_by_hand(typed_in(8603), error), "a device added now");
+        check(changes(db, 8603).empty(), "  has none of the forgotten one's");
+
+        check(db.forget_all_scanned(error), "every device is forgotten");
+        check(changes(db, 8602).empty(), "  with every change");
+        check(db.add_by_hand(typed_in(8602), error) && changes(db, 8602).empty(),
+              "and a serial added again starts with none");
+    }
+
+    void test_a_version_2_list_is_brought_up_to_date()
+    {
+        section("a list version 2 wrote is brought up to date, with its devices and room for offline changes");
+
+        TempFile file(L"v2");
+        {
+            Database raw;
+            std::string error;
+            if (!require(raw.open(file.utf8(), error), "a file is made"))
+                return;
+            check(raw.exec("CREATE TABLE devices ("
+                           "  id               INTEGER PRIMARY KEY,"
+                           "  kind             TEXT    NOT NULL CHECK (kind IN ('scanned', 'virtual')),"
+                           "  serial           INTEGER NOT NULL CHECK (serial > 0 AND serial < 4294967295),"
+                           "  product_class_id INTEGER NOT NULL,"
+                           "  mini_type        INTEGER NOT NULL,"
+                           "  firmware         INTEGER NOT NULL,"
+                           "  modbus_id        INTEGER NOT NULL,"
+                           "  parent_serial    INTEGER NOT NULL,"
+                           "  object_instance  INTEGER NOT NULL,"
+                           "  host             TEXT    NOT NULL,"
+                           "  answered_from    TEXT    NOT NULL,"
+                           "  reported_ip      TEXT    NOT NULL,"
+                           "  bacnet_port      INTEGER NOT NULL,"
+                           "  panel_name       TEXT    NOT NULL,"
+                           "  name             TEXT    NOT NULL,"
+                           "  building         TEXT    NOT NULL,"
+                           "  floor            TEXT    NOT NULL,"
+                           "  room             TEXT    NOT NULL,"
+                           "  first_seen       INTEGER NOT NULL,"
+                           "  last_seen        INTEGER NOT NULL,"
+                           "  UNIQUE (kind, serial)"
+                           ");"
+                           "ALTER TABLE devices ADD COLUMN added_by_hand INTEGER NOT NULL DEFAULT 0"
+                           "  CHECK (added_by_hand IN (0, 1));"
+                           "INSERT INTO devices (kind, serial, product_class_id, mini_type, firmware,"
+                           " modbus_id, parent_serial, object_instance, host, answered_from, reported_ip,"
+                           " bacnet_port, panel_name, name, building, floor, room, first_seen, last_seen,"
+                           " added_by_hand)"
+                           " VALUES ('scanned', 8201, 10, 11, 0, 0, 0, 0, '', '', '', 0, '', 'Lobby', '', '',"
+                           " '', 0, 0, 1);"
+                           "PRAGMA user_version = 2;",
+                           error),
+                  "as version 2 of T5000 wrote it, with a device added by hand in it");
+        }
+
+        {
+            DeviceDb db;
+            std::string error;
+            if (!require(db.open(file.utf8(), error), "this build opens it"))
+                return;
+
+            const auto list = load(db);
+            if (require(list.size() == 1, "its device comes back"))
+            {
+                check(list[0].provenance == Provenance::ManuallyAdded, "  still added by hand");
+                check_eq(list[0].mini_type, 11, "  with the model chosen for it");
+                check(list[0].placement.name == "Lobby", "  and its name");
+            }
+            check(db.save_offline_input(8201, a_change(0, 'a', 'b'), error), "and its inputs can now be changed offline");
+        }
+
+        Database raw;
+        std::string error;
+        if (!require(raw.open(file.utf8(), error), "the file opens directly"))
+            return;
+        check_eq((long)single_int(raw, "PRAGMA user_version"), kSchemaVersion, "it is at this build's version");
+        check_eq((long)single_int(raw, "SELECT count(*) FROM offline_points"), 1, "with the change in its new table");
     }
 
     void test_the_default_path_is_beside_the_exe()
@@ -706,6 +1016,13 @@ int run_device_db_tests()
     test_a_scan_that_finds_a_device_added_by_hand();
     test_a_version_1_list_is_brought_up_to_date();
     test_a_new_list_is_made_the_same_way_an_old_one_is_upgraded();
+    test_bytes_are_stored_as_they_are();
+    test_offline_changes_keep_their_base();
+    test_an_offline_change_must_be_one_input_of_a_saved_device();
+    test_the_offline_table_refuses_what_is_not_an_input();
+    test_scans_and_names_leave_offline_changes_alone();
+    test_forgetting_takes_offline_changes();
+    test_a_version_2_list_is_brought_up_to_date();
     test_the_default_path_is_beside_the_exe();
     return 0;
 }

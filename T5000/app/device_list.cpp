@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "../json/read.h"
+#include "offline_inputs.h"
 
 namespace t5000::app
 {
@@ -297,7 +298,8 @@ namespace t5000::app
     }
 
     bool place_device(Registry& registry, store::DeviceDb& db, Handle handle,
-                      const Placement& placement, const StoreStatus& status, std::string& message)
+                      const Placement& placement, const StoreStatus& status, std::string& message,
+                      int mini_type)
     {
         const DeviceRecord* d = find(registry, handle);
         if (!d)
@@ -329,6 +331,54 @@ namespace t5000::app
         DeviceRecord updated = *d;
         updated.placement = cleaned;
 
+        const bool new_model = mini_type != kKeepModel && mini_type != d->mini_type;
+        if (new_model)
+        {
+            // Chosen only while it is an entry. A device a scan has found
+            // reports what it is, and a scan does not report a panel type,
+            // so a choice kept then would pass for the device's own.
+            if (d->provenance != Provenance::ManuallyAdded)
+            {
+                message = "The model of a device a scan has found is not chosen: it is what the device "
+                          "reports, once its settings are read.";
+                return false;
+            }
+            if (mini_type != 0 && !find_model(d->product, mini_type))
+            {
+                message = "Panel type " + std::to_string(mini_type) + " is not a model of the " +
+                          std::string(to_string(d->product)) + " that T5000 knows. Pick one from the list.";
+                return false;
+            }
+
+            updated.mini_type = mini_type;
+
+            // The inputs configured offline must all still be the model's.
+            // Every model T3000 names has 64 today, so this refuses nothing
+            // yet; it is here so a model with fewer cannot hide changes.
+            const OfflineInputsPlan plan = plan_offline_inputs(updated);
+            if (plan.can_edit)
+            {
+                std::vector<int> saved;
+                std::string error;
+                if (!offline_input_indexes(db, d->serial_number, saved, error))
+                {
+                    message = "Its offline configuration could not be read, so the model was not changed: " +
+                              error + ".";
+                    return false;
+                }
+                for (const int index : saved)
+                {
+                    if (index >= plan.rows)
+                    {
+                        message = "A " + plan.model + " has " + std::to_string(plan.rows) +
+                                  " inputs, and input " + std::to_string(index + 1) +
+                                  " has been configured offline. Undo its changes first.";
+                        return false;
+                    }
+                }
+            }
+        }
+
         std::string error;
         if (!db.save_placement(updated, error))
         {
@@ -337,6 +387,8 @@ namespace t5000::app
         }
 
         registry.set_placement(handle, cleaned);
+        if (new_model)
+            registry.set_mini_type(handle, mini_type);
         return true;
     }
 
@@ -501,6 +553,13 @@ namespace t5000::app
     bool read_placement_request(const std::string& body, Handle& handle, Placement& placement,
                                 std::string& message)
     {
+        int ignored = kKeepModel;
+        return read_placement_request(body, handle, placement, ignored, message);
+    }
+
+    bool read_placement_request(const std::string& body, Handle& handle, Placement& placement, int& mini_type,
+                                std::string& message)
+    {
         std::map<std::string, json::FlatValue> fields;
         std::string error;
         if (!json::parse_flat_object(body, fields, error))
@@ -517,7 +576,22 @@ namespace t5000::app
             !string_from(fields, "room", p.room, message))
             return false;
 
+        // Left out: the model stays. Empty: a model not known, as when adding.
+        int model = kKeepModel;
+        const auto it = fields.find("miniType");
+        if (it != fields.end())
+        {
+            unsigned long long n = 0;
+            if (it->second.text.empty())
+                model = 0;
+            else if (!number_from(fields, "miniType", 255, "", "The model must be one from the list.", n, message))
+                return false;
+            else
+                model = (int)n;
+        }
+
         placement = p;
+        mini_type = model;
         return true;
     }
 }

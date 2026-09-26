@@ -47,6 +47,12 @@ namespace t5000::app
         // For the page when !seen_this_session: that it has not been seen
         // since T5000 started, and when it last was. Empty otherwise.
         std::string sighting;
+
+        // That its inputs were changed offline before a scan found it, and
+        // the changes wait unwritten (app/offline_inputs.h). Said on the page
+        // whatever the read gives. Empty for most devices; set by the caller,
+        // which has the saved list.
+        std::string offline_note;
     };
 
     using InputsPlan = PointsPlan;

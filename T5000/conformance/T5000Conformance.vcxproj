@@ -96,6 +96,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="command_guard.cpp" />
     <ClCompile Include="models_guard.cpp" />
+    <ClCompile Include="offline_guard.cpp" />
     <ClCompile Include="panel_guard.cpp" />
     <ClCompile Include="product_guard.cpp" />
     <ClCompile Include="tables_guard.cpp" />

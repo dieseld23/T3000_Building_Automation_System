@@ -336,6 +336,12 @@ namespace t5000::device
         // when the handle resolves to nothing.
         bool set_placement(Handle handle, const Placement& placement);
 
+        // Sets the panel type of the device with this handle: the model the
+        // operator chose for an entry added by hand. False if absent. The
+        // caller decides whether the device is one whose panel type is
+        // chosen rather than read (app::place_device).
+        bool set_mini_type(Handle handle, int mini_type);
+
         // --- Scans. -------------------------------------------------------
         // Starts a scan and returns its number, to be put in answered_scan on
         // every record the scan produces. Numbers are never reused, clear()

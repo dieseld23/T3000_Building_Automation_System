@@ -31,7 +31,9 @@ namespace t5000::app
 
     struct DeviceInfo
     {
-        int serial_number   = 0;
+        // A device's serial is 32 bits unsigned, and one past 2147483647 is
+        // as real as any: carried as it is, not through an int.
+        uint32_t serial_number = 0;
         int product_id      = 0;
         int firmware        = 0;
         int protocol        = 0;
@@ -79,6 +81,44 @@ namespace t5000::app
                                   const std::vector<wire::InputPoint>& points,
                                   const InputsPanel& panel = InputsPanel());
 
+    // What the Inputs page shows for a device configured offline, beside its
+    // inputs.
+    struct OfflineInputsView
+    {
+        // The device's handle, which a change to one of its inputs names.
+        uint64_t handle = 0;
+
+        std::string model;      // the model chosen for it, "T3-OEM"
+        device::MiniType type = device::MiniType::NotSet;
+
+        // Whether the list is being saved. When it is not, a change could
+        // not be kept, and the page says so rather than offering one.
+        bool saving = false;
+
+        int edited = 0;         // inputs with changes
+        size_t rows = 0;        // how many T3000 shows for the model
+
+        // The columns that can be changed, by their payload names.
+        std::vector<std::string> editable;
+
+        // For each input, the columns changed from what it started as.
+        std::vector<std::vector<std::string>> changed;
+
+        std::string note;        // for the page's banner
+        std::string detail;      // readPath.detail: that nothing is read or sent
+        std::string panel_note;  // panel.note
+    };
+
+    // The Inputs page's payload for a device configured offline: shaped as
+    // build_inputs_json's, so the page shows it with the same grid, with an
+    // "offline" object first and each row's "changed" columns.
+    //
+    // readFromWire is false and readPath says nothing was read: these inputs
+    // are T5000's, not a device's. They are shown as T3000 would show them
+    // after reading them back from the device.
+    std::string build_offline_inputs_json(const DeviceInfo& device, const std::vector<wire::InputPoint>& points,
+                                          const OfflineInputsView& view);
+
     // The payload for a device the tool has FOUND but cannot read.
     //
     // It must carry every field build_inputs_json carries, because the page
@@ -93,7 +133,7 @@ namespace t5000::app
     //
     // `sighting` is DeviceInfo::sighting: said beside the reason, for a
     // device known only from the saved list.
-    std::string build_unavailable_inputs_json(int serial_number,
+    std::string build_unavailable_inputs_json(uint32_t serial_number,
                                               const std::string& address,
                                               const std::string& reason,
                                               const std::string& sighting = std::string());
@@ -116,7 +156,7 @@ namespace t5000::app
     // The payload for a device the tool has found but cannot read the
     // outputs of. Every key build_outputs_json writes is here too, for the
     // reason build_unavailable_inputs_json gives.
-    std::string build_unavailable_outputs_json(int serial_number,
+    std::string build_unavailable_outputs_json(uint32_t serial_number,
                                                const std::string& address,
                                                const std::string& reason,
                                                const std::string& sighting = std::string());
@@ -143,7 +183,7 @@ namespace t5000::app
     // The payload for a device the tool has found but cannot read the
     // variables of. Every key build_variables_json writes is here too, for
     // the reason build_unavailable_inputs_json gives.
-    std::string build_unavailable_variables_json(int serial_number,
+    std::string build_unavailable_variables_json(uint32_t serial_number,
                                                  const std::string& address,
                                                  const std::string& reason,
                                                  const std::string& sighting = std::string());
