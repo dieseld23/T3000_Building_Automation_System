@@ -8,8 +8,9 @@
 #                headers, tables and BACnet stack. It is built through
 #                "T3000 - VS2019.sln" with -t:T5000Conformance, which builds
 #                that project and the BACnet stack it links, and nothing else
-#                of T3000's. The stack is built with MFC, so this job installs
-#                MFC for the v143 toolset; it needs no .NET.
+#                of T3000's. The stack is built with MFC, so this job runs on
+#                windows-2022, whose Visual Studio 2022 carries MFC for the
+#                v143 toolset. It needs no .NET.
 #
 # It runs when T5000 changes, or when one of the T3000 files the conformance
 # checks read changes. T3000 itself is no longer built on every push: see
@@ -80,7 +81,13 @@ jobs:
 
   conformance:
     name: T5000 matches T3000's headers, tables and BACnet stack
-    runs-on: windows-latest
+    # Not windows-latest. That image has Visual Studio 2026, with the v143
+    # toolset but no MFC for it, and installing MFC took about four minutes
+    # of a five-minute job. windows-2022 has Visual Studio 2022, whose own
+    # toolset is v143, with MFC installed (VC.ATLMFC, per GitHub's image
+    # readme). When GitHub retires windows-2022, move this to windows-latest
+    # and the step below installs MFC again.
+    runs-on: windows-2022
 
     steps:
       # No submodules: nothing the conformance project builds or reads is in
@@ -89,10 +96,11 @@ jobs:
         uses: actions/checkout@v4
 
       # ---------------------------------------------------------------------
-      # The hosted image moved to Visual Studio 2026 in June 2026. It carries
-      # the v143 toolset but not the MFC libraries for it, and the BACnet stack
-      # the conformance checks link is built with MFC. Without this step the
-      # build stops at MSB8041.
+      # The BACnet stack the conformance checks link is built with MFC, and
+      # without MFC for v143 the build stops at MSB8041. On windows-2022 MFC
+      # is already there, and this step only confirms it, in seconds. It is
+      # kept for an image without it: windows-latest has had Visual Studio
+      # 2026 since June 2026, with the v143 toolset but not its MFC.
       # ---------------------------------------------------------------------
       - name: Install MFC for the v143 toolset
         shell: pwsh

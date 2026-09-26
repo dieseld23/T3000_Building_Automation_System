@@ -18,8 +18,9 @@
     .github/workflows/T3000.yml does when it is run by hand. That one is no longer
     part of the checks on a push or pull request.
 
-    CI spends a few minutes of the conformance job installing MFC for the v143
-    toolset onto a fresh runner image, which the BACnet stack is built with. It is
+    CI runs the conformance job on windows-2022, whose Visual Studio 2022 already
+    carries MFC for the v143 toolset, which the BACnet stack is built with. On an
+    image without it, the job spends about four minutes installing it. It is
     already installed on this machine, so locally only the builds themselves are
     left to do. The selftest job needs no MFC. Only the full T3000 build needs the
     .NET Framework 4.5.2 reference assemblies.
