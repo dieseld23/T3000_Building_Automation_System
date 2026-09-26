@@ -28,6 +28,22 @@ namespace t5000::wire
     inline constexpr int kCustomUnitCount  = 8;   // BAC_CUSTOMER_UNITS_COUNT, global_define.h:460
     inline constexpr int kAnalogTableCount = 5;   // BAC_ALALOG_CUSTMER_RANGE_TABLE_COUNT, :466
 
+    // Two more, which only the Variables grid uses:
+    //
+    //   READVARUNIT_T3000  five Str_variable_uint_point   20 bytes each
+    //   READ_MSV_COMMAND   four Str_MSV                  184 bytes each
+    //
+    // Str_variable_uint_point is the struct whose comment in ud_str.h says
+    // "= 40"; it is one 20-byte name. T3000 keeps BAC_MSV_COUNT + 1 = 4
+    // multi-state tables (global_function.cpp:17902), for ranges 101-104.
+    inline constexpr size_t kVariableUnitWireSize = 20;
+    inline constexpr size_t kMsvTableWireSize     = 184;
+    inline constexpr size_t kMsvItemWireSize      = 23;
+
+    inline constexpr int kVariableUnitCount = 5;  // BAC_VARIABLE_CUS_UNIT_COUNT, global_define.h:473
+    inline constexpr int kMsvTableCount     = 4;  // BAC_MSV_COUNT + 1, :461
+    inline constexpr int kMsvItemCount      = 8;  // STR_MSV_MULTIPLE_COUNT, ud_str.h:178
+
     // Where each field T5000 reads sits in Str_Setting_Info.
     namespace settings_at
     {
@@ -60,6 +76,17 @@ namespace t5000::wire
     {
         inline constexpr size_t name        = 0;
         inline constexpr size_t name_length = 9;
+    }
+
+    // multiple_struct, one of a Str_MSV's eight items: whether it is used,
+    // its name, and the value it names - little-endian, as the handler
+    // assembles it (global_function.cpp:4730).
+    namespace msv_item_at
+    {
+        inline constexpr size_t status      = 0;
+        inline constexpr size_t name        = 1;
+        inline constexpr size_t name_length = 20;   // STR_MSV_NAME_LENGTH
+        inline constexpr size_t value       = 21;
     }
 
     struct PanelSettings

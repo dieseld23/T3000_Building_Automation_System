@@ -23,4 +23,13 @@ namespace t5000::app
     DeviceInfo                     fixture_outputs_device();
     OutputsPanel                   fixture_outputs_panel();
     std::vector<wire::OutputPoint> fixture_outputs();
+
+    // The Variables page's sample: 128 variables, as a panel has, the first
+    // few set up to show each way T3000 shows one - a number and its units,
+    // a state pair, a time, a multi-state name, the device's own units and
+    // its own state names - and the rest as a panel leaves them. On the
+    // same sample panel as Outputs, with its names read.
+    DeviceInfo                       fixture_variables_device();
+    VariablesPanel                   fixture_variables_panel();
+    std::vector<wire::VariablePoint> fixture_variables();
 }

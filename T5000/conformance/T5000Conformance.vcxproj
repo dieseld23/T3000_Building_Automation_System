@@ -99,6 +99,7 @@
     <ClCompile Include="panel_guard.cpp" />
     <ClCompile Include="product_guard.cpp" />
     <ClCompile Include="tables_guard.cpp" />
+    <ClCompile Include="variables_guard.cpp" />
     <ClCompile Include="wire_guard.cpp" />
     <!--
       The one file that includes the BACnet stack's own headers, so every

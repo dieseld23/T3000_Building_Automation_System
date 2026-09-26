@@ -10,6 +10,7 @@ namespace t5000::app
             "Outputs",
             "outputs",
             "every output read is shown, with no model's hand-off-auto switches, and none shown as external.",
+            bacnet::kOutputCount,
         };
     }
 

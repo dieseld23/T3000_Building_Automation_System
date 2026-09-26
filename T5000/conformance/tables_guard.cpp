@@ -15,6 +15,7 @@
 
 #include "../display/custom_ranges.h"
 #include "../display/tables.h"
+#include "../display/variable_text.h"
 #include "../device/input_rows.h"
 #include "../device/output_rows.h"
 #include "../bacnet/point_read.h"
@@ -257,6 +258,12 @@ namespace
         check_eq((long)count(kOutputAnalogUnits), 9, "OutPut_List_Analog_Units has 9");
         check_streq(kOutputAnalogUnits[7], "%PWM", "  and [7] is %PWM");
         check_eq((long)count(kOutputStatus), 2, "Output_Decom_Array has 2");
+
+        // An analog variable on range 34-38 shows the device's own units only
+        // because range < 34 has picked nothing first.
+        check_eq((long)count(kVariableUnits), 34, "Variable_Analog_Units_Array has 34 entries");
+        check_streq(kVariableUnits[20], "Time", "  and [20] is Time");
+        check_streq(kVariableUnits[33], "m\xC2\xB3/h", "  and [33], the last, is m3/h");
     }
 
     void test_the_constant_parser_on_its_own()
@@ -398,6 +405,14 @@ namespace
         check_constant(header, "HW_SW_OFF", kSwitchOff);
         check_constant(header, "HW_SW_AUTO", kSwitchAuto);
         check_constant(header, "HW_SW_HAND", kSwitchHand);
+
+        // The Variables grid: its counts, the device's own units and
+        // multi-state tables, and which variables are digital.
+        check_constant(header, "BAC_VARIABLE_ITEM_COUNT", t5000::bacnet::kVariableCount);
+        check_constant(header, "BAC_READ_VARIABLE_GROUP_NUMBER", t5000::bacnet::kVariablesPerRequest);
+        check_constant(header, "BAC_VARIABLE_CUS_UNIT_COUNT", t5000::wire::kVariableUnitCount);
+        check_constant(header, "BAC_MSV_COUNT", t5000::wire::kMsvTableCount - 1);
+        check_constant(header, "BAC_UNITS_DIGITAL", t5000::display::kVariableDigital);
     }
 
     void test_the_tables_match_t3000()
@@ -416,6 +431,7 @@ namespace
         compare(header, "OutPut_List_Analog_Range", kOutputAnalogRanges, "OutPut_List_Analog_Range");
         compare(header, "OutPut_List_Analog_Units", kOutputAnalogUnits,  "OutPut_List_Analog_Units");
         compare(header, "Output_Decom_Array",       kOutputStatus,       "Output_Decom_Array");
+        compare(header, "Variable_Analog_Units_Array", kVariableUnits,  "Variable_Analog_Units_Array");
     }
 }
 

@@ -227,4 +227,29 @@ namespace t5000::bacnet
     OutputsRead read_outputs(ReadTransport& transport, const Endpoint& device,
                              const ReadSettings& settings, uint8_t& next_invoke_id,
                              int count = kOutputCount);
+
+    // --------------------------------------------------------------- variables
+
+    // BAC_VARIABLE_ITEM_COUNT = 128 and BAC_READ_VARIABLE_GROUP_NUMBER = 10
+    // (global_define.h:443, :390): thirteen requests, 0-9 to 120-127, of
+    // 39-byte points (BacnetView.cpp:5383-5402).
+    inline constexpr int kVariableCount       = 128;
+    inline constexpr int kVariablesPerRequest = 10;
+
+    struct VariablesRead
+    {
+        bool ok = false;
+        std::vector<wire::VariablePoint> points;  // index is the point number
+        std::string error;
+        ReadOutcome transfer;                     // the counters, for the report
+    };
+
+    // Reads all variables of the device at `device`, as read_inputs reads
+    // inputs, and with the same caveat about identity.
+    //
+    // count is 128 except on an ESP32 T3 that sizes its variables from its
+    // settings (device/variable_rows.h), which can have up to 255.
+    VariablesRead read_variables(ReadTransport& transport, const Endpoint& device,
+                                 const ReadSettings& settings, uint8_t& next_invoke_id,
+                                 int count = kVariableCount);
 }

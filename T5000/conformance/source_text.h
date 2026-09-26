@@ -1,9 +1,10 @@
 #pragma once
 
 // Reading T3000's source as text, for the checks that cannot include it:
-// comments stripped, and integer constants found by their one definition.
-// Shared by tables_guard.cpp, which tests the parser on input written to
-// trip it, and models_guard.cpp.
+// comments stripped, integer constants found by their one definition, and a
+// function's body found by its signature. Shared by tables_guard.cpp, which
+// tests the parser on input written to trip it, models_guard.cpp and
+// variables_guard.cpp.
 
 #include <fstream>
 #include <sstream>
@@ -47,6 +48,45 @@ namespace t5000::conformance
             }
         }
         return out;
+    }
+
+    // The body of the one function with this signature, without its braces.
+    // Comments are stripped from the signature on, not from the whole file:
+    // the files hold GBK text, whose second bytes can be a backslash, and a
+    // string that seems to end late would throw the stripper out of step
+    // before it got here. Both functions read are ASCII.
+    inline bool function_body(const std::string& text, const std::string& signature, std::string& body,
+                       std::string& error)
+    {
+        const size_t at = text.find(signature);
+        if (at == std::string::npos || text.find(signature, at + 1) != std::string::npos)
+        {
+            error = signature + (at == std::string::npos ? " is not found" : " is found more than once");
+            return false;
+        }
+
+        const std::string code = strip_comments(text.substr(at));
+        const size_t open = code.find('{');
+        if (open == std::string::npos)
+        {
+            error = signature + " has no body";
+            return false;
+        }
+        int depth = 0;
+        for (size_t i = open; i < code.size(); i++)
+        {
+            if (code[i] == '{')
+            {
+                depth++;
+            }
+            else if (code[i] == '}' && --depth == 0)
+            {
+                body = code.substr(open + 1, i - open - 1);
+                return true;
+            }
+        }
+        error = signature + " has no closing brace";
+        return false;
     }
 
     inline bool is_identifier_char(char c)

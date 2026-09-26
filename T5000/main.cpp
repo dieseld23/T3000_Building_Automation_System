@@ -8,12 +8,12 @@
 //
 // It finds devices, keeps a list of them between runs, takes devices added by
 // hand before any scan has found them, and reads a selected controller's
-// inputs and outputs. It cannot yet change anything on a device. The scan and
-// the reads are read-only by construction (see discovery/scanner.h and
-// bacnet/command.h), and problems the scan notices are staged as proposals
-// nobody has agreed to yet. With no device selected, the Inputs and Outputs
-// pages get fixtures, flagged as such everywhere they are served. README.md says where the
-// project stands.
+// inputs, outputs and variables. It cannot yet change anything on a device.
+// The scan and the reads are read-only by construction (see
+// discovery/scanner.h and bacnet/command.h), and problems the scan notices
+// are staged as proposals nobody has agreed to yet. With no device selected,
+// the point pages get fixtures, flagged as such everywhere they are served.
+// README.md says where the project stands.
 
 #include <windows.h>
 #include <shellapi.h>
@@ -27,6 +27,7 @@
 #include "app/inputs_plan.h"
 #include "app/inputs_read.h"
 #include "app/outputs_plan.h"
+#include "app/variables_plan.h"
 #include "app/points_json.h"
 #include "app/product_json.h"
 #include "app/scan_json.h"
@@ -43,6 +44,7 @@
 #include "web/devices_page.h"
 #include "web/inputs_page.h"
 #include "web/outputs_page.h"
+#include "web/variables_page.h"
 
 int run_selftests(int argc, char** argv);
 
@@ -221,6 +223,27 @@ namespace
 
         return app::read_planned_outputs(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id);
     }
+
+    // The same, for its variables.
+    std::string read_selected_variables(const t5000::device::DeviceRecord& d)
+    {
+        using namespace t5000;
+
+        const app::PointsPlan plan = app::plan_variables_read(d);
+        if (!plan.can_read)
+            return app::build_unavailable_variables_json((int)d.serial_number, d.address_note, plan.reason,
+                                                         plan.sighting);
+
+        bacnet::UdpReadTransport transport(plan.endpoint);
+        std::string error;
+        if (!transport.open(error))
+        {
+            return app::build_unavailable_variables_json(
+                (int)d.serial_number, d.address_note, "Nothing was sent. " + error, plan.sighting);
+        }
+
+        return app::read_planned_variables(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id);
+    }
 }
 
 int main(int argc, char** argv)
@@ -266,6 +289,10 @@ int main(int argc, char** argv)
 
     server.route("/outputs", [](const http::Request&) {
         return http::Response::html(web::kOutputsPage);
+    });
+
+    server.route("/variables", [](const http::Request&) {
+        return http::Response::html(web::kVariablesPage);
     });
 
     // Loaded once at startup and held in memory. A tool driven by one person at
@@ -584,6 +611,20 @@ int main(int argc, char** argv)
 
         return http::Response::json(
             app::build_outputs_json(device, decision, app::fixture_outputs(), app::fixture_outputs_panel()));
+    });
+
+    server.route("/api/variables", [](const http::Request&) {
+        // As /api/inputs: a selected device is read, or says why not, and
+        // never gets the fixture.
+        if (const device::DeviceRecord* selected = g_registry.selected())
+            return http::Response::json(read_selected_variables(*selected));
+
+        const app::DeviceInfo device = app::fixture_variables_device();
+        const t5000::device::Decision decision =
+            t5000::device::choose_read_path(device.product_id, device.firmware, device.protocol);
+
+        return http::Response::json(app::build_variables_json(device, decision, app::fixture_variables(),
+                                                              app::fixture_variables_panel()));
     });
 
     char url[64];

@@ -60,4 +60,14 @@ namespace t5000::wire
     // over text that does not fit its field, and this follows the output
     // decoder: see decode.cpp.
     bool decode_output_point(const uint8_t* buffer, size_t length, OutputPoint& out);
+
+    // What one variable occupies on the wire.
+    inline constexpr size_t kVariablePointWireSize = 39;
+    static_assert(kVariablePointWireSize == sizeof(VariablePoint),
+        "The wire size and the packed struct size have diverged.");
+
+    // Decodes one variable, as fill_in_variable (global_function.cpp:3717)
+    // does. Its two strings are guarded as fill_in_input's are: blanked when
+    // they do not fit, and "fit" decided the same way - see decode.cpp.
+    bool decode_variable_point(const uint8_t* buffer, size_t length, VariablePoint& out);
 }

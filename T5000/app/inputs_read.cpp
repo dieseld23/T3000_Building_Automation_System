@@ -10,6 +10,7 @@ namespace t5000::app
             "Inputs",
             "inputs",
             "every input read is shown, and no model's own labels are used.",
+            bacnet::kInputCount,
         };
     }
 

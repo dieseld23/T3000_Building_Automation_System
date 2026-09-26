@@ -347,6 +347,109 @@ namespace
         decode_output_point(buf, sizeof(buf), p);
         check(memcmp(p.label, "ABCDEFGH", 9) == 0, "8 characters kept");
     }
+
+    // ----------------------------------------------------------- variables
+
+    // A full 39-byte variable, every field distinct. Offsets: description
+    // 0-20, label 21-29, value 30-33, then five single bytes.
+    void build_variable(uint8_t (&buf)[kVariablePointWireSize])
+    {
+        memset(buf, 0, sizeof(buf));
+
+        memcpy(buf + 0, "Zone Setpoint", 13);   // description, NUL-padded
+        memcpy(buf + 21, "ZN-SP.1", 7);         // label, with both separators
+
+        // value = 21500, little-endian: 0x000053FC
+        buf[30] = 0xFC;
+        buf[31] = 0x53;
+        buf[32] = 0x00;
+        buf[33] = 0x00;
+
+        buf[34] = 1;    // auto_manual    (1 = manual)
+        buf[35] = 2;    // digital_analog (anything but 0 is analog)
+        buf[36] = 3;    // control
+        buf[37] = 4;    // unused
+        buf[38] = 5;    // range
+    }
+
+    void test_decodes_every_variable_field()
+    {
+        section("decodes every variable field in wire order");
+
+        uint8_t buf[kVariablePointWireSize];
+        build_variable(buf);
+
+        VariablePoint p;
+        memset(&p, 0xAA, sizeof(p));   // poison, so "not written" != "zero"
+
+        check(decode_variable_point(buf, sizeof(buf), p), "decode returned true");
+        check(memcmp(p.description, "Zone Setpoint\0\0\0\0\0\0\0\0", kVariableDescriptionLength) == 0,
+              "description, with its padding");
+        check(memcmp(p.label, "ZN_SP_1\0\0", kVariableLabelLength) == 0, "label separators sanitized");
+        check_eq(p.value, 21500, "value (little-endian)");
+        check_eq(p.auto_manual, 1, "auto_manual");
+        check_eq(p.digital_analog, 2, "digital_analog");
+        check_eq(p.control, 3, "control");
+        check_eq(p.unused, 4, "unused, kept");
+        check_eq(p.range, 5, "range");
+
+        buf[30] = 0x2E;
+        buf[31] = 0xFB;
+        buf[32] = 0xFF;
+        buf[33] = 0xFF;
+        check(decode_variable_point(buf, sizeof(buf), p) && p.value == -1234, "a negative value");
+
+        bool all_refused = true;
+        for (size_t len = 0; len < kVariablePointWireSize; len++)
+            all_refused = all_refused && !decode_variable_point(buf, len, p);
+        check(all_refused, "every buffer shorter than 39 bytes is refused");
+        check(!decode_variable_point(nullptr, kVariablePointWireSize, p), "a null buffer is refused");
+    }
+
+    void test_variable_text_that_does_not_fit()
+    {
+        section("variable text that does not fit is blanked, as an input's is, by the byte after it");
+
+        uint8_t buf[kVariablePointWireSize];
+        VariablePoint p;
+
+        // 21 characters before an empty label: strlen is 21, kept.
+        build_variable(buf);
+        memset(buf, 'D', kVariableDescriptionLength);
+        memset(buf + 21, 0, kVariableLabelLength);
+        decode_variable_point(buf, sizeof(buf), p);
+        check(memcmp(p.description, "DDDDDDDDDDDDDDDDDDDDD", kVariableDescriptionLength) == 0,
+              "21 characters, empty label: kept whole");
+
+        // Before a label: strlen runs on into it, blanked.
+        memcpy(buf + 21, "L", 1);
+        decode_variable_point(buf, sizeof(buf), p);
+        bool blank = true;
+        for (int i = 0; i < kVariableDescriptionLength; i++)
+            blank = blank && p.description[i] == 0;
+        check(blank, "21 characters before a label: blanked, not cut");
+        check(p.label[0] == 'L', "  and the label is still read");
+
+        // Nine label characters before a value whose first byte is 0: kept.
+        build_variable(buf);
+        memset(buf + 21, 'L', kVariableLabelLength);
+        buf[30] = 0x00;
+        buf[31] = 0x10;   // value 4096: first byte 0
+        buf[32] = 0x00;
+        buf[33] = 0x00;
+        decode_variable_point(buf, sizeof(buf), p);
+        check(memcmp(p.label, "LLLLLLLLL", kVariableLabelLength) == 0, "9 characters, value 4096: kept");
+
+        // And before one whose first byte is not: blanked.
+        buf[30] = 0x08;
+        buf[31] = 0x00;
+        decode_variable_point(buf, sizeof(buf), p);
+        blank = true;
+        for (int i = 0; i < kVariableLabelLength; i++)
+            blank = blank && p.label[i] == 0;
+        check(blank, "9 characters, value 8: blanked");
+        check_eq(p.value, 8, "  and the value is still read");
+    }
 }
 
 int run_wire_tests()
@@ -360,5 +463,7 @@ int run_wire_tests()
     test_output_voltages();
     test_output_description_that_does_not_fit();
     test_output_label_that_does_not_fit();
+    test_decodes_every_variable_field();
+    test_variable_text_that_does_not_fit();
     return 0;
 }

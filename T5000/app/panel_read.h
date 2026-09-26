@@ -6,11 +6,13 @@
 //      address                              READ_SETTING_COMMAND        1 request
 //   2. its custom digital range names       READUNIT_T3000              1 request
 //   3. its custom analog table names        READANALOG_CUS_TABLE_T3000  2 requests
+//   4. its multi-state tables               READ_MSV_COMMAND            2 requests
+//   5. its custom variable units            READVARUNIT_T3000           1 request
 //
-// T3000 sends all three when it connects to a panel (BacnetView.cpp:5905,
-// :6472, :6563-6565). A page asks for the ones its grid uses: Inputs all
-// three, Outputs the first two. inputs_read.h says how each failure is
-// handled, and why.
+// T3000 sends all five when it connects to a panel (BacnetView.cpp:5905,
+// :6472, :6483-6547, :6563-6571). A page asks for the ones its grid uses:
+// Inputs 1-3, Outputs 1-2, Variables 1, 2, 4 and 5. inputs_read.h says how
+// each failure is handled, and why.
 
 #include <stdint.h>
 
@@ -19,6 +21,7 @@
 #include "../bacnet/point_read.h"
 #include "../device/product.h"
 #include "../display/custom_ranges.h"
+#include "../display/variable_ranges.h"
 #include "../wire/panel.h"
 
 namespace t5000::app
@@ -66,6 +69,10 @@ namespace t5000::app
         // What the page shows when the settings could not be read, as the
         // end of "T5000 reads the inputs anyway, but without the settings: ".
         const char* without_settings;
+
+        // How many points are read when the settings do not say: 64 inputs
+        // or outputs, 128 variables.
+        int usual_count;
     };
 
     // 1. The settings. Returns false, with `error` saying why, when nothing
@@ -87,6 +94,25 @@ namespace t5000::app
     void read_analog_tables(bacnet::ReadTransport& transport, const bacnet::Endpoint& device,
                             const bacnet::ReadSettings& settings, uint8_t& next_invoke_id,
                             PanelRead& panel, int& requests_sent);
+
+    // 4. The multi-state tables: 0-1, and then 2 on firmware 60.7 and
+    // older or 2-3 on newer, each request sent whether or not the one before
+    // came back, as T3000 sends them (BacnetView.cpp:6483-6547). Without the
+    // settings, as on older firmware. A request that fails is a note.
+    void read_msv_tables(bacnet::ReadTransport& transport, const bacnet::Endpoint& device,
+                         const bacnet::ReadSettings& settings, uint8_t& next_invoke_id,
+                         PanelRead& panel, display::VariableRanges& names, int& requests_sent);
+
+    // The last firmware T3000 reads three multi-state tables from rather
+    // than four: firmware0_rev_main * 10 + firmware0_rev_sub <= 607
+    // (BacnetView.cpp:6483).
+    inline constexpr int kLastThreeTableFirmware = 607;
+
+    // 5. The custom variable units, 0-4 in one request (:6571). The same,
+    // for a failure.
+    void read_variable_units(bacnet::ReadTransport& transport, const bacnet::Endpoint& device,
+                             const bacnet::ReadSettings& settings, uint8_t& next_invoke_id,
+                             PanelRead& panel, display::VariableRanges& names, int& requests_sent);
 
     // Between reads, as between the requests within one.
     void pause_between_reads(const bacnet::ReadSettings& settings);
