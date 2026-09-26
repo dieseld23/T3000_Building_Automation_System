@@ -224,7 +224,8 @@ In order:
    is found, and what a virtual device is.
 2. **Serial ports.** The first slice is built: the computer's COM ports are
    listed, and a serial scan that cannot write is tested against a scripted
-   line. Opening a port waits on the owner's decisions S1 to S3 under
+   line. The owner has decided the rates (all six) and MS/TP (join the
+   ring). Opening a port is not yet decided, so nothing opens one; see
    [Serial ports](#serial-ports).
 3. **Finish Inputs:** the Panel and Type columns.
 4. **Outputs and Variables.** Same struct path as Inputs, and their structs
@@ -520,7 +521,7 @@ byte to a line.
   CRC and every frame the scan can build against T3000's `CRC16` and its
   tables.
 
-Still to build, once the decisions below are made:
+Still to build:
 
 1. **The port.** `CreateFile` on `\\.\COMn`, with the line settings T3000
    uses, read from its source first. The transport has to handle what the
@@ -536,7 +537,7 @@ Still to build, once the decisions below are made:
 4. **Reading them.** On a Modbus line, this is the register path under Next.
    On an MS/TP line it is BACnet, over MS/TP.
 
-Decisions for the owner:
+Decisions for the owner, and what the owner decided (2026-09-26):
 
 *S1. How opening a port is tested.* Opening one is the first step that sends
 anything, and the rule is never to open a port with hardware on it. This
@@ -549,6 +550,9 @@ null-modem pair.
   but nothing answers.
 
 **Recommended:** com0com.
+**Decided: not yet.** No port is opened. What can be built without opening
+one is built first, and opening one waits until the owner says how it is
+tested.
 
 *S2. Which rates a scan tries.* The default is 38400, as
 `device::Connection` has it. T3000 scans every port at each rate in its scan
@@ -556,6 +560,7 @@ list. `device::supported_baud_rates()` has six, from T3000's list
 (`global_define.h:1450`). Every rate tried sends frames that a device at
 another rate hears as noise.
 **Recommended:** the chosen rate only, with "try every rate" as a choice.
+**Decided: all six rates,** in turn, as T3000's scan list does.
 
 *S3. MS/TP.* A line that runs MS/TP is left alone for now.
 
@@ -565,6 +570,8 @@ another rate hears as noise.
   (`dlmstp`). This sends frames and takes a turn with the token.
 
 **Recommended:** passive first.
+**Decided: join the ring as a master.** Joining sends frames, so it comes
+after opening a port, and is designed with the owner before it is built.
 
 ---
 
