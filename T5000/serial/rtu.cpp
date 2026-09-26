@@ -26,6 +26,13 @@ namespace t5000::serial
                     return false;
             return true;
         }
+
+        // A reply to the range query, clean, in the first `length` bytes:
+        // FF 19 id, and its CRC.
+        bool clean_reply(const uint8_t* bytes, size_t length)
+        {
+            return bytes[0] == kScanAddress && bytes[1] == kScanFunction && crc_matches(bytes, length - 2);
+        }
     }
 
     uint16_t crc16(const uint8_t* data, size_t length)
@@ -99,6 +106,10 @@ namespace t5000::serial
 
         const std::vector<uint8_t>& q = query.bytes();
 
+        // To a query for one id, a clean reply with a byte or two more is
+        // noise, not a second device: a second reply is five bytes or more.
+        const bool one_id = query.lo() == query.hi();
+
         if (all_zero(g, 7, 13))
         {
             // Five bytes: FF 19 id, and a CRC over three (common.cpp:7359-7398).
@@ -112,7 +123,8 @@ namespace t5000::serial
 
             if (g[5] != 0 || g[6] != 0)
             {
-                r.answer = RangeAnswer::Several;
+                // T3000 takes this for two devices (common.cpp:7383-7387).
+                r.answer = one_id && clean_reply(g, 5) ? RangeAnswer::Garbled : RangeAnswer::Several;
                 return r;
             }
             if (g[0] != kScanAddress || g[1] != kScanFunction || !crc_matches(g, 3))
@@ -127,11 +139,12 @@ namespace t5000::serial
             // (common.cpp:7400-7418).
             if (!all_zero(g, 9, 13))
             {
-                // Four bytes at most after the reply, since there are 13 in
-                // all. A second device sends five or more, so to a query for
-                // one id this is noise, which T3000 calls a bus error
-                // (common.cpp:7406-7407).
-                r.answer = query.lo() == query.hi() ? RangeAnswer::Garbled : RangeAnswer::Several;
+                // Four bytes at most after a clean reply, since there are
+                // 13 in all. T3000 calls this a bus error, to a query for
+                // one id (common.cpp:7406-7407). Bytes 0-8 that are not a
+                // clean reply are replies run together, such as two
+                // five-byte ones.
+                r.answer = one_id && clean_reply(g, 9) ? RangeAnswer::Garbled : RangeAnswer::Several;
                 return r;
             }
             if (g[0] != kScanAddress || g[1] != kScanFunction || !crc_matches(g, 7))

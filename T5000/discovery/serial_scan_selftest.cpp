@@ -231,6 +231,25 @@ namespace
         only_scan_frames(line);
     }
 
+    void test_old_devices_sharing_an_id_are_reported()
+    {
+        section("two old devices on one id, answering in five bytes each, are reported as sharing it");
+
+        FakeSerialLine line;
+        for (uint32_t serial : { 111u, 222u })
+        {
+            SerialDevice d = device(12, serial);
+            d.short_range_reply = true;
+            line.devices.push_back(d);
+        }
+
+        const SerialScanResult r = scan_serial(line, settings());
+        check(r.stats.shared_ids == std::vector<int>({ 12 }), "id 12 is reported as shared");
+        check(r.stats.unreadable_ids.empty(), "not as unreadable");
+        check_eq(line.reads_of(12), 0, "and neither is read");
+        only_scan_frames(line);
+    }
+
     void test_a_collision_on_one_id_is_unreadable()
     {
         section("two devices colliding on one id are unreadable, after the set number of tries");
@@ -310,6 +329,16 @@ namespace
         check_eq(line.queries_for_id(12), 3, "after asking it alone three times");
         check(r.line_busy.empty() && !r.runs_mstp, "and the line is not taken for MS/TP, as T3000 takes it");
         only_scan_frames(line);
+
+        FakeSerialLine old_line;
+        SerialDevice old = device(12, 111);
+        old.short_range_reply = true;
+        old.stray_bytes = { 0x33 };
+        old_line.devices.push_back(old);
+        const SerialScanResult o = scan_serial(old_line, settings());
+        check(o.stats.shared_ids.empty(), "nor is a byte after a five-byte reply");
+        check(o.stats.unreadable_ids == std::vector<int>({ 12 }), "which is reported as unreadable too");
+        only_scan_frames(old_line);
     }
 
     void test_a_device_that_will_not_be_read()
@@ -531,6 +560,7 @@ int run_serial_scan_tests()
     test_only_the_range_asked_is_scanned();
     test_older_firmware_is_found();
     test_a_shared_id_is_reported_and_not_changed();
+    test_old_devices_sharing_an_id_are_reported();
     test_a_collision_on_one_id_is_unreadable();
     test_noise_is_retried_a_set_number_of_times();
     test_stray_bytes_at_one_id_are_noise_not_a_shared_id();

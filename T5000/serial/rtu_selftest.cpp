@@ -177,6 +177,8 @@ namespace
         Bytes two5 = a5;
         two5.insert(two5.end(), b5.begin(), b5.end());
         check(decode(two5, q).answer == RangeAnswer::Several, "two five-byte replies, one after the other");
+        check(decode(two5, ScanFrame::range_query(12, 12)).answer == RangeAnswer::Several,
+              "to a query for one id too: two old devices sharing it");
 
         Bytes ten = a;
         ten.push_back(0x33);
@@ -187,6 +189,12 @@ namespace
         Bytes six = a5;
         six.push_back(0x33);
         check(decode(six, q).answer == RangeAnswer::Several, "a byte past a five-byte reply");
+        check(decode(six, ScanFrame::range_query(12, 12)).answer == RangeAnswer::Garbled,
+              "but to a query for one id, a byte past a clean five-byte reply is noise");
+        Bytes dirty_six = six;
+        dirty_six[4] ^= 0x01;
+        check(decode(dirty_six, ScanFrame::range_query(12, 12)).answer == RangeAnswer::Several,
+              "and past five bytes that are not a clean reply, is several");
         Bytes seven = a5;
         seven.push_back(0x00);
         seven.push_back(0x33);

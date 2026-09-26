@@ -23,9 +23,12 @@
 //   - A garbled reply at a single id makes it ask the same id again, with no
 //     limit (:1596-1604). Here an id is asked a set number of times, then
 //     reported.
-//   - A reply with a few stray bytes after it, at a single id, makes it stop
-//     scanning the port, as if the line ran MS/TP (common.cpp:7406-7407,
-//     TStatScanner.cpp:1363-1371). Here it is a garbled reply, asked again.
+//   - A clean nine-byte reply with a few stray bytes after it, at a single
+//     id, makes it stop scanning the port, as if the line ran MS/TP
+//     (common.cpp:7406-7407, TStatScanner.cpp:1363-1371). After a five-byte
+//     reply, it takes them for a second device (common.cpp:7383-7387).
+//     Here both are garbled replies, asked again: a second reply would be
+//     five bytes or more.
 //
 // Before sending anything it listens. A line running BACnet MS/TP is left
 // alone, as T3000 leaves it (common.cpp:7334-7341, TStatScanner.cpp:1364).

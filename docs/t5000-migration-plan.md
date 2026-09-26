@@ -473,9 +473,10 @@ What T3000 does:
     do the same for all ones, but tests `255 * 255 * 255 * 255`, a
     different number.
 - It asks a garbled id again, with no limit (`:1596-1604`).
-- A reply with a few stray bytes after it, to a query for one id, makes it
-  stop scanning the port, as if the line ran MS/TP (`common.cpp:7406-7407`,
-  `TStatScanner.cpp:1363-1371`).
+- A clean nine-byte reply with a few stray bytes after it, to a query for
+  one id, makes it stop scanning the port, as if the line ran MS/TP
+  (`common.cpp:7406-7407`, `TStatScanner.cpp:1363-1371`). After a five-byte
+  reply, it takes them for a second device (`common.cpp:7383-7387`).
 
 *Built: the first slice.* Nothing opens a port yet, so none of this has sent a
 byte to a line.
@@ -498,8 +499,8 @@ byte to a line.
     gets the AssignSerialNumber repair, as on the network. Nothing is
     written.
   - Each question is asked a set number of times, 3 by default, and then the
-    id is reported as unreadable. So is an id whose reply has a few stray
-    bytes after it every time. Two devices whose replies collide on one id
+    id is reported as unreadable. So is an id whose clean reply has a few
+    stray bytes after it every time, too few for a second reply. Two devices whose replies collide on one id
     cannot be told from noise, so they are reported as unreadable, not as
     sharing it.
   - Each device found becomes a record found by a serial scan and reached
