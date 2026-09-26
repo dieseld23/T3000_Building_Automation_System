@@ -117,13 +117,17 @@ namespace t5000::display
             {
                 // T3000 shows "Unused" here until it has the names, and a
                 // Value split from whatever the previous row left in temp1
-                // (:925-928, :951-952).
+                // (:925-928, :951-952). "Unused" would say the output has no
+                // range, which is wrong, so this names the range instead, as
+                // the Inputs page does, and the note says what T3000 shows.
                 const int which = range - kFirstCustomDigitalRange + 1;
                 t.range = "custom range " + std::to_string(which);
                 t.value = p.control == 0 ? "0" : "1";
                 add_note(t.note, "Range " + std::to_string(range) + " is the device's custom digital range " +
                                      std::to_string(which) + ". Its state names are stored on the device, and "
-                                     "the device did not send them, so the state is shown as 0 or 1.");
+                                     "the device did not send them, so the state is shown as 0 or 1. Until it "
+                                     "has them, T3000 shows the range as Unused, and a value left over from "
+                                     "another row.");
             }
             else
             {

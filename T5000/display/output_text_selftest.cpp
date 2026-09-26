@@ -144,7 +144,8 @@ namespace
 
         t = output_text(digital_point(23, 1), 0, kUnknownPanel);
         check(t.range == "custom range 1" && t.value == "1", "a custom range whose names were not read");
-        check(!t.note.empty(), "  says so");
+        check(t.note.find("T3000 shows the range as Unused") != std::string::npos,
+              "  says so, and what T3000 shows instead");
 
         OutputPanel named = panel_of(kCm5);
         named.ranges.digital_known       = true;
