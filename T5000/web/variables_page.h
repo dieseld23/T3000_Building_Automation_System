@@ -84,7 +84,9 @@ namespace t5000::web
     header{gap:8px}
     input[type=search]{min-width:120px;flex:1}
     thead th,tbody td{padding:5px 7px}
-    tbody td:nth-child(2){max-width:30vw;overflow:hidden;text-overflow:ellipsis}
+    /* Full Label, and Units: a multi-state table's name runs to three
+       names and " /...". Both are in the row's title in full. */
+    tbody td:nth-child(2),tbody td:nth-child(5){max-width:30vw;overflow:hidden;text-overflow:ellipsis}
     table{table-layout:auto;width:100%}
   }
 </style>
@@ -215,10 +217,10 @@ namespace t5000::web
       <tr>
         <td>VAR${esc(r.variable)}${r.note
               ? ' <span class="pill pill-note" title="' + esc(r.note) + '">?</span>' : ''}</td>
-        <td>${esc(r.fullLabel) || '<span class="dim">(unnamed)</span>'}</td>
+        <td title="${esc(r.fullLabel)}">${esc(r.fullLabel) || '<span class="dim">(unnamed)</span>'}</td>
         <td class="opt">${autoManualCell(r)}</td>
         <td class="num">${esc(r.value)}</td>
-        <td class="dim">${esc(r.units)}</td>
+        <td class="dim" title="${esc(r.units)}">${esc(r.units)}</td>
         <td class="dim opt">${esc(r.label)}</td>
       </tr>`).join("");
   }
