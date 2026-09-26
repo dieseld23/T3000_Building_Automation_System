@@ -16,6 +16,8 @@
 //                                  read against T3000/global_define.h as text
 //     private_transfer_oracle.cpp  a read request, byte for byte, against the
 //                                  one T3000's BACnet stack DLL sends
+//     crc_oracle.cpp               the serial scan's CRC and frames, against
+//                                  T3000's CRC16 and its tables
 //
 // Built by "T3000 - VS2019.sln", which also builds the stack, and run by its
 // post-build step, so a change on either side that breaks the other fails
@@ -34,6 +36,7 @@
 
 int run_tables_guard_tests();
 int run_private_transfer_oracle_tests();
+int run_crc_oracle_tests();
 
 int main(int argc, char** argv)
 {
@@ -53,6 +56,8 @@ int main(int argc, char** argv)
     run_tables_guard_tests();
     printf("\n");
     run_private_transfer_oracle_tests();
+    printf("\n");
+    run_crc_oracle_tests();
 
     const int failures = t5000::testing::g_failures;
     const int checks   = t5000::testing::g_checks;
