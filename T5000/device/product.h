@@ -326,4 +326,48 @@ namespace t5000::device
     };
 
     PanelResolution resolve_panel(ProductClassId hardware, int raw_mini_type);
+
+    // The models a device goes by.
+    //
+    // T3000 names a device by its model - T3-BB, T3-OEM, TSTAT11 - and a
+    // model is a product (the hardware) set up as a panel type (mini_type).
+    // Several share one product: a T3-OEM is a TSTAT10 with panel type
+    // T3_OEM, so a list of products alone has no entry for it. T3000's Add
+    // virtual device dialog lists models (BacnetAddVirtualDevice.cpp:45-66,
+    // from init_product_list at global_function.cpp:11980-12199), and its
+    // Settings page names a panel's type the same way (Getminitypename,
+    // BacnetSetting.cpp:148-218).
+    //
+    // This table is the models that list names, under the names the Settings
+    // page gives them. T5000Conformance holds it to both. A product with no
+    // model here, or whose model is not known, is added with panel type 0.
+    struct Model
+    {
+        const char*    name;
+        ProductClassId product;
+        MiniType       type;    // never 0, which is "model not known"
+    };
+
+    struct ModelTable
+    {
+        const Model* entries;
+        int          count;
+    };
+    ModelTable known_models();
+
+    // The named model with this product and panel type, or null: for panel
+    // type 0, and for a pair T3000 does not name.
+    const Model* find_model(ProductClassId product, int raw_mini_type);
+
+    // The name for a panel type on this product: the model's when T3000 names
+    // one ("T3-OEM" for panel type 11 on a TSTAT10), "CM5" for panel type 0
+    // on a CM5, and to_string(type) otherwise.
+    const char* panel_name(ProductClassId product, MiniType type);
+
+    // What an entry added by hand says about its panel. The type, and the
+    // counts that follow from it, are resolve_panel's: they follow from what
+    // was chosen as they would from what was read. The reason is not.
+    // resolve_panel's reasons - "read from the device", "the hardware reports
+    // CM5" - would claim a reading nobody took.
+    PanelResolution resolve_chosen_panel(ProductClassId product, int raw_mini_type);
 }

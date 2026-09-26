@@ -229,7 +229,7 @@ namespace t5000::web
     <h2>Add a device by hand</h2>
     <p class="lead">For a device no scan has found: one on a network you are not on, or not
       installed yet. It is listed and saved, and can be named and placed.</p>
-    <label>Product <select id="a-product"></select></label>
+    <label>Model <select id="a-product"></select></label>
     <label>Serial number <input type="text" id="a-serial" inputmode="numeric" autocomplete="off"></label>
     <label>Name <input type="text" id="a-name" maxlength="60" autocomplete="off"></label>
     <label>Building <input type="text" id="a-building" maxlength="60" list="dl-building" autocomplete="off"></label>
@@ -566,11 +566,14 @@ namespace t5000::web
 
     tr.appendChild(el("td", null, d.productName));
 
-    // The panel type is read from the device, so an entry added by hand has
-    // none to show until a scan finds it, whatever the product would allow.
+    // The panel type is read from the device. An entry added by hand shows
+    // the model chosen for it instead, dimmed, and "—" when none was. A CM5
+    // is resolved with panel type 0, which on a CM5 is the model.
     var panel = el("td", d.panel.resolved && !byHand(d) ? null : "dim");
-    panel.textContent = byHand(d) ? "—" : d.panel.resolved ? d.panel.name : "unknown";
-    panel.title = byHand(d) ? "Read from the device once a scan finds it." : d.panel.reason;
+    panel.textContent = byHand(d) ? (d.panel.resolved ? d.panel.name : "—")
+                                  : d.panel.resolved ? d.panel.name : "unknown";
+    panel.title = byHand(d) ? "Chosen when it was added by hand. Read from the device once a scan finds it."
+                            : d.panel.reason;
     tr.appendChild(panel);
 
     // The address shown is the one the device answered from, which is the
@@ -936,35 +939,37 @@ namespace t5000::web
 
   $("edit-cancel").addEventListener("click", function () { $("edit").close(); });
 
-  // The products a device can be added as: the ones T5000 has been taught
-  // about, from the server, so the page and the check on the server cannot
-  // disagree about which those are. Fetched when the dialog first opens.
-  var products = null;
+  // What a device can be added as, from the server, so the page and the
+  // check on the server cannot disagree about it: the models T3000 names
+  // (T3-OEM is a TSTAT10 with its own panel type), grouped by product, then
+  // the other products. Not a third-party device, which the server leaves
+  // out and refuses. Fetched when the dialog first opens. Each option's
+  // value is "product:panel type".
+  var models = null;
 
-  async function loadProducts() {
-    if (products) return true;
+  async function loadModels() {
+    if (models) return true;
     try {
-      var res = await fetch("/api/products", { cache: "no-store" });
+      var res = await fetch("/api/models", { cache: "no-store" });
       var data = await res.json();
-      // Not a third-party device: a scan never reports one's serial, so an
-      // entry for one could never be matched. The server refuses it too.
-      products = (data.products || []).filter(function (p) {
-        return p.id !== 254;
-      }).sort(function (a, b) {
-        return a.name.localeCompare(b.name, undefined, { numeric: true });
-      });
+      models = data.groups || [];
     } catch (e) {
       return false;
     }
     var sel = $("a-product");
     sel.innerHTML = "";
-    var pick = el("option", null, "Choose a product");
+    var pick = el("option", null, "Choose a model");
     pick.value = "";
     sel.appendChild(pick);
-    products.forEach(function (p) {
-      var o = el("option", null, p.name + " (product " + p.id + ")");
-      o.value = String(p.id);
-      sel.appendChild(o);
+    models.forEach(function (g) {
+      var group = document.createElement("optgroup");
+      group.label = g.productId === null ? g.label : g.label + " (product " + g.productId + ")";
+      g.models.forEach(function (m) {
+        var o = el("option", null, g.productId === null ? m.name + " (product " + m.productId + ")" : m.name);
+        o.value = m.productId + ":" + m.miniType;
+        group.appendChild(o);
+      });
+      sel.appendChild(group);
     });
     return true;
   }
@@ -978,8 +983,8 @@ namespace t5000::web
     ["a-serial", "a-name", "a-building", "a-floor", "a-room"].forEach(function (id) { $(id).value = ""; });
     $("add-error").hidden = true;
     $("add-save").disabled = false;
-    if (!(await loadProducts())) {
-      setBanner("bad", "<b>Not added.</b> The product list could not be loaded from T5000.");
+    if (!(await loadModels())) {
+      setBanner("bad", "<b>Not added.</b> The list of models could not be loaded from T5000.");
       return;
     }
     $("a-product").value = "";
@@ -995,8 +1000,10 @@ namespace t5000::web
       // The serial goes as the text typed. The server reads it as a whole
       // number and says what is wrong with it, rather than the page
       // guessing what "12,345" meant.
+      var model = $("a-product").value.split(":");
       var data = await post("/api/devices/add", {
-        productId: $("a-product").value,
+        productId: model[0],
+        miniType: model.length > 1 ? model[1] : "",
         serialNumber: $("a-serial").value.trim(),
         name: $("a-name").value,
         building: $("a-building").value,

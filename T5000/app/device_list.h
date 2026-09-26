@@ -68,11 +68,14 @@ namespace t5000::app
     // The serial and the product are required. The serial is how a scan that
     // later finds the device is matched to this entry, so it has to be the
     // one on the device's label; the product is what the entry is until
-    // then. The name and location are optional, as for any device.
+    // then. The panel type is the model's (device::Model): T3_OEM makes a
+    // TSTAT10 a T3-OEM. It is 0 when the model is not known, or the product
+    // has none. The name and location are optional, as for any device.
     struct HandAdded
     {
-        uint32_t                serial  = 0;
-        device::ProductClassId  product = device::ProductClassId::Unknown;
+        uint32_t                serial    = 0;
+        device::ProductClassId  product   = device::ProductClassId::Unknown;
+        int                     mini_type = 0;
         device::Placement       placement;
     };
 
@@ -86,15 +89,17 @@ namespace t5000::app
     // (Registry::add_or_merge).
     //
     // Refused for a serial that is not a usable key, a product T5000 has not
-    // been taught about, a serial already in the list, and when the list is
-    // not being saved, since the entry would be gone when T5000 closes.
-    // `handle` is the new device's.
+    // been taught about, a panel type that is no model of that product, a
+    // serial already in the list, and when the list is not being saved, since
+    // the entry would be gone when T5000 closes. `handle` is the new
+    // device's.
     bool add_device(device::Registry& registry, store::DeviceDb& db, const HandAdded& device,
                     const StoreStatus& status, device::Handle& handle, std::string& message);
 
-    // The body the page sends: {"productId":74,"serialNumber":"123456"} with
-    // name, building, floor and room as for a placement. The two numbers may
-    // come as JSON numbers or as strings of digits.
+    // The body the page sends: {"productId":10,"miniType":11,
+    // "serialNumber":"123456"} with name, building, floor and room as for a
+    // placement. The numbers may come as JSON numbers or as strings of
+    // digits. miniType left out, or empty, is 0: model not known.
     bool read_add_request(const std::string& body, HandAdded& device, std::string& message);
 
     // The longest name or location kept, in characters.

@@ -373,6 +373,16 @@ namespace t5000::app
             return false;
         }
 
+        // One of the models T3000 names for this product, or 0 for a model
+        // not known. Any other pair would give the entry a panel type no such
+        // device has, and a count of points to match.
+        if (device.mini_type != 0 && !find_model(device.product, device.mini_type))
+        {
+            message = "Panel type " + std::to_string(device.mini_type) + " is not a model of the " +
+                      std::string(to_string(device.product)) + " that T5000 knows. Pick one from the list.";
+            return false;
+        }
+
         // Refused, not merged. Merging would put the product typed here over
         // the one a device reported, and an entry for a device already listed
         // has nothing to add that Edit does not.
@@ -411,6 +421,7 @@ namespace t5000::app
         DeviceRecord d;
         d.serial_number        = device.serial;
         d.product              = device.product;
+        d.mini_type            = device.mini_type;
         d.provenance           = Provenance::ManuallyAdded;
         d.reached              = false;
         d.observation_complete = false;
@@ -438,11 +449,19 @@ namespace t5000::app
             return false;
         }
 
-        unsigned long long product = 0;
-        unsigned long long serial  = 0;
+        unsigned long long product   = 0;
+        unsigned long long mini_type = 0;
+        unsigned long long serial    = 0;
         HandAdded d;
-        if (!number_from(fields, "productId", 255, "Choose a product.",
+
+        // Left out or empty is a model not known, which is panel type 0.
+        const auto model = fields.find("miniType");
+        const bool model_given = model != fields.end() && !model->second.text.empty();
+
+        if (!number_from(fields, "productId", 255, "Choose a model.",
                          "The product must be a product number from 0 to 255.", product, message) ||
+            (model_given && !number_from(fields, "miniType", 255, "", "The model must be one from the list.",
+                                         mini_type, message)) ||
             !number_from(fields, "serialNumber", 0xFFFFFFFFull, "Enter the device's serial number.",
                          "The serial number must be a whole number, digits only, up to 4294967294.",
                          serial, message) ||
@@ -452,9 +471,10 @@ namespace t5000::app
             !string_from(fields, "room", d.placement.room, message))
             return false;
 
-        d.product = static_cast<ProductClassId>((uint8_t)product);
-        d.serial  = (uint32_t)serial;
-        device    = d;
+        d.product   = static_cast<ProductClassId>((uint8_t)product);
+        d.mini_type = (int)mini_type;
+        d.serial    = (uint32_t)serial;
+        device      = d;
         return true;
     }
 

@@ -11,6 +11,7 @@
 
 #include "scan_json.h"
 #include "points_json.h"
+#include "product_json.h"
 #include "../testing/check.h"
 
 #include <string.h>
@@ -158,6 +159,111 @@ namespace
         check(has(json, "\"resolved\":false"), "the panel type is unresolved");
         check(has(json, "\"reason\":\""), "with a reason a person can read");
         check(has(json, "not a CM5"), "naming why 0 does not mean CM5 here");
+    }
+
+    void test_a_model_chosen_by_hand_is_shown_as_chosen()
+    {
+        section("an entry added by hand shows the model chosen, and says it was chosen");
+
+        Registry reg;
+        DeviceRecord oem;
+        oem.serial_number = 600002;
+        oem.product       = ProductClassId::Tstat10;
+        oem.mini_type     = static_cast<int>(MiniType::Oem);
+        oem.provenance    = Provenance::ManuallyAdded;
+        reg.add_or_merge(oem);
+
+        const std::string json = build_devices_json(reg, ScanSummary());
+        check(has(json, "\"name\":\"T3-OEM\""), "the panel goes by T3000's name for the model, not \"OEM\"");
+        check(has(json, "\"raw\":11"), "  with its panel type");
+        check(has(json, "\"reason\":\"chosen when this entry was added by hand"), "  and a reason that says it was chosen");
+        check(!has(json, "read from the device"), "  not that it was read");
+
+        // CM5's panel type is 0, and resolve_panel would say the hardware
+        // reported it. Nothing reported anything.
+        Registry cm5_reg;
+        DeviceRecord cm5 = oem;
+        cm5.product   = ProductClassId::Cm5;
+        cm5.mini_type = 0;
+        cm5_reg.add_or_merge(cm5);
+        const std::string cm5_json = build_devices_json(cm5_reg, ScanSummary());
+        check(!has(cm5_json, "hardware reports"), "a CM5 added by hand is not said to have reported anything");
+        check(has(cm5_json, "\"resolved\":true,\"name\":\"CM5\""), "  its panel is a CM5, named as T3000 names it");
+        check(has(cm5_json, "\"reason\":\"chosen when this entry was added by hand"), "  but to have been chosen");
+
+        // The same device found by a scan: the reason is resolve_panel's again.
+        Registry scanned;
+        DeviceRecord found = oem;
+        found.provenance = Provenance::BacnetBroadcast;
+        scanned.add_or_merge(found);
+        check(!has(build_devices_json(scanned, ScanSummary()), "chosen when this entry"),
+              "a device that answered is not described as chosen");
+    }
+
+    bool count_is(const std::string& haystack, const std::string& needle, int expected)
+    {
+        int n = 0;
+        for (size_t at = haystack.find(needle); at != std::string::npos; at = haystack.find(needle, at + 1))
+            n++;
+        return n == expected;
+    }
+
+    void test_the_add_list_holds_every_model()
+    {
+        section("the Add device list holds T3000's models, then every other product");
+
+        const std::string json = build_models_json();
+
+        // The report that started this: T3-OEM was not in the list, because
+        // the list was of products and a T3-OEM is a TSTAT10.
+        check(has(json, "{\"name\":\"T3-OEM\",\"productId\":10,\"miniType\":11}"),
+              "T3-OEM is in it, as a TSTAT10 with panel type 11");
+        check(has(json, "{\"name\":\"T3-OEM-12I\",\"productId\":10,\"miniType\":14}"), "  and T3-OEM-12I");
+        check(has(json, "{\"name\":\"T3-BB\",\"productId\":74,\"miniType\":5}"), "T3-BB, as a MiniPanel ARM");
+        check(has(json, "{\"name\":\"TSTAT11\",\"productId\":88,\"miniType\":27}"), "TSTAT11, as an ESP32 T3");
+
+        const ModelTable models = known_models();
+        for (int i = 0; i < models.count; i++)
+        {
+            const Model& m = models.entries[i];
+            const std::string entry = "{\"name\":\"" + std::string(m.name) + "\",\"productId\":" +
+                                      std::to_string((int)static_cast<uint8_t>(m.product)) +
+                                      ",\"miniType\":" + std::to_string(static_cast<int>(m.type)) + "}";
+            check(count_is(json, entry, 1), (std::string("once: ") + m.name).c_str());
+        }
+
+        // Each product T5000 knows can still be added knowing only the
+        // product: once, with panel type 0. Not a third-party device.
+        const CapabilityTable products = known_products();
+        for (int i = 0; i < products.count; i++)
+        {
+            const Capabilities& c = products.entries[i];
+            const std::string zero = "\"productId\":" + std::to_string((int)static_cast<uint8_t>(c.id)) +
+                                     ",\"miniType\":0}";
+            const int expected = c.id == ProductClassId::ThirdPartyDevice ? 0 : 1;
+            check(count_is(json, zero, expected),
+                  (std::string(c.name) + (expected ? ": once with panel type 0" : ": not at all")).c_str());
+        }
+
+        check(count_is(json, "\"name\":\"Model not known\"", 3),
+              "one \"Model not known\" for each product that has models");
+        check(has(json, "{\"label\":\"TSTAT10\",\"productId\":10,"), "the TSTAT10's models are a group");
+        check(has(json, "{\"label\":\"Other products\",\"productId\":null,"), "the rest are a group of their own");
+        check(json.find("\"label\":\"Other products\"") > json.find("\"label\":\"TSTAT10\""),
+              "  after the models");
+    }
+
+    void test_the_device_route_does_not_claim_a_reading()
+    {
+        section("/api/device says a panel type chosen by hand was chosen");
+
+        const std::string chosen = build_product_json(10, 11, /*added_by_hand*/ true);
+        check(has(chosen, "\"name\":\"T3-OEM\""), "the model's name");
+        check(has(chosen, "\"reason\":\"chosen when this entry was added by hand"), "  chosen by hand");
+        check(!has(chosen, "read from the device"), "  not read");
+
+        const std::string read = build_product_json(10, 11);
+        check(has(read, "read from the device"), "a device's own panel type still says it was read");
     }
 
     void test_a_stale_handle_resolves_to_null()
@@ -484,6 +590,9 @@ int run_scan_json_tests()
     test_a_repair_carries_its_consequence();
     test_an_unidentified_device_is_reported_as_such();
     test_the_panel_type_is_not_invented();
+    test_a_model_chosen_by_hand_is_shown_as_chosen();
+    test_the_add_list_holds_every_model();
+    test_the_device_route_does_not_claim_a_reading();
     test_a_stale_handle_resolves_to_null();
     test_selection_is_marked_on_exactly_one_device();
     test_text_from_a_device_is_escaped();
