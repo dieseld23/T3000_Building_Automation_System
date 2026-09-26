@@ -34,6 +34,12 @@ namespace t5000::device
     inline constexpr OutputCounts kBmsOutputs            = { 0, 0 };    // T3_BMS_OUT_*
     inline constexpr OutputCounts kNg3Outputs            = { 8, 4 };    // NG3_OUT_*
 
+    // Where an output's hand-off-auto switch is: HW_SW_OFF, HW_SW_AUTO and
+    // HW_SW_HAND (global_define.h:1968-1970). The tables guard checks them.
+    inline constexpr uint8_t kSwitchOff  = 0;
+    inline constexpr uint8_t kSwitchAuto = 1;
+    inline constexpr uint8_t kSwitchHand = 2;
+
     // How many outputs T3000 reads: BAC_OUTPUT_ITEM_COUNT, or, on a panel
     // that sizes its points from its settings, DYNAMIC_OUTPUT_ITEM_COUNT,
     // which is max_out when that is above 64 (global_function.cpp:17655-17670,
@@ -70,4 +76,8 @@ namespace t5000::device
     // anything (BacnetOutput.cpp:733-755). On any other, T3000 leaves the
     // column empty.
     bool shows_hoa_switch(int device_type);
+
+    // The products an output on a sub-device can be shown as an external
+    // output of (BacnetOutput.cpp:1006-1017): T3 expansion modules.
+    bool is_external_output_product(uint8_t sub_product);
 }

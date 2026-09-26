@@ -29,6 +29,9 @@ namespace t5000::display
 
     std::string acp_to_utf8(const uint8_t* text, size_t max_length);
 
+    // CString::Trim(): whitespace off both ends, as iswspace decides it.
+    std::wstring trim_like_t3000(const std::wstring& s);
+
     // T3000's SplitCStringA (global_function.cpp:7250-7284), which is not a
     // plain split:
     //

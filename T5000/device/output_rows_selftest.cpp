@@ -118,6 +118,27 @@ namespace
         check(!shows_hoa_switch(53), "not PID_T332AI");
         check(!shows_hoa_switch(8), "not MINIPANELARM_NB");
     }
+
+    void test_the_external_products()
+    {
+        section("the products an output can be external to");
+
+        // PM_T3PT10, PM_T3IOA, PM_T332AI, PM_T38AI16O, PM_T38I13O, PM_T34AO,
+        // PM_T322AI, PM_T332AI_ARM, PM_T38AI8AO6DO, PM_T36CT, PM_T36CTA,
+        // PM_T3_LC (BacnetOutput.cpp:1006-1017).
+        const int listed[] = { 26, 21, 22, 23, 20, 28, 43, 53, 44, 29, 95, 72 };
+        bool all = true;
+        for (const int p : listed)
+            all = all && is_external_output_product((uint8_t)p);
+        check(all, "the twelve T3000 lists");
+
+        int others = 0;
+        for (int p = 0; p < 256; p++)
+            others += is_external_output_product((uint8_t)p) ? 1 : 0;
+        check_eq(others, 12, "and no others");
+        check(!is_external_output_product(35), "not a MiniPanel");
+        check(!is_external_output_product(88), "not an ESP32 T3");
+    }
 }
 
 int run_output_rows_tests()
@@ -126,5 +147,6 @@ int run_output_rows_tests()
     test_from_the_settings();
     test_esp32_sizing();
     test_the_hoa_list();
+    test_the_external_products();
     return 0;
 }

@@ -169,4 +169,40 @@ namespace t5000::display
         "Open",    // 1
         "Shorted", // 2
     };
+
+    // OutPut_List_Analog_Range (global_define.h:868). The Range column of an
+    // analog output. Entry 0 is never shown: range 0 is "Unused". The three
+    // spaces in "4   -> 20" are T3000's.
+    inline constexpr const char* const kOutputAnalogRanges[] = {
+        "",           // 0
+        "0.0 -> 10",  // 1
+        "0.0 -> 100", // 2
+        "4   -> 20",  // 3
+        "0.0 -> 100", // 4
+        "0.0 -> 100", // 5
+        "4   -> 20",  // 6
+        "0.0 -> 100", // 7
+        "0.0 -> 100", // 8
+    };
+
+    // OutPut_List_Analog_Units (global_define.h:881). The Units column of an
+    // analog output, by range.
+    inline constexpr const char* const kOutputAnalogUnits[] = {
+        "",      // 0
+        "Volts", // 1
+        "%Open", // 2
+        "psi",   // 3
+        "%",     // 4
+        "%Cls",  // 5
+        "ma",    // 6
+        "%PWM",  // 7
+        "%",     // 8
+    };
+
+    // Output_Decom_Array (global_define.h:1960). The Status column of an
+    // output: its decom byte, 0 or 1; anything else shows nothing.
+    inline constexpr const char* const kOutputStatus[] = {
+        "OK", // 0
+        "-",  // 1
+    };
 }

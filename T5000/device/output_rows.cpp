@@ -134,4 +134,26 @@ namespace t5000::device
             return false;
         }
     }
+
+    bool is_external_output_product(uint8_t sub_product)
+    {
+        switch (sub_product)
+        {
+        case pm(ProductClassId::T3PT10):
+        case pm(ProductClassId::T3IOA):
+        case pm(ProductClassId::T332AI):
+        case pm(ProductClassId::T38AI16O):
+        case pm(ProductClassId::T38I13O):
+        case pm(ProductClassId::T34AO):
+        case pm(ProductClassId::T322AI):
+        case pm(ProductClassId::T332AIArm):
+        case pm(ProductClassId::T38AI8AO6DO):
+        case pm(ProductClassId::T36CT):
+        case pm(ProductClassId::T36CTA):
+        case pm(ProductClassId::T3Lc):
+            return true;
+        default:
+            return false;
+        }
+    }
 }

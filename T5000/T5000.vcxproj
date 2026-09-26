@@ -114,6 +114,8 @@
     <ClCompile Include="bacnet\private_transfer_selftest.cpp" />
     <ClCompile Include="display\input_text.cpp" />
     <ClCompile Include="display\input_text_selftest.cpp" />
+    <ClCompile Include="display\output_text.cpp" />
+    <ClCompile Include="display\output_text_selftest.cpp" />
     <ClCompile Include="display\custom_ranges.cpp" />
     <ClCompile Include="display\custom_ranges_selftest.cpp" />
     <ClCompile Include="display\device_text.cpp" />
@@ -166,6 +168,7 @@
     <ClInclude Include="bacnet\point_read.h" />
     <ClInclude Include="bacnet\private_transfer.h" />
     <ClInclude Include="display\input_text.h" />
+    <ClInclude Include="display\output_text.h" />
     <ClInclude Include="display\tables.h" />
     <ClInclude Include="display\custom_ranges.h" />
     <ClInclude Include="display\device_text.h" />

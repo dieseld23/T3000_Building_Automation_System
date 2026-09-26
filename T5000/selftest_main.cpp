@@ -27,6 +27,7 @@ int run_private_transfer_tests();
 int run_point_read_tests();
 int run_inputs_plan_tests();
 int run_input_text_tests();
+int run_output_text_tests();
 int run_custom_ranges_tests();
 int run_input_rows_tests();
 int run_output_rows_tests();
@@ -72,6 +73,8 @@ int run_selftests(int, char**)
     run_inputs_plan_tests();
     printf("\n");
     run_input_text_tests();
+    printf("\n");
+    run_output_text_tests();
     printf("\n");
     run_custom_ranges_tests();
     printf("\n");
