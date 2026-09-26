@@ -18,8 +18,8 @@ source-against-source, except the struct sizes, which the compiler asserts.
 saved between runs, as T3000's building database is ([The device
 list](#the-device-list-and-virtual-devices)). In Stage 1, Inputs are read and
 shown as T3000 shows them, after each panel's settings and custom range names
-(#17), and so are Outputs. The Panel and Type columns are still to do, and
-Variables is not started. The stage table below has each stage's state, and
+(#17), and so are Outputs and Variables. The Panel and Type columns are
+still to do. The stage table below has each stage's state, and
 [Next](#next) is the list of what comes after.
 [`T5000/README.md`](../T5000/README.md) describes the tool as it is today.
 
@@ -170,10 +170,10 @@ would check each before acting on it.
 
 Each ships on its own. Ordered by dependency, not by difficulty.
 
-| Stage | Delivers | Changed by all-products? | State, 2026-09-25 |
+| Stage | Delivers | Changed by all-products? | State, 2026-09-26 |
 |---|---|---|---|
 | **0** | Discovery, selection, firmware detection, **product-identity model** | **Larger** — two id axes, capability table | Done (#9, #12, #13, #15). The device list is saved between runs (#19), and takes devices added by hand |
-| **1** | Inputs + Outputs + Variables read | Unchanged — one shared layout | Inputs done (#14, #16, #17), except the Panel and Type columns. Outputs done, except those and Product Name. Variables not started |
+| **1** | Inputs + Outputs + Variables read | Unchanged — one shared layout | Inputs done (#14, #16, #17), except the Panel and Type columns. Outputs done (#27), except those and Product Name. Variables done |
 | **2** | Write support for points, then Arrays, PVar | Unchanged | Not started |
 | **3** | Device settings, user login | Slightly larger — per-product field ranges | Not started. The settings block is already read and guarded, for Inputs |
 | **4** | PID loops, then Tstat | **Larger** — Tstat is a second data model | Not started |
@@ -207,8 +207,15 @@ tables; the row limits and per-model labels they drive are ported.
 `display/output_text.cpp`; the row limits, hand-off-auto switches and external
 outputs by model in `device/output_rows.cpp`; the reads in
 `app/outputs_read.cpp`, sharing the settings and custom-name reads with Inputs
-(`app/panel_read.cpp`). Still to come: the Panel and Type columns, Outputs'
-Product Name, and Variables.
+(`app/panel_read.cpp`). Still to come: the Panel and Type columns, and
+Outputs' Product Name.
+
+*Done for Variables,* the same way: the grid, `BacnetVariable.cpp:209-478`, in
+`display/variable_text.cpp`; the panel's custom units and multi-state tables
+in `display/variable_ranges.cpp`; the reads in `app/variables_read.cpp`, with
+the multi-state and unit reads beside the others in `app/panel_read.cpp`.
+`conformance/variables_guard.cpp` checks the literals the port copies that no
+constant names.
 
 **Stage 2 is the cliff** — the first code that writes to live equipment.
 Writes get their own transport, separate from the read path, which cannot
@@ -236,11 +243,7 @@ In order:
 3. **Finish Inputs and Outputs:** the Panel and Type columns, and Outputs'
    Product Name. Type needs `GetOutputType` and its input counterpart, and
    Product Name needs T3000's product names, which are not T5000's.
-4. **Variables.** Same struct path as Inputs and Outputs, and its struct is
-   already guarded. T3000 also reads multi-state ranges
-   (`READ_MSV_COMMAND`) and variable units (`READVARUNIT_T3000`) when it
-   connects (`BacnetView.cpp:6483-6575`); the port will need both.
-5. **The first hardware check,** once a controller is available and the owner
+4. **The first hardware check,** once a controller is available and the owner
    agrees. Two things above all:
    - the serial check: the settings' `n_serial_number` must equal the serial
      in the scan response, or for a device from the saved list the saved
@@ -251,10 +254,10 @@ In order:
 
    Later, when there is a Modbus device on firmware below 525 to try, the
    firmware gate (see the end of Risks).
-6. **Stage 2, writes,** as above. Editing a device's points offline comes
+5. **Stage 2, writes,** as above. Editing a device's points offline comes
    first. It changes the saved configuration, not a controller, so the edit
    screens can be built before there is a write transport.
-7. **The register path** for Tstats and the Modbus modules, starting with the
+6. **The register path** for Tstats and the Modbus modules, starting with the
    guard on the Tstat registers described under Risks.
 
 Smaller loose ends:

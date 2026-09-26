@@ -35,14 +35,14 @@ synthetic devices on loopback.
 | Virtual devices | Not started. Designed with devices added by hand; see the migration plan. |
 | Inputs | Done for the five BACnet private-data products (CM5, MiniPanel, MiniPanel ARM, ESP32 T3, TSTAT10) over BACnet/IP. The grid matches T3000's column by column, including the panel's own custom range names and its row count per model. The Panel and Type columns are not done. |
 | Outputs | Done for the same five products over BACnet/IP. The grid matches T3000's column by column: the HOA Switch column and the rows it marks, each model's row count, the panel's custom digital range names, and outputs on T3 expansion modules. The Panel, Type and Product Name columns are not done. |
-| Variables | Not started. It uses the same point-struct path, and its struct is already guarded; it also needs multi-state ranges and variable units. |
+| Variables | Done for the same five products over BACnet/IP. The grid matches T3000's column by column: every variable the panel has, three decimals, times, the fixed and the panel's own state pairs, the panel's own units, and names from its multi-state tables. |
 | Every other screen | Not started. See the migration plan's stages. |
 | Writes | Not started. They will come as a separate transport, with per-action approval and a read-back that confirms each one. |
 | Tstats and Modbus modules | Identified in the device list; not read. They need the register path, which does not exist yet. |
 | Devices behind a controller | Refused, with the controller named. T3000 reaches them through the controller over Modbus; T5000 does not yet. |
 
-The Inputs and Outputs pages show built-in fixture points when no device is
-selected, labelled as such. The Connection dialog saves transport settings to
+The Inputs, Outputs and Variables pages show built-in fixture points when no
+device is selected, labelled as such. The Connection dialog saves transport settings to
 `T5000.connection.json` beside the exe. Nothing reads them yet: a scanned
 device is read at the address its scan response came from, and a device from
 the saved list at the address it answered from last time. A device no scan has
@@ -71,7 +71,7 @@ by hand that no scan has found is sent nothing at all.
   runs (`from_this_tool`, `http/server.h`). Remote access is a later decision
   that will come with authentication.
 - **Test against loopback synthetic devices, never real ones.** Selecting a
-  device and opening Inputs or Outputs sends it real requests, and that includes a
+  device and opening Inputs, Outputs or Variables sends it real requests, and that includes a
   device from the saved list, at its saved address: at least the settings
   read, which is how T5000 checks it is still the same panel. Start T5000 with
   `--no-browser` and `--db` naming a scratch file, scan with interface
@@ -121,7 +121,7 @@ those run. Build
 
 | Folder | Holds |
 | --- | --- |
-| `app/` | What the routes serve: the Inputs and Outputs reads in page order, the device list kept in step with its saved copy, and the JSON the pages get |
+| `app/` | What the routes serve: the Inputs, Outputs and Variables reads in page order, the device list kept in step with its saved copy, and the JSON the pages get |
 | `bacnet/` | Private-transfer requests and replies, and the command whitelist |
 | `conformance/` | The checks against T3000: its headers, its tables and its BACnet stack. A separate project, `T5000Conformance.vcxproj`, built by `T3000 - VS2019.sln` |
 | `device/` | Product identity (`ProductClassId` and `MiniType`, kept as distinct types), the device registry, read-path choice, row limits, connection settings |

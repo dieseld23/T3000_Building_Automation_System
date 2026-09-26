@@ -82,7 +82,7 @@ is precisely the kind of behaviour this project exists to stop repeating.
 
 ## What T5000 now reads, and how
 
-Path 1 over BACnet/IP, for Inputs and Outputs: `bacnet/private_transfer.cpp` (the bytes)
+Path 1 over BACnet/IP, for Inputs, Outputs and Variables: `bacnet/private_transfer.cpp` (the bytes)
 and `bacnet/point_read.cpp` (the requests). Everything else still reports why
 it is not read rather than reading it.
 
@@ -291,8 +291,31 @@ shows MAN-OFF or MAN-ON and a marked row, and its Auto/Man cell is empty,
 as T3000 leaves it on a first open; the note keeps the setting. An output
 on a T3 expansion module is external, and shows that module's switch.
 
-**Not yet:** the Panel and Type columns, on both pages, and Outputs' Product
-Name. Variables, which will use this same path with their own commands. Path 2 (Modbus registers) and the
+**Variables.** The same path, with `READVARIABLE_T3000` (3): thirteen
+requests of ten 39-byte points, or more on an ESP32 T3 from firmware 63.7.
+Before them the Variables page (`app/variables_read.cpp`) reads the settings,
+the custom digital range names, the panel's multi-state tables
+(`READ_MSV_COMMAND`, 42) and its custom variable units (`READVARUNIT_T3000`,
+36), as T3000 does when it connects (`BacnetView.cpp:6472-6571`): 18 requests
+in all. The tables go in two requests, 0-1 and then 2 on firmware 60.7 and
+older, or 2-3 on newer, each sent whether or not the one before came back;
+without the settings, as on older firmware. Any of the three that fails is a
+note, not a stop. The points are decoded as `fill_in_variable` decodes them,
+which guards its text as inputs are guarded. The grid is
+`BacnetVariable.cpp:209-478`, ported in `display/variable_text.cpp`: a
+number has three decimals, computed in float; an analog variable on range 20
+is a time; ranges 34-38 take the panel's own units, and 101-104 a name from
+its multi-state tables, cut out of the replies as T3000 cuts them
+(`display/variable_ranges.cpp`). T3000 looks a name up in tables 1-3 only, so
+range 104 shows a number, as it does there. Where T3000 leaves a cell
+unwritten - a multi-state variable's Units until every table has come back, a
+digital variable on range 100 - the row says what T5000 knows and a note says
+what T3000 shows. The literals the port copies that no constant names, such
+as the firmware split, are checked against T3000's source by
+`conformance/variables_guard.cpp`.
+
+**Not yet:** the Panel and Type columns, on Inputs and Outputs, and Outputs'
+Product Name. Path 2 (Modbus registers) and the
 PTP tunnel are not implemented, and nor is reading a sub-device through its
 controller. The migration plan's [Next](../docs/t5000-migration-plan.md#next)
 list has the order.
