@@ -14,7 +14,9 @@
 #include "inputs_plan.h"
 #include "inputs_read.h"
 #include "offline_inputs.h"
+#include "outputs_plan.h"
 #include "scan_json.h"
+#include "variables_plan.h"
 #include "../store/sqlite.h"
 #include "../testing/check.h"
 #include "../testing/fake_transport.h"
@@ -660,6 +662,7 @@ namespace
             check(d->mini_type == before.mini_type && d->panel_name.empty() && d->modbus_id_reported == 0,
                   "  and nothing from the panel");
             check(d->last_seen == 0 && d->first_seen == 0, "  never seen");
+            check(b.registry.size() == 1, "  and nothing else is in the list");
 
             const std::vector<DeviceRecord> saved = b.saved();
             check(saved.size() == 1 && saved[0].provenance == Provenance::ManuallyAdded &&
@@ -829,6 +832,22 @@ namespace
                   has(json, "Its settings give serial 920001, the one saved for it, so it is the same device."),
               "  and its payload says the serial was checked");
 
+        OutputsPageRead outputs;
+        outputs.ok     = true;
+        outputs.points = std::vector<t5000::wire::OutputPoint>(2);
+        const std::string o = outputs_payload(found, plan_outputs_read(found), outputs);
+        check(has(o, "Found by Find at the address given") &&
+                  has(o, "Its settings give serial 920001, the one saved for it, so it is the same device."),
+              "  and so does Outputs'");
+
+        VariablesPageRead variables;
+        variables.ok     = true;
+        variables.points = std::vector<t5000::wire::VariablePoint>(2);
+        const std::string v = variables_payload(found, plan_variables_read(found), variables);
+        check(has(v, "Found by Find at the address given") &&
+                  has(v, "Its settings give serial 920001, the one saved for it, so it is the same device."),
+              "  and Variables'");
+
         // After a scan has vouched for it, it is read as any scanned device.
         DeviceRecord vouched = found;
         vouched.answered_scan = 1;
@@ -902,6 +921,7 @@ namespace
             return;
         DeviceRecord old = restored(920001, "10.0.0.5");
         old.reported_ip = "10.9.9.9";
+        old.firmware    = 637;
         std::string error;
         if (!require(b.db.save_scanned({ old }, error), "a device from an earlier session is saved"))
             return;
@@ -929,6 +949,8 @@ namespace
         check(saved.size() == 1 && saved[0].answered_from == "192.168.1.50" && saved[0].reported_ip.empty() &&
                   !saved[0].address_mismatch(),
               "  and so it is saved");
+        check(d->firmware == 637 && saved.size() == 1 && saved[0].firmware == 637,
+              "  keeping the firmware a scan gave, which Find does not read");
     }
 
     void test_the_list_says_where_find_applies()
