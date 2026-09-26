@@ -306,7 +306,10 @@ namespace t5000::app
             append_int(out, "index", (long)i); out += ',';
             append_int(out, "input", (long)i + 1); out += ',';
             append_field(out, "fullLabel", acp_to_utf8(p.description, wire::kDescriptionLength)); out += ',';
-            append_field(out, "label",     acp_to_utf8(p.label,       wire::kLabelLength)); out += ',';
+            // T3000 trims the label (BacnetInput.cpp:1376). It trims the full
+            // label too, at :981, but throws the result away.
+            append_field(out, "label",     display::wide_to_utf8(display::trim_like_t3000(
+                                               display::acp_to_wide(p.label, wire::kLabelLength)))); out += ',';
             append_field(out, "autoManual",  t.auto_manual); out += ',';
             append_field(out, "value",       t.value); out += ',';
             append_field(out, "units",       t.units); out += ',';

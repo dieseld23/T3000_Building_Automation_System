@@ -29,15 +29,21 @@ namespace t5000::wire
         // something wrong, and a blank label is a visible symptom, where a
         // truncated one silently looks like a real name.
         //
-        // Note this is strlen over the wire bytes, so it stops at the first NUL
-        // and cannot run past the field unless the field is entirely non-zero.
-        if (strnlen((const char*)p, kDescriptionLength) >= kDescriptionLength)
+        // "Does not fit" is decided by strlen over the wire, not the field:
+        // "> 21" means the 21 description bytes AND the byte after them - the
+        // label's first - are all non-NUL. So a description that fills its
+        // field is kept when the label is empty and blanked when it is not,
+        // and a 9-character label is kept or blanked by the value's first
+        // byte. That is what T3000 shows, so it is what this does; a test in
+        // decode_selftest.cpp pins each edge. Neither test can read past the
+        // point: the byte after each field is in it.
+        if (strnlen((const char*)p, kDescriptionLength + 1) > kDescriptionLength)
             memset(out.description, 0, kDescriptionLength);
         else
             memcpy(out.description, p, kDescriptionLength);
         p += kDescriptionLength;
 
-        if (strnlen((const char*)p, kLabelLength) >= kLabelLength)
+        if (strnlen((const char*)p, kLabelLength + 1) > kLabelLength)
             memset(out.label, 0, kLabelLength);
         else
             memcpy(out.label, p, kLabelLength);

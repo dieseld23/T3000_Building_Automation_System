@@ -124,6 +124,44 @@ namespace
         check_eq(p.range, 6, "range still correct after a blanked description");
     }
 
+    void test_full_width_input_text_depends_on_the_next_byte()
+    {
+        section("input text that fills its field is kept or blanked by the byte after it, as in T3000");
+
+        uint8_t buf[kInputPointWireSize];
+        InputPoint p;
+
+        // 21 characters and an empty label: fill_in_input's strlen is 21,
+        // which is not more than 21, so the description is kept.
+        build_fixture(buf);
+        memset(buf + 0, 'X', kDescriptionLength);
+        memset(buf + 21, 0, kLabelLength);
+        decode_input_point(buf, sizeof(buf), p);
+        check(memcmp(p.description, "XXXXXXXXXXXXXXXXXXXXX", kDescriptionLength) == 0,
+              "21 characters, then an empty label: kept");
+
+        // A 9-character label, and a value whose first byte is 0: kept.
+        build_fixture(buf);
+        memcpy(buf + 21, "ABCDEFGHI", kLabelLength);
+        buf[30] = 0x00;
+        buf[31] = 0x10;
+        buf[32] = 0x00;
+        buf[33] = 0x00;
+        decode_input_point(buf, sizeof(buf), p);
+        check(memcmp(p.label, "ABCDEFGHI", kLabelLength) == 0, "9 characters, value 4096: kept");
+        check_eq(p.value, 4096, "  and the value read");
+
+        // The same label, and a value whose first byte is not 0: blanked.
+        buf[30] = 0x08;
+        buf[31] = 0x00;
+        decode_input_point(buf, sizeof(buf), p);
+        bool blank = true;
+        for (int i = 0; i < kLabelLength; i++)
+            blank = blank && p.label[i] == 0;
+        check(blank, "9 characters, value 8: blanked");
+        check_eq(p.value, 8, "  and the value still read");
+    }
+
     // ------------------------------------------------------------- outputs
 
     // A full 45-byte output point, every field distinct, as the input fixture
@@ -316,6 +354,7 @@ int run_wire_tests()
     test_decodes_every_field();
     test_rejects_short_buffer();
     test_blanks_unterminated_text();
+    test_full_width_input_text_depends_on_the_next_byte();
     test_decodes_every_output_field();
     test_rejects_short_output_buffer();
     test_output_voltages();
