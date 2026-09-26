@@ -448,8 +448,10 @@ page as T3000 holds them before it has read a panel: `Initial_All_Point`'s
 defaults (`global_function.cpp:17693`), IN1 on, a filter of 5 and the rest
 zero, in as many rows as the model has. The model is chosen with Edit on the
 Devices page. It cannot be changed to one with fewer rows while an input past
-them is changed. A MiniPanel cannot be configured offline: T3000's list names
-no model of it, and the model decides what its inputs are.
+them is changed. A CM5 needs no model: T3000 names none, and panel type 0 is
+the CM5 itself. A MiniPanel cannot be configured offline: T3000's list names
+no model of it either, and for a MiniPanel the model decides what its inputs
+are.
 
 Four columns can be changed, by T3000's rules (`Fresh_Input_Item`,
 `BacnetInput.cpp:451`, and its click on Auto/Manual, `:1615`):
