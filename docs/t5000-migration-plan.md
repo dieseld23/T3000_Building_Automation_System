@@ -222,12 +222,16 @@ In order:
    there: where the configuration lives, what must be entered, how it is
    compared with the device before a write, how a device on another subnet
    is found, and what a virtual device is.
-2. **Finish Inputs:** the Panel and Type columns.
-3. **Outputs and Variables.** Same struct path as Inputs, and their structs
+2. **Serial ports.** The first slice is built: the computer's COM ports are
+   listed, and a serial scan that cannot write is tested against a scripted
+   line. Opening a port waits on the owner's decisions S1 to S3 under
+   [Serial ports](#serial-ports).
+3. **Finish Inputs:** the Panel and Type columns.
+4. **Outputs and Variables.** Same struct path as Inputs, and their structs
    are already guarded. T3000 also reads multi-state ranges
    (`READ_MSV_COMMAND`) and variable units (`READVARUNIT_T3000`) when it
    connects (`BacnetView.cpp:6483-6575`); the port will need both.
-4. **The first hardware check,** once a controller is available and the owner
+5. **The first hardware check,** once a controller is available and the owner
    agrees. Two things above all:
    - the serial check: the settings' `n_serial_number` must equal the serial
      in the scan response, or for a device from the saved list the saved
@@ -238,10 +242,10 @@ In order:
 
    Later, when there is a Modbus device on firmware below 525 to try, the
    firmware gate (see the end of Risks).
-5. **Stage 2, writes,** as above. Editing a device's points offline comes
+6. **Stage 2, writes,** as above. Editing a device's points offline comes
    first. It changes the saved configuration, not a controller, so the edit
    screens can be built before there is a write transport.
-6. **The register path** for Tstats and the Modbus modules, starting with the
+7. **The register path** for Tstats and the Modbus modules, starting with the
    guard on the Tstat registers described under Risks.
 
 Smaller loose ends:
@@ -439,6 +443,112 @@ reuses columns (the IP address is in `Bautrate`, the port in `Com_Port`, and
 **4. Editing a device's points offline**, for a device added by hand or a
 virtual one. These are the first edit screens, working against the saved
 configuration rather than a controller. See A above and Next.
+
+---
+
+## Serial ports
+
+The owner asked (2026-09-25) for devices on a serial line, RS485 or a USB
+adapter to one, to be reached through the computer's COM ports. T5000 does
+this with its own code: Win32 calls on `\\.\COMn`, and none of T3000's Modbus
+DLL or BACnet stack.
+
+What T3000 does:
+
+- It lists the ports from `HKLM\HARDWARE\DEVICEMAP\SERIALCOMM`
+  (`GetSerialComPortNumber1`, `global_function.cpp:989-1041`).
+- Its scan list has one entry for each port and rate (`m_scan_info`,
+  `TStatScanner.cpp:596-700`). At each, it first listens for MS/TP
+  (`Test_Comport`, `:584`), and a line that runs it is left to the BACnet
+  scan.
+- On a Modbus line it sends Temco's range query, `FF 19 hi lo` and a CRC, to
+  address 255 (`common.cpp:7229-7235`). Every device whose id is in the range
+  answers. It halves the range until each device answers alone
+  (`binarySearchforComDevice`, `TStatScanner.cpp:1324`, `:1586-1606`), then
+  reads registers 0-9 from each id it found (`:1432`).
+- It writes during the scan, without asking:
+  - register 10, to move one of two devices that share an id (`:1215`,
+    `:1657`);
+  - a random serial, to a device that reports 0 or all ones (`:1463-1485`).
+- It asks a garbled id again, with no limit (`:1596-1604`).
+
+*Built: the first slice.* Nothing opens a port yet, so none of this has sent a
+byte to a line.
+
+- `serial/ports` lists the ports under `SERIALCOMM` without opening any, in
+  port-number order, and marks the USB-serial drivers it knows by their
+  device's name. `/api/interfaces` returns them beside the network
+  interfaces, and the Devices page shows them under "Serial ports - not
+  scanned yet", where none can be picked.
+- `serial/rtu` builds the only two frames a serial scan can send, the range
+  query and the read of registers 0-9 (`ScanFrame`), and reads their replies
+  by T3000's rules. `ScanFrame` has no constructor that takes bytes and no
+  builder that takes a function code, so no write can be expressed.
+- `discovery/serial_scan` is the scan, over a `SerialScanTransport` that can
+  send a `ScanFrame` and nothing else.
+  - It listens first. A line that is already talking, MS/TP or another
+    Modbus master, is left alone, and nothing is sent.
+  - It halves the range as T3000 does.
+  - An id two devices share is reported, not moved. A device with no serial
+    gets the AssignSerialNumber repair, as on the network. Nothing is
+    written.
+  - Each question is asked a set number of times, 3 by default, and then the
+    id is reported as unreadable. Two devices whose replies collide on one id
+    cannot be told from noise, so they are reported as unreadable, not as
+    sharing it.
+  - Each device found becomes a record found by a serial scan and reached
+    over Modbus RTU on the port, rate and id that answered.
+- The tests use a scripted line (`testing/fake_serial_line.h`). Its devices
+  read the bytes sent, check them with their own CRC, and answer one after
+  another or on top of each other. `conformance/crc_oracle.cpp` checks the
+  CRC and every frame the scan can build against T3000's `CRC16` and its
+  tables.
+
+Still to build, once the decisions below are made:
+
+1. **The port.** `CreateFile` on `\\.\COMn`, with the line settings T3000
+   uses, read from its source first. The transport has to handle what the
+   scripted line does not:
+   - a port another program holds, T3000 included, which cannot be opened;
+   - an adapter that echoes what it sends, putting the query in front of
+     the reply;
+   - a reply that arrives in pieces;
+   - a USB adapter unplugged during a scan.
+2. **Scanning from the page:** a port and a rate, and the devices found
+   added to the list.
+3. **Saving them.** The saved list keeps no port or rate yet.
+4. **Reading them.** On a Modbus line, this is the register path under Next.
+   On an MS/TP line it is BACnet, over MS/TP.
+
+Decisions for the owner:
+
+*S1. How opening a port is tested.* Opening one is the first step that sends
+anything, and the rule is never to open a port with hardware on it. This
+machine's COM3 is an FTDI adapter (`\Device\VCP0`), and there is no virtual
+null-modem pair.
+
+- com0com: a pair of virtual ports wired to each other, with a scripted
+  device on the far end.
+- A spare adapter with nothing connected to it. This proves the port opens,
+  but nothing answers.
+
+**Recommended:** com0com.
+
+*S2. Which rates a scan tries.* The default is 38400, as
+`device::Connection` has it. T3000 scans every port at each rate in its scan
+list. `device::supported_baud_rates()` has six, from T3000's list
+(`global_define.h:1450`). Every rate tried sends frames that a device at
+another rate hears as noise.
+**Recommended:** the chosen rate only, with "try every rate" as a choice.
+
+*S3. MS/TP.* A line that runs MS/TP is left alone for now.
+
+- Listing its devices passively: listening to the token being passed, for
+  the addresses in the ring. This sends nothing.
+- Joining the ring as a master, as T3000 does through its BACnet stack
+  (`dlmstp`). This sends frames and takes a turn with the token.
+
+**Recommended:** passive first.
 
 ---
 

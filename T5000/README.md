@@ -28,6 +28,7 @@ synthetic devices on loopback.
 | Area | State |
 | --- | --- |
 | Scan | Done. Broadcasts T3000's discovery query on a chosen interface and lists what answers. |
+| Serial ports | First part done. The Devices page lists the computer's COM ports, read from the registry without opening any. A serial scan is built and tested against a scripted line: it listens first, finds each device by halving the id range as T3000 does, and cannot send a write. Nothing opens a port yet, so no serial device can be found. See the migration plan. |
 | Device list | Done. Identifies each product and flags problems the scan noticed, as repairs for someone to approve later. Nothing is written to a device. |
 | Saved device list | Done. Every device with a serial number that answers a scan is saved in `T5000.db` and listed again the next time T5000 starts, with when it was last seen. (A device reporting no serial is listed but cannot be saved: there is nothing to know it by next time.) Each can be given a name, building, floor and room, and the list is grouped by them. A device can be forgotten. |
 | Devices added by hand | First part done. A device no scan has found - on another network, or not installed yet - can be added with its product and serial, named and placed. It is saved and shown as "added by hand", and nothing is sent to it: its Inputs page says there is no device to read. When a scan finds its serial, that device takes its place, keeping the name and location. Configuring one offline is designed but not built; see the migration plan. |
@@ -50,10 +51,12 @@ by hand that no scan has found is sent nothing at all.
 
 ## Safety rules
 
-- **The scan and the read path cannot write.** Neither transport can express
-  a write. The scan can only broadcast the discovery query and receive
-  (`discovery/scanner.h`), and a read can only send a command on the
-  `ReadCommand` whitelist (`bacnet/command.h`). A compile-time guard checks
+- **The scans and the read path cannot write.** None of their transports can
+  express a write. The scan can only broadcast the discovery query and
+  receive (`discovery/scanner.h`). The serial scan can only send the range
+  query and the read of registers 0-9 (`serial/rtu.h`), and opens no port
+  yet. A read can only send a command on the `ReadCommand` whitelist
+  (`bacnet/command.h`). A compile-time guard checks
   the whitelist against T3000's command codes and against a list of codes
   that must never be sent (`conformance/command_guard.cpp`).
 - **The device list is a file on this machine.** Saving it, naming a device,
