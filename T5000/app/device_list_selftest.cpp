@@ -564,21 +564,26 @@ namespace
         Handle h = kNoHandle;
         std::string message;
 
-        check(!add_device(reg, db, typed_in(0), status, h, message), "serial 0 is refused");
-        check(message.find("never match") != std::string::npos, "  since a scan could never match it");
-        check(!add_device(reg, db, typed_in(0xFFFFFFFFu), status, h, message), "serial 0xFFFFFFFF is refused");
+        // Each refusal on its own, from a handle left over from before, so a
+        // refusal that kept it would show.
+        auto refused = [&](const HandAdded& d, const char* what) {
+            h = to_handle(999);
+            check(!add_device(reg, db, d, status, h, message), what);
+            check(h == kNoHandle, "  and hands back no handle");
+        };
 
-        check(!add_device(reg, db, typed_in(8102, ProductClassId::Unknown), status, h, message),
-              "no product is refused");
-        check(!add_device(reg, db, typed_in(8102, ProductClassId::Tstat5B), status, h, message),
-              "a product T5000 has not been taught about is refused");
+        refused(typed_in(0), "serial 0 is refused");
+        check(message.find("never match") != std::string::npos, "  since a scan could never match it");
+        refused(typed_in(0xFFFFFFFFu), "serial 0xFFFFFFFF is refused");
+
+        refused(typed_in(8102, ProductClassId::Unknown), "no product is refused");
+        refused(typed_in(8102, ProductClassId::Tstat5B), "a product T5000 has not been taught about is refused");
         check(message.find("Pick one") != std::string::npos, "  and the page is told to pick from the list");
-        check(!add_device(reg, db, typed_in(8102, ProductClassId::ThirdPartyDevice), status, h, message),
-              "a third-party device is refused, though it is in the table");
+        refused(typed_in(8102, ProductClassId::ThirdPartyDevice),
+                "a third-party device is refused, though it is in the table");
         check(message.find("never be matched") != std::string::npos, "  since a scan never reports its serial");
 
-        check(!add_device(reg, db, typed_in(8001, ProductClassId::Cm5), status, h, message),
-              "a serial already in the list is refused");
+        refused(typed_in(8001, ProductClassId::Cm5), "a serial already in the list is refused");
         check(message.find("already in the list") != std::string::npos, "  and says so");
         const DeviceRecord* scanned = by_serial(reg, 8001);
         if (require(scanned != nullptr, "the device already listed is still there"))
@@ -590,15 +595,15 @@ namespace
 
         HandAdded long_name = typed_in(8103);
         long_name.placement.room = std::string(kMaxPlacementChars + 1, 'x');
-        check(!add_device(reg, db, long_name, status, h, message), "a room one past the limit is refused");
+        refused(long_name, "a room one past the limit is refused");
         check(message.find("room") != std::string::npos, "  naming the field");
 
-        check(h == kNoHandle, "no refusal hands back a handle");
         check_eq(reg.size(), 1, "and the list still holds only the scanned device");
         check_eq((long)saved(db).size(), 1, "  as does the file");
 
         check(add_device(reg, db, typed_in(8104), status, h, message), "a new serial is added");
         check(!add_device(reg, db, typed_in(8104), status, h, message), "  and not twice");
+        check(h == kNoHandle, "  which does not hand back the handle the first add did");
         check(message.find("added by hand") != std::string::npos, "  and the reason says how it got there");
     }
 
@@ -725,21 +730,28 @@ namespace
         Handle h = kNoHandle;
         std::string message;
 
+        // Each refusal on its own, from a handle left over from before, so a
+        // refusal that kept it would show.
+        auto refused = [&](const HandAdded& d, const char* what) {
+            h = to_handle(999);
+            check(!add_device(reg, db, d, status, h, message), what);
+            check(h == kNoHandle, "  and hands back no handle");
+        };
+
         HandAdded tb11i = typed_in(8203, ProductClassId::Tstat10);
         tb11i.mini_type = static_cast<int>(MiniType::Tb11I);
-        check(!add_device(reg, db, tb11i, status, h, message), "a TSTAT10 as panel type 12 is refused");
+        refused(tb11i, "a TSTAT10 as panel type 12 is refused");
         check(message.find("not a model of the TSTAT10") != std::string::npos, "  naming the product");
         check(message.find("Pick one") != std::string::npos, "  and the page is told to pick from the list");
 
         HandAdded arm_oem = typed_in(8203, ProductClassId::MiniPanelArm);
         arm_oem.mini_type = static_cast<int>(MiniType::Oem);
-        check(!add_device(reg, db, arm_oem, status, h, message), "a MiniPanel ARM as a T3-OEM is refused");
+        refused(arm_oem, "a MiniPanel ARM as a T3-OEM is refused");
 
         HandAdded unrecognised = typed_in(8203, ProductClassId::Tstat10);
         unrecognised.mini_type = 200;
-        check(!add_device(reg, db, unrecognised, status, h, message), "a panel type no one names is refused");
+        refused(unrecognised, "a panel type no one names is refused");
 
-        check(h == kNoHandle, "no refusal hands back a handle");
         check_eq(reg.size(), 0, "nothing is listed");
         check_eq((long)saved(db).size(), 0, "  or saved");
 

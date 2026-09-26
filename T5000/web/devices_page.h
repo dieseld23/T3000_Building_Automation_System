@@ -567,10 +567,10 @@ namespace t5000::web
     tr.appendChild(el("td", null, d.productName));
 
     // The panel type is read from the device. An entry added by hand shows
-    // the model chosen for it instead, dimmed, and "—" when none was: panel
-    // type 0 names no model, not even on a CM5, whose product says it all.
+    // the model chosen for it instead, dimmed, and "—" when none was. A CM5
+    // is resolved with panel type 0, which on a CM5 is the model.
     var panel = el("td", d.panel.resolved && !byHand(d) ? null : "dim");
-    panel.textContent = byHand(d) ? (d.panel.raw ? d.panel.name : "—")
+    panel.textContent = byHand(d) ? (d.panel.resolved ? d.panel.name : "—")
                                   : d.panel.resolved ? d.panel.name : "unknown";
     panel.title = byHand(d) ? "Chosen when it was added by hand. Read from the device once a scan finds it."
                             : d.panel.reason;

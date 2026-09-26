@@ -339,6 +339,10 @@ namespace
                     "the panel of a TSTAT10 set up so goes by that name");
         check_streq(panel_name(ProductClassId::MiniPanelArm, MiniType::Oem), "OEM",
                     "  but not the same panel type on a product T3000 does not pair it with");
+        check_streq(panel_name(ProductClassId::Cm5, MiniType::Cm5), "CM5",
+                    "panel type 0 on a CM5 is named CM5, as T3000 names it");
+        check_streq(panel_name(ProductClassId::Tstat10, MiniType::NotSet), to_string(MiniType::NotSet),
+                    "  but on anything else keeps saying it may be unset");
 
         const Model* bb = find_model(ProductClassId::MiniPanelArm, static_cast<int>(MiniType::MiniPanelArm));
         check(bb && strcmp(bb->name, "T3-BB") == 0, "a MiniPanel ARM with panel type 5 is a T3-BB");

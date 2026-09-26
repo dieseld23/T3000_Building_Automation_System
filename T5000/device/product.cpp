@@ -399,6 +399,13 @@ namespace t5000::device
     {
         if (const Model* m = find_model(product, static_cast<int>(type)))
             return m->name;
+
+        // Panel type 0 on CM5 hardware is a CM5 and nothing else
+        // (resolve_panel), and T3000 names it so (Getminitypename,
+        // BacnetSetting.cpp:152-153). to_string cannot: it is given the
+        // type alone, and 0 on anything else is "not set".
+        if (product == ProductClassId::Cm5 && type == MiniType::Cm5)
+            return "CM5";
         return to_string(type);
     }
 
