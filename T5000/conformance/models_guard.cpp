@@ -389,6 +389,14 @@ namespace
                                      (it == by_value.end() ? " nothing" : " " + it->second);
             check(it != by_value.end() && it->second == m.name, what.c_str());
         }
+
+        // Panel type 0, which is a model only on a CM5 (panel_name).
+        const auto cm5 = by_value.find(0);
+        const char* ours = panel_name(ProductClassId::Cm5, MiniType::Cm5);
+        check(cm5 != by_value.end() && cm5->second == ours,
+              (std::string("a CM5's panel: Getminitypename names panel type 0 ") +
+               (cm5 == by_value.end() ? "nothing" : cm5->second) + ", T5000 " + ours)
+                  .c_str());
     }
 }
 

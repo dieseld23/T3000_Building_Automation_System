@@ -188,6 +188,7 @@ namespace
         cm5_reg.add_or_merge(cm5);
         const std::string cm5_json = build_devices_json(cm5_reg, ScanSummary());
         check(!has(cm5_json, "hardware reports"), "a CM5 added by hand is not said to have reported anything");
+        check(has(cm5_json, "\"resolved\":true,\"name\":\"CM5\""), "  its panel is a CM5, named as T3000 names it");
         check(has(cm5_json, "\"reason\":\"chosen when this entry was added by hand"), "  but to have been chosen");
 
         // The same device found by a scan: the reason is resolve_panel's again.

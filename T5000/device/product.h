@@ -360,8 +360,8 @@ namespace t5000::device
     const Model* find_model(ProductClassId product, int raw_mini_type);
 
     // The name for a panel type on this product: the model's when T3000 names
-    // one ("T3-OEM" for panel type 11 on a TSTAT10), and to_string(type)
-    // otherwise.
+    // one ("T3-OEM" for panel type 11 on a TSTAT10), "CM5" for panel type 0
+    // on a CM5, and to_string(type) otherwise.
     const char* panel_name(ProductClassId product, MiniType type);
 
     // What an entry added by hand says about its panel. The type, and the
