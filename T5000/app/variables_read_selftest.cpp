@@ -417,6 +417,17 @@ namespace
                         "{\"table\":2,\"range\":\"\"},{\"table\":3,\"range\":\"\"}]"),
               "  and the tables that came back");
         check(has(json, "\"count\":128,\"variables\":["), "the list under the page's name");
+
+        Panel no_units;
+        no_units.var_units = Does::Refuse;
+        check(has(payload_for(no_units), "\"units\":[],"), "units not read: none listed");
+
+        Panel esp;
+        esp.firmware = 637;
+        esp.max_var  = 200;
+        const std::string big = payload_for(esp, ProductClassId::Esp32T3Series);
+        check(has(big, "\"variablesRead\":200,\"variablesShown\":200"), "an ESP32 with 200: all shown");
+        check(has(big, "Its settings give it 200 variables"), "  and the panel note says why");
     }
 
     // Every "key": in a JSON text, however deep.

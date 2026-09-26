@@ -145,15 +145,16 @@ namespace
 
         Bytes b = tables(4);
         item(b, 0, 0, 0, "Disabled", 5);
-        item(b, 0, 1, 1, " First ", 5);
-        item(b, 0, 2, 1, "Second", 5);
+        item(b, 0, 1, 2, "Status 2", 5);
+        item(b, 0, 2, 1, " First ", 5);
+        item(b, 0, 3, 1, "Second", 5);
         item(b, 3, 0, 1, "In table 3", 1);
         VariableRanges r;
         take_msv_tables(b.data(), b.size(), 0, 4, r);
 
         std::string name;
         check(msv_item_name(r, 0, 5, name) && name == " First ",
-              "the first enabled item with the value, untrimmed; a disabled one is passed over");
+              "the first item of status 1 with the value, untrimmed; status 0 and 2 are passed over");
         check(!msv_item_name(r, 0, 6, name), "no item with the value: none");
         check(!msv_item_name(r, 0, -1, name), "a negative value matches nothing");
         check(!msv_item_name(r, 3, 1, name), "table 3 is never looked in, though it was read and has a match");
