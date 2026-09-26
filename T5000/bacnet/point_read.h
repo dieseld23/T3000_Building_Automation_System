@@ -232,7 +232,7 @@ namespace t5000::bacnet
 
     // BAC_VARIABLE_ITEM_COUNT = 128 and BAC_READ_VARIABLE_GROUP_NUMBER = 10
     // (global_define.h:443, :390): thirteen requests, 0-9 to 120-127, of
-    // 39-byte points (BacnetView.cpp:4539-4589).
+    // 39-byte points (BacnetView.cpp:5383-5402).
     inline constexpr int kVariableCount       = 128;
     inline constexpr int kVariablesPerRequest = 10;
 

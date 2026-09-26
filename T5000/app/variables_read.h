@@ -10,7 +10,7 @@
 //
 // T3000 sends 1-4 when it connects to a panel (BacnetView.cpp:5905, :6472,
 // :6483-6547, :6571), with the custom analog table names between 3 and 4,
-// and 5 when the Variables list is loaded (:4539-4589). The analog table
+// and 5 when the Variables list is loaded (:5383-5402). The analog table
 // names are not asked for here: they name input ranges 20-24, and no
 // variable range uses them.
 //

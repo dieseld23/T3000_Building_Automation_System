@@ -157,6 +157,13 @@ namespace
               "the first item of status 1 with the value, untrimmed; status 0 and 2 are passed over");
         check(!msv_item_name(r, 0, 6, name), "no item with the value: none");
         check(!msv_item_name(r, 0, -1, name), "a negative value matches nothing");
+
+        // Compared as ints, as T3000 compares nitemvalue with an unsigned
+        // short: -1 is not 65535.
+        item(b, 1, 0, 1, "Top", 65535);
+        take_msv_tables(b.data(), b.size(), 0, 4, r);
+        check(msv_item_name(r, 1, 65535, name) && name == "Top", "65535 names the item of value 65535");
+        check(!msv_item_name(r, 1, -1, name), "  and -1 does not");
         check(!msv_item_name(r, 3, 1, name), "table 3 is never looked in, though it was read and has a match");
 
         VariableRanges unread;

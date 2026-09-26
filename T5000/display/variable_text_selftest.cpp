@@ -241,6 +241,18 @@ namespace
         check(variable_text(analog(101, 1000), panel).value == "Cool", "an analog one alike");
         check(variable_text(digital(101, 0, 2999), panel).value == "Heat", "2999 looks up 2: cut, not rounded");
         check(variable_text(digital(101, 0, -500), panel).value == "Off", "-500 looks up 0: cut toward zero");
+
+        // In float, 16999999 is 17000000, so T3000 looks up 17000 where
+        // double arithmetic would look up 16999.
+        std::vector<uint8_t> big(w::kMsvTableWireSize, 0);
+        big[w::msv_item_at::status] = 1;
+        memcpy(&big[w::msv_item_at::name], "Seventeen", 9);
+        big[w::msv_item_at::value]     = (uint8_t)(17000 & 0xFF);
+        big[w::msv_item_at::value + 1] = (uint8_t)(17000 >> 8);
+        VariablePanel wide = panel;
+        take_msv_tables(big.data(), big.size(), 0, 1, wide.names);
+        check(variable_text(digital(101, 0, 16999999), wide).value == "Seventeen",
+              "16999999 looks up 17000, as the float T3000 computes in rounds it");
         check(variable_text(digital(101, 0, 7000), panel).value == "7.000", "a value no item names: the number");
         check(variable_text(digital(102, 0, 1000), panel).value == "Pump B", "range 102: table 2");
 

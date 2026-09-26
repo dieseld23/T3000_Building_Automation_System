@@ -173,7 +173,7 @@ namespace
 
         // Every read T5000 sends, in the shapes it sends them - which are
         // T3000's own calls (BacnetView.cpp:5905, :6472, :6563-6565, the
-        // Outputs read at :5353-5377, the Variables read at :4539-4589, and
+        // Outputs read at :5353-5377, the Variables read at :5383-5402, and
         // the multi-state tables and custom units at :6486-6571). The
         // Settings read is the first whose entity size needs its high byte:
         // 400 is 0x0190, so a header that dropped or swapped a byte would
