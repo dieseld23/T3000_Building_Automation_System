@@ -14,6 +14,9 @@
 //   run time
 //     tables_guard.cpp             display/tables.h and the copied constants,
 //                                  read against T3000/global_define.h as text
+//     models_guard.cpp             the models in device/product.cpp, read
+//                                  against T3000's Add virtual device list
+//                                  and its panel type names as text
 //     private_transfer_oracle.cpp  a read request, byte for byte, against the
 //                                  one T3000's BACnet stack DLL sends
 //     crc_oracle.cpp               the serial scan's CRC and frames, against
@@ -35,6 +38,7 @@
 #include "source_root.h"
 
 int run_tables_guard_tests();
+int run_models_guard_tests();
 int run_private_transfer_oracle_tests();
 int run_crc_oracle_tests();
 
@@ -54,6 +58,8 @@ int main(int argc, char** argv)
     printf("T5000 conformance with T3000\n\n");
 
     run_tables_guard_tests();
+    printf("\n");
+    run_models_guard_tests();
     printf("\n");
     run_private_transfer_oracle_tests();
     printf("\n");

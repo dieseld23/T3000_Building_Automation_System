@@ -299,10 +299,17 @@ device in the list that T5000 has not reached, with a configuration prepared
 before anyone can reach it. A device added by hand stands for a real device
 and is keyed on that device's serial. A virtual device stands for none.
 
-*Built: adding a device by hand.* The operator gives the product and the
-serial, both required, and a name and location if they like. The product comes
-from the capability table, less the third-party entry, whose serial no scan
-reports. The device is saved (schema 2 of `T5000.db` adds `added_by_hand`) and
+*Built: adding a device by hand.* The operator picks a model and gives the
+serial, both required, and a name and location if they like. A model is a
+product and a panel type, as T3000's Add virtual device list has them: a
+T3-OEM is a TSTAT10 set up as panel type `T3_OEM`. The list is
+`device::known_models()`, T3000's entries in its order under the names its
+Settings page uses (`Getminitypename`), held to both by
+`conformance/models_guard.cpp`. Each product with models also has "Model not
+known", panel type 0, and every other product in the capability table is
+listed as itself, less the third-party entry, whose serial no scan reports.
+The panel type chosen is shown as chosen, never as read, and a scan that
+finds the device drops it, since a scan does not report one. The device is saved (schema 2 of `T5000.db` adds `added_by_hand`) and
 listed as "added by hand". Nothing is sent to it: its Inputs page says there is
 no device to read (`plan_inputs_read`). When a scan finds its serial, that
 device takes the entry's place, keeping the name and location, and is read
@@ -345,12 +352,12 @@ What T3000 does:
    file is matched to a device by the serial in its settings block, and an
    export is for T3000.
 
-*B. What must be entered.* Product and serial, as built. The panel type
-(`mini_type`) is the question. It decides how many points a MiniPanel,
-MiniPanel ARM or ESP32 T3 has, so there is no knowing what to configure
-without it.
-**Recommended:** optional to add a device, required before its points can be
-edited offline.
+*B. What must be entered.* A model and serial, as built. The panel type
+(`mini_type`) decides how many points a MiniPanel, MiniPanel ARM or ESP32 T3
+has, so there is no knowing what to configure without it. Picking a model
+gives one, and "Model not known" leaves it out, so it is optional to add a
+device, as recommended. Still to decide:
+**Recommended:** required before its points can be edited offline.
 
 *C. How the offline configuration is compared with the device before any
 write.* Every option goes through Stage 2's write path: a transport of its
@@ -409,9 +416,10 @@ What T3000's virtual devices are, from `BacnetAddVirtualDevice.cpp` and
 
 - The product list is `init_product_list` (`global_function.cpp:11980`), 16
   entries of name, product id, `mini_type` and point counts. Only products 74
-  and 88 get a `.prog` file (`BacnetAddVirtualDevice.cpp:187-203`). The port
-  needs a guard test that reads the table from the source, as the display
-  tables have.
+  and 88 get a `.prog` file (`BacnetAddVirtualDevice.cpp:187-203`). Its names,
+  products and panel types are now `device::known_models()`, which
+  `conformance/models_guard.cpp` reads from the source; its point counts
+  are not ported yet.
 - The `.prog` format is `SaveBacnetBinaryFile` (`global_function.cpp:12724`):
   `55 FF` then a version byte, then the point sections in a fixed order, as
   the `ud_str.h` structs T5000 already guards. Version 5 is 65,956 bytes,
@@ -427,7 +435,8 @@ What T3000's virtual devices are, from `BacnetAddVirtualDevice.cpp` and
   overwrites the open device's settings; the panel name can overflow its
   20 bytes; the name goes into SQL unescaped; deleting one leaves its
   `.prog` behind; and the `T3_3IIC` entry has its analog output count set
-  from its input count.
+  from its input count, and its `sub_pid` set to `T3_NG3` (`:12113`), so
+  a virtual 3IIC is made as an NG2.
 
 The saved list's `kind` column already allows `'virtual'`, so the table does
 not have to be rebuilt for this. A device added by hand is kind `'scanned'`,

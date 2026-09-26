@@ -95,6 +95,7 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="command_guard.cpp" />
+    <ClCompile Include="models_guard.cpp" />
     <ClCompile Include="panel_guard.cpp" />
     <ClCompile Include="product_guard.cpp" />
     <ClCompile Include="tables_guard.cpp" />
@@ -117,11 +118,13 @@
     <ClCompile Include="crc_oracle.cpp" />
     <!-- The T5000 code the checks run, compiled here as T5000 compiles it. -->
     <ClCompile Include="..\bacnet\private_transfer.cpp" />
+    <ClCompile Include="..\device\product.cpp" />
     <ClCompile Include="..\serial\rtu.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cm5_header.h" />
     <ClInclude Include="source_root.h" />
+    <ClInclude Include="source_text.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

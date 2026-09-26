@@ -57,7 +57,13 @@ namespace t5000::app
                            bool selected)
         {
             const Capabilities& cap = capabilities(d.product);
-            const PanelResolution panel = resolve_panel(d.product, d.mini_type);
+
+            // An entry added by hand has the panel type of the model chosen
+            // for it, and says so: resolve_panel's reasons are about a
+            // device that was read.
+            const PanelResolution panel = d.provenance == Provenance::ManuallyAdded
+                                              ? resolve_chosen_panel(d.product, d.mini_type)
+                                              : resolve_panel(d.product, d.mini_type);
 
             out += '{';
 
@@ -84,7 +90,7 @@ namespace t5000::app
             out += '{';
             append_field(out, "raw", (long long)d.mini_type);                 out += ',';
             append_field(out, "resolved", panel.resolved);                    out += ',';
-            append_field(out, "name", std::string(to_string(panel.type)));    out += ',';
+            append_field(out, "name", std::string(panel_name(d.product, panel.type))); out += ',';
             append_field(out, "reason", std::string(panel.reason));
             out += "},";
 

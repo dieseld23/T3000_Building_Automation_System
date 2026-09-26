@@ -123,7 +123,18 @@ namespace t5000::device
                 {
                     if (device.provenance != Provenance::ManuallyAdded &&
                         device.provenance != Provenance::Restored)
+                    {
+                        // The panel type of an entry added by hand is the
+                        // model someone chose, not something a device said.
+                        // Once the device answers, the choice goes with the
+                        // rest of the entry but its placement: kept, it
+                        // would pass for the device's own, which a scan does
+                        // not report. So it takes the device's, 0 included,
+                        // not the silence-keeps-it rule above.
+                        if (existing.provenance == Provenance::ManuallyAdded)
+                            existing.mini_type = device.mini_type;
                         existing.provenance = device.provenance;
+                    }
                 }
 
                 // An approval NEVER survives a merge, whatever the incoming
