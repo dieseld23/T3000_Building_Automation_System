@@ -514,6 +514,101 @@ namespace
         check_streq((const char*)r.points[95].label, "IN95", "point 95 is point 95");
     }
 
+    // One output point on the wire: label "OUT<n>", value n*1000, and
+    // everything else zero.
+    Bytes output_entity(int n)
+    {
+        Bytes e(45, 0);
+        const std::string label = "OUT" + std::to_string(n);
+        memcpy(&e[21], label.data(), label.size());
+        const int32_t value = n * 1000;
+        e[30] = (uint8_t)(value & 0xFF);
+        e[31] = (uint8_t)((value >> 8) & 0xFF);
+        e[32] = (uint8_t)((value >> 16) & 0xFF);
+        e[33] = (uint8_t)((value >> 24) & 0xFF);
+        e[36] = 1;   // hw_switch_status: auto
+        return e;
+    }
+
+    void outputs_device(const FakeTransport::Sent& s, size_t, FakeTransport& t)
+    {
+        Bytes entities;
+        for (int i = 0; i < s.request.count(); i++)
+        {
+            const Bytes e = output_entity(s.request.first + i);
+            entities.insert(entities.end(), e.begin(), e.end());
+        }
+        t.reply(ack(s.request, s.invoke_id, entities));
+    }
+
+    void test_all_64_outputs()
+    {
+        section("all 64 outputs, in T3000's seven requests");
+
+        FakeTransport t;
+        t.respond = outputs_device;
+        uint8_t invoke = 10;
+
+        const OutputsRead r = read_outputs(t, device_at(), instant(), invoke);
+        check(r.ok, "the read succeeds");
+        if (!require(r.points.size() == 64, "64 points"))
+            return;
+        check_streq((const char*)r.points[0].label, "OUT0", "point 0 is point 0");
+        check_streq((const char*)r.points[63].label, "OUT63", "point 63 is point 63");
+        check_eq(r.points[41].value, 41000, "and each carries its own value");
+        check_eq(r.points[41].hw_switch_status, 1, "and the fields after the value");
+
+        if (!require(t.sent.size() == 7, "seven requests"))
+            return;
+        const int firsts[] = { 0, 10, 20, 30, 40, 50, 60 };
+        const int lasts[]  = { 9, 19, 29, 39, 49, 59, 63 };
+        bool ranges = true;
+        for (int i = 0; i < 7; i++)
+            ranges = ranges && t.sent[i].request.first == firsts[i] && t.sent[i].request.last == lasts[i] &&
+                     t.sent[i].request.entity_size == 45 && t.sent[i].request.command == ReadCommand::Outputs;
+        check(ranges, "0-9, 10-19 ... 60-63, all 45-byte outputs");
+        check_eq(invoke, 17, "one invoke id each");
+    }
+
+    void test_more_than_64_outputs()
+    {
+        section("an ESP32 with 200 outputs is read in twenty requests");
+
+        FakeTransport t;
+        t.respond = outputs_device;
+        uint8_t invoke = 0;
+
+        const OutputsRead r = read_outputs(t, device_at(), instant(), invoke, 200);
+        check(r.ok, "the read succeeds");
+        check_eq((long)r.points.size(), 200, "200 points");
+        if (!require(t.sent.size() == 20, "twenty requests"))
+            return;
+        check(t.sent[19].request.first == 190 && t.sent[19].request.last == 199, "the last is 190-199");
+        check_streq((const char*)r.points[199].label, "OUT199", "point 199 is point 199");
+    }
+
+    void test_inputs_are_not_outputs()
+    {
+        section("an answer made of inputs is not taken for outputs");
+
+        // A device that answers an Outputs request with 46-byte inputs: the
+        // right command and range, the wrong size. The read stops rather than
+        // slicing 46-byte points into 45-byte ones.
+        FakeTransport t;
+        t.respond = [](const FakeTransport::Sent& s, size_t, FakeTransport& tr)
+        {
+            ReadRequest as_inputs = s.request;
+            as_inputs.entity_size = 46;
+            tr.reply(answer(as_inputs, s.invoke_id));
+        };
+        uint8_t invoke = 0;
+
+        const OutputsRead r = read_outputs(t, device_at(), instant(), invoke);
+        check(!r.ok, "the read fails");
+        check(r.points.empty(), "and returns no points");
+        check(!r.error.empty(), "and says why");
+    }
+
     void test_a_read_from_the_middle()
     {
         section("a read can start past entity 0, as T3000's read of table 4 does");
@@ -586,6 +681,9 @@ int run_point_read_tests()
 {
     test_a_whole_read();
     test_more_than_64_inputs();
+    test_all_64_outputs();
+    test_more_than_64_outputs();
+    test_inputs_are_not_outputs();
     test_a_read_from_the_middle();
     test_silence_and_refusal_are_told_apart();
     test_other_traffic_is_ignored();

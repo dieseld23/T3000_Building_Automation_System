@@ -398,6 +398,37 @@ namespace t5000::bacnet
         return result;
     }
 
+    OutputsRead read_outputs(ReadTransport& transport, const Endpoint& device,
+                             const ReadSettings& settings, uint8_t& next_invoke_id,
+                             int count)
+    {
+        OutputsRead result;
+        result.transfer = read_entities(transport, device, ReadCommand::Outputs,
+                                        count, kOutputsPerRequest,
+                                        (uint16_t)wire::kOutputPointWireSize,
+                                        settings, next_invoke_id);
+        if (!result.transfer.ok)
+        {
+            result.error = result.transfer.error;
+            return result;
+        }
+
+        result.points.resize((size_t)count);
+        for (int i = 0; i < count; i++)
+        {
+            const uint8_t* at = result.transfer.entities.data() + (size_t)i * wire::kOutputPointWireSize;
+            if (!wire::decode_output_point(at, wire::kOutputPointWireSize, result.points[i]))
+            {
+                result.points.clear();
+                result.error = "Output " + std::to_string(i) + " could not be decoded.";
+                return result;
+            }
+        }
+
+        result.ok = true;
+        return result;
+    }
+
     // --------------------------------------------------------------------------
 
     UdpReadTransport::UdpReadTransport(const Endpoint& device)

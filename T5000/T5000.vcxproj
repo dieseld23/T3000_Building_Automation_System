@@ -123,6 +123,8 @@
     <ClCompile Include="device\product_selftest.cpp" />
     <ClCompile Include="device\input_rows.cpp" />
     <ClCompile Include="device\input_rows_selftest.cpp" />
+    <ClCompile Include="device\output_rows.cpp" />
+    <ClCompile Include="device\output_rows_selftest.cpp" />
     <ClCompile Include="device\registry.cpp" />
     <ClCompile Include="device\registry_selftest.cpp" />
     <ClCompile Include="device\read_path.cpp" />
@@ -168,6 +170,7 @@
     <ClInclude Include="display\custom_ranges.h" />
     <ClInclude Include="display\device_text.h" />
     <ClInclude Include="device\input_rows.h" />
+    <ClInclude Include="device\output_rows.h" />
     <ClInclude Include="device\connection.h" />
     <ClInclude Include="device\registry.h" />
     <ClInclude Include="device\read_path.h" />

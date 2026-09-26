@@ -202,4 +202,29 @@ namespace t5000::bacnet
     InputsRead read_inputs(ReadTransport& transport, const Endpoint& device,
                            const ReadSettings& settings, uint8_t& next_invoke_id,
                            int count = kInputCount);
+
+    // ----------------------------------------------------------------- outputs
+
+    // BAC_OUTPUT_ITEM_COUNT = 64 and BAC_READ_OUTPUT_GROUP_NUMBER = 10
+    // (global_define.h:442, :389): the same seven requests as inputs, of
+    // 45-byte points (BacnetView.cpp:5353-5377).
+    inline constexpr int kOutputCount       = 64;
+    inline constexpr int kOutputsPerRequest = 10;
+
+    struct OutputsRead
+    {
+        bool ok = false;
+        std::vector<wire::OutputPoint> points;  // index is the point number
+        std::string error;
+        ReadOutcome transfer;                   // the counters, for the report
+    };
+
+    // Reads all outputs of the device at `device`, as read_inputs reads
+    // inputs, and with the same caveat about identity.
+    //
+    // count is 64 except on an ESP32 T3 that sizes its outputs from its
+    // settings (device/output_rows.h), which can have up to 255.
+    OutputsRead read_outputs(ReadTransport& transport, const Endpoint& device,
+                             const ReadSettings& settings, uint8_t& next_invoke_id,
+                             int count = kOutputCount);
 }
