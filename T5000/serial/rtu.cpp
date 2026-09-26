@@ -127,7 +127,11 @@ namespace t5000::serial
             // (common.cpp:7400-7418).
             if (!all_zero(g, 9, 13))
             {
-                r.answer = RangeAnswer::Several;
+                // Four bytes at most after the reply, since there are 13 in
+                // all. A second device sends five or more, so to a query for
+                // one id this is noise, which T3000 calls a bus error
+                // (common.cpp:7406-7407).
+                r.answer = query.lo() == query.hi() ? RangeAnswer::Garbled : RangeAnswer::Several;
                 return r;
             }
             if (g[0] != kScanAddress || g[1] != kScanFunction || !crc_matches(g, 7))

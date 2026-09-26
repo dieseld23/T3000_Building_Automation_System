@@ -181,6 +181,8 @@ namespace
         Bytes ten = a;
         ten.push_back(0x33);
         check(decode(ten, q).answer == RangeAnswer::Several, "a byte past a nine-byte reply");
+        check(decode(ten, ScanFrame::range_query(12, 12)).answer == RangeAnswer::Garbled,
+              "but to a query for one id, a byte past a nine-byte reply is too little for a second one: garbled");
 
         Bytes six = a5;
         six.push_back(0x33);
@@ -196,6 +198,8 @@ namespace
         fourteen.resize(13, 0);
         fourteen.push_back(0x33);
         check(decode(fourteen, q).answer == RangeAnswer::Several, "a byte after thirteen");
+        check(decode(fourteen, ScanFrame::range_query(12, 12)).answer == RangeAnswer::Several,
+              "to a query for one id too");
         Bytes thirteen = a;
         thirteen.resize(13, 0);
         check(decode(thirteen, q).answer == RangeAnswer::One, "where thirteen, padded with zeros, is one");

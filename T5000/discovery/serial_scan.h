@@ -16,12 +16,16 @@
 //   - Where two devices answer to one id, it moves one of them by writing
 //     register 10 (:1215, :1657). Here the id is reported, and nothing is
 //     written.
-//   - A device with serial 0 or all ones gets a random serial written to it
-//     (:1463-1485). Here it gets the AssignSerialNumber repair, as on the
-//     network.
+//   - A device with serial 0 gets a random serial written to it
+//     (:1459-1485). Here it gets the AssignSerialNumber repair, as on the
+//     network. (T3000 means to do the same for all ones, but tests
+//     255*255*255*255, a different number: see device/registry.h.)
 //   - A garbled reply at a single id makes it ask the same id again, with no
 //     limit (:1596-1604). Here an id is asked a set number of times, then
 //     reported.
+//   - A reply with a few stray bytes after it, at a single id, makes it stop
+//     scanning the port, as if the line ran MS/TP (common.cpp:7406-7407,
+//     TStatScanner.cpp:1363-1371). Here it is a garbled reply, asked again.
 //
 // Before sending anything it listens. A line running BACnet MS/TP is left
 // alone, as T3000 leaves it (common.cpp:7334-7341, TStatScanner.cpp:1364).

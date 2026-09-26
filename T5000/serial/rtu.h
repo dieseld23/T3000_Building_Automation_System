@@ -98,9 +98,16 @@ namespace t5000::serial
     //   - Nine bytes, FF 19 id, four more, and a CRC over seven: One.
     //   - Anything past the reply: Several. Any other first bytes, or a CRC
     //     that does not match: Garbled.
+    //   - Except: a nine-byte reply with a few bytes after it, to a query
+    //     for one id, is Garbled. That is too little for a second reply.
+    //     T3000 calls it an error on the bus (common.cpp:7406-7407), and
+    //     stops scanning the port with the code it uses for MS/TP
+    //     (TStatScanner.cpp:1363-1371); here the id is asked again.
     //
-    // One more rule than T3000: an id outside the range asked about is
-    // Garbled, since no device with that id should have answered.
+    // Two rules T3000 does not have:
+    //   - An id outside the range asked about is Garbled, since no device
+    //     with that id should have answered.
+    //   - More than 13 bytes is Several. T3000 reads 13 and looks no further.
     RangeReply decode_range_reply(const uint8_t* reply, size_t length, const ScanFrame& query);
 
     // Registers 0-9 of one device, as T3000 reads them

@@ -97,6 +97,9 @@ namespace t5000::testing
         // Older firmware answers the range query in five bytes, not nine.
         bool short_range_reply = false;
 
+        // Bytes that follow its reply to every range query: noise.
+        SerialBytes stray_bytes;
+
         // A device that answers the range query but not the read.
         bool answers_identity = true;
 
@@ -119,6 +122,7 @@ namespace t5000::testing
                 b.push_back((uint8_t)((serial >> 24) & 0xFF));
             }
             add_line_crc(b);
+            b.insert(b.end(), stray_bytes.begin(), stray_bytes.end());
             return garble(b, garble_range_replies);
         }
 

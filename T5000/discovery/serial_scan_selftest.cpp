@@ -264,6 +264,7 @@ namespace
             const SerialScanResult r = scan_serial(line, settings());
             check(ids_found(r) == std::vector<int>({ 12 }), "a read garbled once is found");
             check_eq(line.reads_of(12), 2, "on the second read");
+            only_scan_frames(line);
         }
         {
             FakeSerialLine line;
@@ -291,6 +292,24 @@ namespace
             check(line.sent.size() < 40, "and the scan ends");
             only_scan_frames(line);
         }
+    }
+
+    void test_stray_bytes_at_one_id_are_noise_not_a_shared_id()
+    {
+        section("a reply with stray bytes after it, at one id, is noise, not a shared id");
+
+        FakeSerialLine line;
+        SerialDevice d = device(12, 111);
+        d.stray_bytes = { 0x33, 0x44 };
+        line.devices.push_back(d);
+
+        const SerialScanResult r = scan_serial(line, settings());
+        check(r.devices.empty(), "the device is not listed");
+        check(r.stats.shared_ids.empty(), "two stray bytes are too few for a second device");
+        check(r.stats.unreadable_ids == std::vector<int>({ 12 }), "its id is reported as unreadable");
+        check_eq(line.queries_for_id(12), 3, "after asking it alone three times");
+        check(r.line_busy.empty() && !r.runs_mstp, "and the line is not taken for MS/TP, as T3000 takes it");
+        only_scan_frames(line);
     }
 
     void test_a_device_that_will_not_be_read()
@@ -485,6 +504,7 @@ namespace
                 check_eq(r.devices[0].modbus_id_reported, 9, "with the id it reports");
                 check_eq(r.devices[0].connection.modbus_slave_id, 12, "and reached on the id that answered");
             }
+            only_scan_frames(line);
         }
         {
             FakeSerialLine line;
@@ -495,6 +515,7 @@ namespace
             const SerialScanResult r = scan_serial(line, settings());
             if (require(r.devices.size() == 1, "an old Tstat is listed"))
                 check_eq(r.devices[0].firmware, 245, "with its version from register 4");
+            only_scan_frames(line);
         }
     }
 }
@@ -512,6 +533,7 @@ int run_serial_scan_tests()
     test_a_shared_id_is_reported_and_not_changed();
     test_a_collision_on_one_id_is_unreadable();
     test_noise_is_retried_a_set_number_of_times();
+    test_stray_bytes_at_one_id_are_noise_not_a_shared_id();
     test_a_device_that_will_not_be_read();
     test_a_busy_line_is_left_alone();
     test_settings_that_cannot_be_scanned();
