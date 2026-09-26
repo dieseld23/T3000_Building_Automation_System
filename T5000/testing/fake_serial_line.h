@@ -183,8 +183,9 @@ namespace t5000::testing
         // What arrives before anything is sent: another master, or MS/TP.
         SerialBytes chatter;
 
-        // An MS/TP line: every frame sent is answered with token frames.
-        bool runs_mstp = false;
+        // An MS/TP line: from this frame on, counting from 0, every frame
+        // sent is answered with token frames. -1 for never.
+        int mstp_from = -1;
 
         // The send, or the receive, counting from 0, at which the line
         // fails. -1 for never.
@@ -299,7 +300,7 @@ namespace t5000::testing
 
         SerialBytes answer(const SerialBytes& b)
         {
-            if (runs_mstp)
+            if (mstp_from >= 0 && (int)sent.size() > mstp_from)
             {
                 // Two token frames: preamble, type 0, destination, source,
                 // no data, and a header CRC.

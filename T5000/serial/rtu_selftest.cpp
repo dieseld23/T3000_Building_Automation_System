@@ -182,6 +182,24 @@ namespace
         ten.push_back(0x33);
         check(decode(ten, q).answer == RangeAnswer::Several, "a byte past a nine-byte reply");
 
+        Bytes six = a5;
+        six.push_back(0x33);
+        check(decode(six, q).answer == RangeAnswer::Several, "a byte past a five-byte reply");
+        Bytes seven = a5;
+        seven.push_back(0x00);
+        seven.push_back(0x33);
+        check(decode(seven, q).answer == RangeAnswer::Several, "or two");
+
+        // T3000 judges the first 13 bytes. Anything after them is more than
+        // one device sends, however clean the start looks.
+        Bytes fourteen = a;
+        fourteen.resize(13, 0);
+        fourteen.push_back(0x33);
+        check(decode(fourteen, q).answer == RangeAnswer::Several, "a byte after thirteen");
+        Bytes thirteen = a;
+        thirteen.resize(13, 0);
+        check(decode(thirteen, q).answer == RangeAnswer::One, "where thirteen, padded with zeros, is one");
+
         check(decode(Bytes(14, 0x11), q).answer == RangeAnswer::Several, "fourteen bytes of anything");
     }
 

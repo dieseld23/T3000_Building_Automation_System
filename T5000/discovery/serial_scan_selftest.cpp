@@ -350,11 +350,25 @@ namespace
         }
         {
             FakeSerialLine line;
-            line.runs_mstp = true;
+            line.mstp_from = 0;
 
             const SerialScanResult r = scan_serial(line, settings());
             check(r.runs_mstp, "MS/TP answering the first query is MS/TP too");
             check_eq((long)line.sent.size(), 1, "and nothing more is sent after it");
+            only_scan_frames(line);
+        }
+        {
+            // 1-254 hears both devices, and 1-127 hears MS/TP. 128-254 is
+            // not asked.
+            FakeSerialLine line;
+            line.mstp_from = 1;
+            line.devices.push_back(device(12, 111));
+            line.devices.push_back(device(200, 222));
+
+            const SerialScanResult r = scan_serial(line, settings());
+            check(r.runs_mstp, "MS/TP heard part way through is MS/TP");
+            check_eq((long)line.sent.size(), 2, "and the scan stops there, with the other half not asked");
+            check(r.devices.empty(), "no devices");
             only_scan_frames(line);
         }
     }

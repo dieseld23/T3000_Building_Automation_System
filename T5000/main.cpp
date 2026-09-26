@@ -37,6 +37,7 @@
 #include "http/server.h"
 #include "json/read.h"
 #include "net/interfaces.h"
+#include "serial/ports.h"
 #include "store/device_db.h"
 #include "web/devices_page.h"
 #include "web/inputs_page.h"
@@ -332,11 +333,14 @@ int main(int argc, char** argv)
     // Which interfaces a scan could go out of. Enumerated per request rather
     // than cached: a technician plugging into the building network is the
     // normal case, and a list captured at startup would be stale exactly when
-    // it matters.
+    // it matters. The serial ports come with them, read from the registry
+    // without opening any.
     server.route("/api/interfaces", [](const http::Request&) {
         std::string error;
         const auto interfaces = net::ipv4_interfaces(error);
-        return http::Response::json(app::build_interfaces_json(interfaces, error));
+        std::string port_error;
+        const auto ports = serial::list_ports(port_error);
+        return http::Response::json(app::build_interfaces_json(interfaces, error, ports, port_error));
     });
 
     // The saved list, loaded before the first request so the page opens on

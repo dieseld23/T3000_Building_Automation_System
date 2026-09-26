@@ -14,6 +14,7 @@
 #include "../device/registry.h"
 #include "../discovery/scanner.h"
 #include "../net/interfaces.h"
+#include "../serial/ports.h"
 
 namespace t5000::app
 {
@@ -71,6 +72,11 @@ namespace t5000::app
     std::string build_device_json(const device::Registry& registry,
                                   device::Handle handle);
 
+    // The network interfaces a scan could go out of, and the machine's
+    // serial ports. The ports are listed so the page can show them, and
+    // cannot be scanned yet: nothing in T5000 opens a port.
     std::string build_interfaces_json(const std::vector<net::Interface>& interfaces,
-                                      const std::string& error);
+                                      const std::string& error,
+                                      const std::vector<serial::Port>& ports = {},
+                                      const std::string& port_error = std::string());
 }

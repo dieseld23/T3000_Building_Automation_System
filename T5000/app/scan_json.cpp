@@ -216,7 +216,9 @@ namespace t5000::app
     }
 
     std::string build_interfaces_json(const std::vector<net::Interface>& interfaces,
-                                      const std::string& error)
+                                      const std::string& error,
+                                      const std::vector<serial::Port>& ports,
+                                      const std::string& port_error)
     {
         std::string out = "{\"interfaces\":[";
         for (size_t i = 0; i < interfaces.size(); i++)
@@ -234,6 +236,21 @@ namespace t5000::app
         }
         out += "],";
         append_field(out, "error", error);
+
+        out += ",\"serialPorts\":[";
+        for (size_t i = 0; i < ports.size(); i++)
+        {
+            const serial::Port& p = ports[i];
+            if (i) out += ',';
+            out += '{';
+            append_field(out, "name", p.name);      out += ',';
+            append_field(out, "number", (long long)p.number);  out += ',';
+            append_field(out, "device", p.device);  out += ',';
+            append_field(out, "usb", p.usb);
+            out += '}';
+        }
+        out += "],";
+        append_field(out, "serialError", port_error);
         out += '}';
         return out;
     }

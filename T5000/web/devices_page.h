@@ -779,6 +779,26 @@ namespace t5000::web
         o.textContent = n.name + " (" + n.ip + ")" + suffix;
         sel.appendChild(o);
       });
+      // The serial ports are shown so it is plain which ones this computer
+      // has, and cannot be picked: T5000 does not open a port yet.
+      var ports = data.serialPorts || [];
+      if (ports.length || data.serialError) {
+        var group = document.createElement("optgroup");
+        group.label = "Serial ports - not scanned yet";
+        ports.forEach(function (p) {
+          var o = document.createElement("option");
+          o.disabled = true;
+          o.textContent = p.name + (p.usb ? " - USB adapter" : "");
+          group.appendChild(o);
+        });
+        if (data.serialError) {
+          var o = document.createElement("option");
+          o.disabled = true;
+          o.textContent = "Not listed: " + data.serialError;
+          group.appendChild(o);
+        }
+        sel.appendChild(group);
+      }
       // Default to the best real candidate rather than to all-interfaces:
       // broadcasting from whichever NIC Windows prefers is the documented way
       // this finds nothing with no error to explain it.
