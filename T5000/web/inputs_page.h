@@ -158,7 +158,7 @@ namespace t5000::web
         <th>Input</th><th>Full Label</th><th class="num">Value</th><th>Units</th>
         <th>Auto/Man</th><th>Status</th><th class="opt">Range</th>
         <th class="num opt">Calibration</th><th class="num opt">Filter</th>
-        <th class="opt">Signal Type</th><th class="opt">Label</th><th id="undo-head" hidden></th>
+        <th class="opt">Signal Type</th><th class="opt">Label</th><th id="undo-head" class="opt" hidden></th>
       </tr>
     </thead>
     <tbody id="rows"></tbody>
@@ -314,7 +314,7 @@ namespace t5000::web
 
   function undoCell(r) {
     if (!offline) return "";
-    return "<td>" + (offline.saving && r.changed && r.changed.length
+    return '<td class="opt">' + (offline.saving && r.changed && r.changed.length
       ? '<button class="undo" data-undo="' + esc(r.index) + '" title="Put this input back as it started">Undo</button>'
       : "") + "</td>";
   }
