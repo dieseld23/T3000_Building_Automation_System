@@ -200,6 +200,7 @@
     <ClInclude Include="testing\temp_file.h" />
     <ClInclude Include="web\devices_page.h" />
     <ClInclude Include="web\inputs_page.h" />
+    <ClInclude Include="web\outputs_page.h" />
     <ClInclude Include="wire\decode.h" />
     <ClInclude Include="wire\panel.h" />
     <ClInclude Include="wire\points.h" />

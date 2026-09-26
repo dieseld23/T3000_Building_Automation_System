@@ -77,4 +77,104 @@ namespace t5000::app
         }
         return points;
     }
+
+    DeviceInfo fixture_outputs_device()
+    {
+        DeviceInfo d;
+        d.serial_number = 500124;
+        d.product_id    = 35;    // PM_MINIPANEL
+        d.firmware      = 600;
+        d.protocol      = 3;     // PROTOCOL_BACNET_IP
+        d.is_fixture    = true;
+        return d;
+    }
+
+    OutputsPanel fixture_outputs_panel()
+    {
+        OutputsPanel panel;
+        panel.known                   = true;
+        panel.product                 = device::ProductClassId::MiniPanel;
+        panel.settings.mini_type_byte = 3;   // TINY_MINIPANEL: 6 digital and 2 analog switched
+        panel.settings.firmware_main  = 60;
+        panel.settings.firmware_sub   = 0;
+        panel.settings.panel_number   = 1;
+        panel.settings.serial_number  = 500124;
+        set_text(panel.settings.panel_name, sizeof(panel.settings.panel_name), "Sample");
+
+        panel.ranges.digital_known = true;
+        display::DigitalRange& horn = panel.ranges.digital[0];
+        horn.text       = "Quiet/Sound";
+        horn.has_states = true;
+        horn.off        = "Quiet";
+        horn.on         = "Sound";
+        return panel;
+    }
+
+    std::vector<wire::OutputPoint> fixture_outputs()
+    {
+        // Enough variety to exercise the page: switched outputs at auto, off
+        // and hand, digital and analog, auto and manual, a custom range, a
+        // decommissioned output, one on a sub-device, and an unnamed one.
+        // Not an imitation of any real installation.
+        struct Row
+        {
+            const char* description;
+            const char* label;
+            int32_t     value;
+            uint8_t     control;
+            uint8_t     auto_manual;
+            uint8_t     digital_analog;
+            uint8_t     hw_switch;     // 0 off, 1 auto, 2 hand
+            uint8_t     range;
+            uint8_t     low_voltage;   // tenths
+            uint8_t     high_voltage;
+            uint8_t     pwm_period;
+            uint8_t     decom;
+            uint8_t     sub_id;
+            uint8_t     sub_product;
+            uint8_t     sub_number;
+        };
+
+        static const Row rows[] = {
+            { "Supply Fan",     "SF",      0,     1, 0, 0, 1, 1,  0,   0,   0, 0, 0, 0,  0 },
+            { "Return Fan",     "RF",      0,     0, 0, 0, 0, 1,  0,   0,   0, 0, 0, 0,  0 },
+            { "Exhaust Damper", "EXH_D",   0,     1, 0, 0, 2, 2,  0,   0,   0, 0, 0, 0,  0 },
+            { "Pump Enable",    "PMP_EN",  0,     1, 1, 0, 1, 4,  0,   0,   0, 0, 0, 0,  0 },
+            { "Heat Stage 1",   "HT_1",    0,     0, 0, 0, 1, 1,  0,   0,   0, 0, 0, 0,  0 },
+            { "Alarm Horn",     "HORN",    0,     0, 0, 0, 1, 23, 0,   0,   0, 0, 0, 0,  0 },
+            { "Cooling Valve",  "CLG_V",   7350,  0, 0, 1, 1, 1,  20,  100, 0, 0, 0, 0,  0 },
+            { "Heating Valve",  "HTG_V",   45000, 0, 1, 1, 0, 2,  0,   0,   0, 0, 0, 0,  0 },
+            { "Fan Speed Cmd",  "FAN_SPD", 62500, 0, 0, 1, 1, 7,  0,   0,   20, 0, 0, 0, 0 },
+            { "Setpoint Out",   "SP_OUT",  12000, 0, 1, 1, 1, 6,  0,   0,   0, 1, 0, 0,  0 },
+            { "Remote Relay",   "RR_1",    0,     1, 0, 0, 2, 1,  0,   0,   0, 0, 3, 44, 2 },
+            { "",               "",        0,     0, 0, 1, 1, 0,  0,   0,   0, 0, 0, 0,  0 },
+        };
+
+        std::vector<wire::OutputPoint> points;
+        points.reserve(sizeof(rows) / sizeof(rows[0]));
+
+        for (const Row& r : rows)
+        {
+            wire::OutputPoint p{};
+            set_text(p.description, wire::kOutputDescriptionLength, r.description);
+            set_text(p.label,       wire::kOutputLabelLength,       r.label);
+
+            p.value            = r.value;
+            p.control          = r.control;
+            p.auto_manual      = r.auto_manual;
+            p.digital_analog   = r.digital_analog;
+            p.hw_switch_status = r.hw_switch;
+            p.range            = r.range;
+            p.low_voltage      = r.low_voltage;
+            p.high_voltage     = r.high_voltage;
+            p.pwm_period       = r.pwm_period;
+            p.decom            = r.decom;
+            p.sub_id           = r.sub_id;
+            p.sub_product      = r.sub_product;
+            p.sub_number       = r.sub_number;
+
+            points.push_back(p);
+        }
+        return points;
+    }
 }
