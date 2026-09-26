@@ -82,6 +82,15 @@ namespace t5000::app
             out += buf;
         }
 
+        // For a serial, which is unsigned and does not fit a long here: long
+        // is 32 bits on Windows, so 4000000001 through append_int is negative.
+        void append_serial(std::string& out, const char* name, uint32_t value)
+        {
+            char buf[64];
+            snprintf(buf, sizeof(buf), "\"%s\":%lu", name, (unsigned long)value);
+            out += buf;
+        }
+
         void add_note(std::string& note, const std::string& more)
         {
             if (!note.empty())
@@ -101,7 +110,7 @@ namespace t5000::app
         void append_device(std::string& out, const DeviceInfo& device)
         {
             out += "\"device\":{";
-            append_int(out, "serialNumber", device.serial_number); out += ',';
+            append_serial(out, "serialNumber", device.serial_number); out += ',';
             append_int(out, "productId",    device.product_id);    out += ',';
             append_int(out, "firmware",     device.firmware);      out += ',';
             append_int(out, "protocol",     device.protocol);      out += ',';
@@ -134,7 +143,7 @@ namespace t5000::app
             // As T3000 shows it: "%d.%d" (BacnetSetting.cpp:1194).
             append_field(out, "firmware", std::to_string(settings.firmware_main) + "." +
                                               std::to_string(settings.firmware_sub)); out += ',';
-            append_int(out, "serialNumber", (long)settings.serial_number); out += ',';
+            append_serial(out, "serialNumber", settings.serial_number); out += ',';
         }
 
         // "customRanges":{"digitalKnown":...,"digital":[...]
@@ -200,12 +209,12 @@ namespace t5000::app
         // known. `points` names the list and its counts - "inputs" gives
         // inputsRead, inputsShown and inputs. `more_ranges` is what the page's
         // customRanges has after its digital names, with nothing known.
-        std::string unavailable_json(int serial_number, const std::string& address, const std::string& reason,
+        std::string unavailable_json(uint32_t serial_number, const std::string& address, const std::string& reason,
                                      const std::string& sighting, const std::string& points,
                                      const std::string& more_ranges)
         {
             std::string out = "{\"unavailable\":true,\"device\":{";
-            append_int(out, "serialNumber", serial_number); out += ',';
+            append_serial(out, "serialNumber", serial_number); out += ',';
 
             // Present and false, never absent. Absent is what made the page claim
             // the points had been read from hardware.
@@ -242,7 +251,7 @@ namespace t5000::app
         }
     }
 
-    std::string build_unavailable_inputs_json(int serial_number,
+    std::string build_unavailable_inputs_json(uint32_t serial_number,
                                               const std::string& address,
                                               const std::string& reason,
                                               const std::string& sighting)
@@ -250,7 +259,7 @@ namespace t5000::app
         return unavailable_json(serial_number, address, reason, sighting, "inputs", ",\"analog\":[]");
     }
 
-    std::string build_unavailable_outputs_json(int serial_number,
+    std::string build_unavailable_outputs_json(uint32_t serial_number,
                                                const std::string& address,
                                                const std::string& reason,
                                                const std::string& sighting)
@@ -299,7 +308,7 @@ namespace t5000::app
         }
     }
 
-    std::string build_unavailable_variables_json(int serial_number,
+    std::string build_unavailable_variables_json(uint32_t serial_number,
                                                  const std::string& address,
                                                  const std::string& reason,
                                                  const std::string& sighting)

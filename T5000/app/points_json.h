@@ -31,7 +31,9 @@ namespace t5000::app
 
     struct DeviceInfo
     {
-        int serial_number   = 0;
+        // A device's serial is 32 bits unsigned, and one past 2147483647 is
+        // as real as any: carried as it is, not through an int.
+        uint32_t serial_number = 0;
         int product_id      = 0;
         int firmware        = 0;
         int protocol        = 0;
@@ -131,7 +133,7 @@ namespace t5000::app
     //
     // `sighting` is DeviceInfo::sighting: said beside the reason, for a
     // device known only from the saved list.
-    std::string build_unavailable_inputs_json(int serial_number,
+    std::string build_unavailable_inputs_json(uint32_t serial_number,
                                               const std::string& address,
                                               const std::string& reason,
                                               const std::string& sighting = std::string());
@@ -154,7 +156,7 @@ namespace t5000::app
     // The payload for a device the tool has found but cannot read the
     // outputs of. Every key build_outputs_json writes is here too, for the
     // reason build_unavailable_inputs_json gives.
-    std::string build_unavailable_outputs_json(int serial_number,
+    std::string build_unavailable_outputs_json(uint32_t serial_number,
                                                const std::string& address,
                                                const std::string& reason,
                                                const std::string& sighting = std::string());
@@ -181,7 +183,7 @@ namespace t5000::app
     // The payload for a device the tool has found but cannot read the
     // variables of. Every key build_variables_json writes is here too, for
     // the reason build_unavailable_inputs_json gives.
-    std::string build_unavailable_variables_json(int serial_number,
+    std::string build_unavailable_variables_json(uint32_t serial_number,
                                                  const std::string& address,
                                                  const std::string& reason,
                                                  const std::string& sighting = std::string());

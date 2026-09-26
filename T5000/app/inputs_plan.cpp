@@ -123,11 +123,11 @@ namespace t5000::app
         if (!read.ok)
         {
             const std::string reason = plan.offline_note.empty() ? read.error : read.error + " " + plan.offline_note;
-            return build_unavailable_inputs_json((int)d.serial_number, d.address_note, reason, plan.sighting);
+            return build_unavailable_inputs_json(d.serial_number, d.address_note, reason, plan.sighting);
         }
 
         DeviceInfo info;
-        info.serial_number  = (int)d.serial_number;
+        info.serial_number  = d.serial_number;
         info.product_id     = (int)static_cast<uint8_t>(d.product);
         info.firmware       = d.firmware;
         info.protocol       = kProtocolBacnetIp;

@@ -222,7 +222,7 @@ namespace
         const std::string after = plan.offline_note.empty() ? "" : " " + plan.offline_note;
 
         if (!plan.can_read)
-            return app::build_unavailable_inputs_json((int)d.serial_number, d.address_note, plan.reason + after,
+            return app::build_unavailable_inputs_json(d.serial_number, d.address_note, plan.reason + after,
                                                       plan.sighting);
 
         bacnet::UdpReadTransport transport(plan.endpoint);
@@ -230,7 +230,7 @@ namespace
         if (!transport.open(error))
         {
             return app::build_unavailable_inputs_json(
-                (int)d.serial_number, d.address_note, "Nothing was sent. " + error + after, plan.sighting);
+                d.serial_number, d.address_note, "Nothing was sent. " + error + after, plan.sighting);
         }
 
         return app::read_planned_inputs(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id);
@@ -243,7 +243,7 @@ namespace
 
         const app::PointsPlan plan = app::plan_outputs_read(d);
         if (!plan.can_read)
-            return app::build_unavailable_outputs_json((int)d.serial_number, d.address_note, plan.reason,
+            return app::build_unavailable_outputs_json(d.serial_number, d.address_note, plan.reason,
                                                        plan.sighting);
 
         bacnet::UdpReadTransport transport(plan.endpoint);
@@ -251,7 +251,7 @@ namespace
         if (!transport.open(error))
         {
             return app::build_unavailable_outputs_json(
-                (int)d.serial_number, d.address_note, "Nothing was sent. " + error, plan.sighting);
+                d.serial_number, d.address_note, "Nothing was sent. " + error, plan.sighting);
         }
 
         return app::read_planned_outputs(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id);
@@ -264,7 +264,7 @@ namespace
 
         const app::PointsPlan plan = app::plan_variables_read(d);
         if (!plan.can_read)
-            return app::build_unavailable_variables_json((int)d.serial_number, d.address_note, plan.reason,
+            return app::build_unavailable_variables_json(d.serial_number, d.address_note, plan.reason,
                                                          plan.sighting);
 
         bacnet::UdpReadTransport transport(plan.endpoint);
@@ -272,7 +272,7 @@ namespace
         if (!transport.open(error))
         {
             return app::build_unavailable_variables_json(
-                (int)d.serial_number, d.address_note, "Nothing was sent. " + error, plan.sighting);
+                d.serial_number, d.address_note, "Nothing was sent. " + error, plan.sighting);
         }
 
         return app::read_planned_variables(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id);

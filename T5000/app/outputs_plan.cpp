@@ -12,10 +12,10 @@ namespace t5000::app
     std::string outputs_payload(const device::DeviceRecord& d, const PointsPlan& plan, const OutputsPageRead& read)
     {
         if (!read.ok)
-            return build_unavailable_outputs_json((int)d.serial_number, d.address_note, read.error, plan.sighting);
+            return build_unavailable_outputs_json(d.serial_number, d.address_note, read.error, plan.sighting);
 
         DeviceInfo info;
-        info.serial_number  = (int)d.serial_number;
+        info.serial_number  = d.serial_number;
         info.product_id     = (int)static_cast<uint8_t>(d.product);
         info.firmware       = d.firmware;
         info.protocol       = kProtocolBacnetIp;

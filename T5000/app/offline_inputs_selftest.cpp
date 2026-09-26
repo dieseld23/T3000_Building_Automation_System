@@ -9,6 +9,7 @@
 #include "offline_inputs.h"
 
 #include "device_list.h"
+#include "points_json.h"
 #include "../discovery/scanner.h"
 #include "../testing/check.h"
 
@@ -456,6 +457,38 @@ namespace
         check(contains(payload, "Changes to input 2 made earlier are kept"), "  and that the change is kept");
     }
 
+    void test_a_serial_past_2147483647_is_shown_as_it_is()
+    {
+        section("a serial past 2147483647 is shown as it is, not wrapped negative through an int");
+
+        Bench b;
+        if (!b.open() || !b.add(4000000001u, ProductClassId::Tstat10, 11))
+            return;
+
+        const std::string offline = b.payload();
+        check(contains(offline, "\"serialNumber\":4000000001,"), "the offline payload gives 4000000001");
+        check(!contains(offline, "-294967295"), "  not -294967295");
+
+        std::string message;
+        Placement p;
+        check(place_device(b.registry, b.db, b.handle, p, b.status, message, 0), "with its model unset");
+        const std::string none = b.payload();
+        check(contains(none, "\"unavailable\":true") && contains(none, "\"serialNumber\":4000000001,"),
+              "the payload with no grid gives it too");
+
+        // The panel's own, from its settings, for a device that is read.
+        DeviceInfo info;
+        info.serial_number  = 4294967294u;
+        info.read_from_wire = true;
+        InputsPanel panel;
+        panel.known                  = true;
+        panel.settings.serial_number = 4000000001u;
+        const std::string read = build_inputs_json(info, Decision(), {}, panel);
+        check(contains(read, "\"serialNumber\":4294967294,"), "a read payload gives the largest serial a device can have");
+        check(contains(read, "\"serialNumber\":4000000001}") || contains(read, "\"serialNumber\":4000000001,"),
+              "  and the panel's serial from its settings as it is");
+    }
+
     void test_the_requests_are_read_strictly()
     {
         section("a change and an undo are read as the page sends them, and nothing else");
@@ -510,5 +543,6 @@ int run_offline_inputs_tests()
     test_a_model_change_keeps_changes_in_view();
     test_a_device_without_a_model_says_what_is_kept();
     test_the_requests_are_read_strictly();
+    test_a_serial_past_2147483647_is_shown_as_it_is();
     return 0;
 }

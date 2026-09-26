@@ -219,20 +219,20 @@ namespace t5000::app
             {
                 reason += " Changes to " + input_list(saved) + " made earlier are kept in T5000's list.";
             }
-            return build_unavailable_inputs_json((int)d.serial_number, d.address_note, reason);
+            return build_unavailable_inputs_json(d.serial_number, d.address_note, reason);
         }
 
         OfflineInputs config;
         std::string error;
         if (!load_offline_inputs(db, d, plan, config, error))
         {
-            return build_unavailable_inputs_json((int)d.serial_number, d.address_note,
+            return build_unavailable_inputs_json(d.serial_number, d.address_note,
                                                  nothing_sent + " The inputs T5000 keeps for it could not be "
                                                                 "read from its list: " + error + ".");
         }
 
         DeviceInfo info;
-        info.serial_number = (int)d.serial_number;
+        info.serial_number = d.serial_number;
         info.product_id    = (int)static_cast<uint8_t>(d.product);
 
         std::vector<wire::InputPoint> points((size_t)plan.inputs);
