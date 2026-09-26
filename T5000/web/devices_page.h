@@ -136,7 +136,9 @@ namespace t5000::web
   .empty li{margin:3px 0}
 
   dialog{border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);
-         padding:0;width:min(420px,calc(100vw - 32px))}
+         padding:0;width:min(420px,calc(100vw - 32px));max-width:calc(100vw - 32px);
+         max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;
+         overflow-wrap:break-word}
   dialog::backdrop{background:rgba(0,0,0,.35)}
   dialog form{padding:16px 18px}
   dialog h2{font-size:14px;font-weight:600;margin:0 0 2px}
@@ -150,6 +152,42 @@ namespace t5000::web
   footer{flex:none;padding:6px 16px;border-top:1px solid var(--border);
          background:var(--surface);color:var(--dim);font-size:11px;
          display:flex;gap:14px;flex-wrap:wrap}
+
+  /* The product, under the name. Only on a phone, where Product has no
+     column of its own. */
+  td .sub{display:none}
+
+  /* Phone: what picks a device out and acts on it stays - serial, name,
+     whether it answered, Edit and Forget - and the rest folds away, as on the
+     Inputs page. State is not lost: a device that needs attention has its
+     problem in the row under it. Nothing may be wider than the screen: on a
+     phone, a page that is wider also centres the dialogs on the wider
+     layout, partly off the screen. */
+  @media (max-width: 760px) {
+    .opt{display:none}
+    header{gap:8px}
+    .banner{overflow-wrap:break-word}
+
+    /* A select is as wide as its longest option, and an interface's name,
+       address and note run past a phone's width on their own. It shrinks to
+       fit instead; the list it opens still shows each option in full. */
+    label.inline,label.inline select{min-width:0}
+
+    /* The name takes what the other columns leave and ellipsizes. A fixed
+       max-width could not do that: the serial, the Seen pill and the buttons
+       differ in width from list to list. Edit shows a cut-off name in full. */
+    thead th,tbody td{padding:5px 7px}
+    tr.dev td:nth-child(2){max-width:0;width:100%;overflow:hidden;text-overflow:ellipsis}
+    td .sub{display:block;font-size:11px;color:var(--dim);overflow:hidden;text-overflow:ellipsis}
+    tr.grp td{white-space:normal;padding:10px 7px 4px}
+    .repair{padding:7px 10px 8px 14px}
+
+    /* Edit over Forget, rather than side by side: the row already has two
+       lines, name and product, and the name gets the width. */
+    td.act{padding:3px 7px}
+    td.act button{display:block;width:100%;margin:0}
+    td.act button + button{margin-top:3px}
+  }
 </style>
 </head>
 <body>
@@ -191,12 +229,12 @@ namespace t5000::web
       <tr>
         <th>Serial</th>
         <th>Name</th>
-        <th>Product</th>
-        <th>Panel</th>
-        <th>Address</th>
-        <th class="num">Firmware</th>
+        <th class="opt">Product</th>
+        <th class="opt">Panel</th>
+        <th class="opt">Address</th>
+        <th class="num opt">Firmware</th>
         <th>Seen</th>
-        <th>State</th>
+        <th class="opt">State</th>
         <th></th>
       </tr>
     </thead>
@@ -568,14 +606,15 @@ namespace t5000::web
       name.className = "dim";
       name.textContent = "—";
     }
+    name.appendChild(el("span", "sub", d.productName));
     tr.appendChild(name);
 
-    tr.appendChild(el("td", null, d.productName));
+    tr.appendChild(el("td", "opt", d.productName));
 
     // The panel type is read from the device. An entry added by hand shows
     // the model chosen for it instead, dimmed, and "—" when none was. A CM5
     // is resolved with panel type 0, which on a CM5 is the model.
-    var panel = el("td", d.panel.resolved && !byHand(d) ? null : "dim");
+    var panel = el("td", d.panel.resolved && !byHand(d) ? "opt" : "dim opt");
     panel.textContent = byHand(d) ? (d.panel.resolved ? d.panel.name : "—")
                                   : d.panel.resolved ? d.panel.name : "unknown";
     panel.title = byHand(d) ? "Chosen when it was added by hand. Read from the device once a scan finds it."
@@ -585,9 +624,9 @@ namespace t5000::web
     // The address shown is the one the device answered from, which is the
     // one T5000 contacts. When the device describes itself differently,
     // say so, rather than leave the operator to wonder which is in use.
-    var addr = el("td", null, d.address);
+    var addr = el("td", "opt", d.address);
     if (!d.address) {
-      addr.className = "dim";
+      addr.className = "dim opt";
       addr.textContent = "—";
       if (byHand(d)) addr.title = "Not known until a scan finds it.";
     }
@@ -600,10 +639,10 @@ namespace t5000::web
       addr.appendChild(differs);
     }
     tr.appendChild(addr);
-    tr.appendChild(el("td", "num", d.firmware || ""));
+    tr.appendChild(el("td", "num opt", d.firmware || ""));
     tr.appendChild(seenCell(d));
 
-    var st = document.createElement("td");
+    var st = el("td", "opt");
     if (d.needsAttention) {
       st.appendChild(el("span", "pill pill-warn", "needs attention"));
     } else if (d.support === "verified") {
