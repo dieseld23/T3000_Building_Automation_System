@@ -325,18 +325,25 @@ namespace t5000::app
                                             (uint16_t)wire::kSettingsWireSize, settings, next_invoke_id);
         out.requests_sent = s.requests_sent;
 
+        // Each of these stands alone in the Find dialog, and follows "Found."
+        // or "Not found." in the page's banner.
         if (!s.ok)
         {
-            // read_entities' own words for silence are about a device that
-            // answered a scan; this one may never have been reached.
+            // read_entities' own words for silence, and for a port nothing
+            // listens on, are about a device a scan found; this one may never
+            // have been reached.
             if (s.no_answer)
-                out.message = "Not found. Nothing answered at " + where + " after " + std::to_string(settings.attempts) +
+                out.message = "Nothing answered at " + where + " after " + std::to_string(settings.attempts) +
                               (settings.attempts == 1 ? " attempt" : " attempts") + " of " +
                               seconds_text(settings.reply_timeout_ms) +
                               " s. Check the address and the port, that this computer can reach that network, and "
                               "that no firewall blocks UDP " + std::to_string(at.port) + ".";
+            else if (s.port_unreachable)
+                out.message = host_text(at) + " answered that nothing is listening on UDP port " +
+                              std::to_string(at.port) + ", so something is at that address, but not on that port. "
+                              "Check the port: BACnet/IP devices use 47808.";
             else
-                out.message = "Not found. " + s.error;
+                out.message = s.error;
             out.message += kNothingSaved;
             return out;
         }
@@ -344,21 +351,21 @@ namespace t5000::app
         wire::PanelSettings panel;
         if (!wire::decode_settings(s.entities.data(), s.entities.size(), panel))
         {
-            out.message = "Not found. The panel at " + where + " answered, but its settings could not be decoded, so "
-                          "there is no serial to check." + kNothingSaved;
+            out.message = "The panel at " + where + " answered, but its settings could not be decoded, so there is "
+                          "no serial to check." + kNothingSaved;
             return out;
         }
 
         const uint32_t reported = panel.serial_number;
         if (reported == 0)
         {
-            out.message = "Not found. The panel at " + where + " gives no serial number in its settings, so T5000 "
-                          "cannot tell whether it is serial " + expected + "." + kNothingSaved;
+            out.message = "The panel at " + where + " gives no serial number in its settings, so T5000 cannot tell "
+                          "whether it is serial " + expected + "." + kNothingSaved;
             return out;
         }
         if (reported != device.serial_number)
         {
-            out.message = "Not found. The panel at " + where + " gives its serial number as " +
+            out.message = "The panel at " + where + " gives its serial number as " +
                           std::to_string(reported) + " in its settings, not " + expected +
                           ", so it is another device." + listed_as(registry, reported) + kNothingSaved;
             return out;
@@ -397,7 +404,7 @@ namespace t5000::app
 
         out.found   = true;
         out.record  = f;
-        out.message = "Found: the panel at " + where + " gives serial " + expected +
+        out.message = "The panel at " + where + " gives serial " + expected +
                       " in its settings. Its pages are read from that address now.";
         return out;
     }

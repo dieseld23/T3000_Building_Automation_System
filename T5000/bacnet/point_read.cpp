@@ -140,6 +140,7 @@ namespace t5000::bacnet
 
                 if (n == ReadTransport::kPortUnreachable)
                 {
+                    outcome.port_unreachable = true;
                     outcome.error = device.text() + " reported that nothing is listening on UDP port " +
                                     std::to_string(device.port) + ". The device is reachable, but "
                                     "is not answering BACnet on that port - check the port its "

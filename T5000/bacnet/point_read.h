@@ -102,6 +102,10 @@ namespace t5000::bacnet
         // refuses one read may well answer the next, and one that has gone
         // quiet will not.
         bool no_answer = false;
+
+        // Set when the address answered that nothing is listening on the
+        // port (ICMP port unreachable): the host is there, the port is wrong.
+        bool port_unreachable = false;
     };
 
     // Reads entities [0, count) in groups of group_size, one request per

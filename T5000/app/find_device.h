@@ -108,7 +108,8 @@ namespace t5000::app
         // instance and name from its settings.
         device::DeviceRecord record;
 
-        // What the operator is told either way.
+        // What the operator is told either way: in the Find dialog, or after
+        // "Found." or "Not found." in the page's banner.
         std::string message;
 
         int requests_sent = 0;

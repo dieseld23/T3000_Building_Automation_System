@@ -240,6 +240,7 @@ namespace
             "192.168.1", "192.168.1.50.1", "192.168.1.256", "192.168.01.50", "010.1.1.1", "1234.1.1.1",
             "a.b.c.d", "controller.local", "1.2.3.4:47808", "+1.2.3.4", "1..2.3", "1.2.3.", ".1.2.3",
             "1.2.3.4 5", "1,2,3,4", "::1",
+            "4294967297.0.0.1",   // a part that would wrap round to 1 if its digits were not limited
         };
         for (const char* h : not_ipv4)
         {
@@ -462,7 +463,8 @@ namespace
         check_eq(f.connection.device_instance, 123456, "its instance");
         check(f.panel_name == "AHU 2", "its name, trailing blanks dropped");
         check_eq(f.firmware, 0, "the firmware is left for a scan");
-        check(has(o.message, "Found") && has(o.message, "192.168.1.50:47900") && has(o.message, "serial 920001"),
+        check(o.message == "The panel at 192.168.1.50:47900 gives serial 920001 in its settings. Its pages are "
+                           "read from that address now.",
               "the message says where, and which serial");
     }
 
@@ -520,8 +522,23 @@ namespace
             uint8_t invoke = 1;
             const FindOutcome o = find_at(t, device_at(), entry, registry, instant(), invoke, kNow);
             check(!o.found, "a refusal");
-            check(has(o.message, "Not found.") && has(o.message, "refused") && has(o.message, "Nothing was saved."),
+            check(has(o.message, "The device refused to read the panel's settings") &&
+                      has(o.message, "Nothing was saved."),
                   "  says so");
+            check(t.sent.size() == 1, "  after one request");
+        }
+        {
+            FakeTransport t;
+            t.respond = [](const FakeTransport::Sent&, size_t, FakeTransport& f) {
+                f.inbox.push_back({ bacnet::Endpoint(), {}, bacnet::ReadTransport::kPortUnreachable });
+            };
+            uint8_t invoke = 1;
+            const FindOutcome o = find_at(t, device_at(kDeviceIp, 47999), entry, registry, instant(), invoke, kNow);
+            check(!o.found, "nothing listening on the port");
+            check(o.message == "192.168.1.50 answered that nothing is listening on UDP port 47999, so something is "
+                               "at that address, but not on that port. Check the port: BACnet/IP devices use 47808. "
+                               "Nothing was saved.",
+                  "  says the port is wrong, and not as if a scan had found it");
             check(t.sent.size() == 1, "  after one request");
         }
         {
@@ -578,7 +595,7 @@ namespace
         FakeTransport t;
         answers(t, Settings());
         check(b.find(h, "192.168.1.50", 47808, t, message), "found");
-        check(has(message, "Found"), "  and says so");
+        check(has(message, "gives serial 920001 in its settings"), "  and says so");
         check(!has(message, "not being saved"), "  with nothing about saving");
         check(t.sent.size() == 1, "  after one request");
 
@@ -737,7 +754,8 @@ namespace
         uint8_t invoke = 1;
         std::string message;
         check(find_device(registry, closed, d, device_at(), t, instant(), invoke, kNow, summary, message), "found");
-        check(has(message, "Found") && has(message, "not being saved, so the address is kept only until T5000 closes"),
+        check(has(message, "gives serial 920001 in its settings.") &&
+                  has(message, "not being saved, so the address is kept only until T5000 closes"),
               "  and told it is not saved");
         check(registry.devices()[0].connection.host == "192.168.1.50", "  at the address found");
     }
