@@ -158,7 +158,7 @@ namespace t5000::web
   td .sub{display:none}
 
   /* Phone: what picks a device out and acts on it stays - serial, name,
-     whether it answered, Edit and Forget - and the rest folds away, as on the
+     whether it answered, Edit, Find and Forget - and the rest folds away, as on the
      Inputs page. State is not lost: a device that needs attention has its
      problem in the row under it. Nothing may be wider than the screen: on a
      phone, a page that is wider also centres the dialogs on the wider
@@ -182,8 +182,9 @@ namespace t5000::web
     tr.grp td{white-space:normal;padding:10px 7px 4px}
     .repair{padding:7px 10px 8px 14px}
 
-    /* Edit over Forget, rather than side by side: the row already has two
-       lines, name and product, and the name gets the width. */
+    /* The buttons one over another, rather than side by side: the row
+       already has two lines, name and product, and the name gets the
+       width. */
     td.act{padding:3px 7px}
     td.act button{display:block;width:100%;margin:0}
     td.act button + button{margin-top:3px}
