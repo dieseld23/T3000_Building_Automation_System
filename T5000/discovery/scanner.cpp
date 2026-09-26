@@ -27,6 +27,29 @@ namespace t5000::discovery
                std::to_string(host_order & 0xFF);
     }
 
+    device::Repair no_serial_repair(uint32_t serial)
+    {
+        using namespace t5000::device;
+
+        Repair repair;
+        repair.kind    = RepairKind::AssignSerialNumber;
+        repair.problem = "This device reports no serial number (" + std::to_string(serial) +
+                         "), so it cannot be told apart from any other device "
+                         "in the same state.";
+        repair.action  = "Write a randomly chosen serial number in the range "
+                         "200000-300000 to registers 0 and 2, preceded by an "
+                         "init code of 142 to register 16.";
+        repair.consequence =
+            "The device gets a permanent identity. The number is RANDOM, so "
+            "two devices repaired within the same second can receive the "
+            "same one - repair them one at a time and re-scan between.";
+
+        // Writing a serial is not undoable from this tool: there is no
+        // record of what the device had before, because it had nothing.
+        repair.reversible = false;
+        return repair;
+    }
+
     device::DeviceRecord to_record(const ScanResponse& r, uint32_t sender_ip)
     {
         using namespace t5000::device;
@@ -98,26 +121,7 @@ namespace t5000::discovery
         // in the same state. T3000 fixes this during the scan without asking;
         // we describe what it would take and wait.
         if (is_uninitialised_serial(r.serial_number))
-        {
-            Repair repair;
-            repair.kind    = RepairKind::AssignSerialNumber;
-            repair.problem = "This device reports no serial number (" +
-                             std::to_string(r.serial_number) +
-                             "), so it cannot be told apart from any other device "
-                             "in the same state.";
-            repair.action  = "Write a randomly chosen serial number in the range "
-                             "200000-300000 to registers 0 and 2, preceded by an "
-                             "init code of 142 to register 16.";
-            repair.consequence =
-                "The device gets a permanent identity. The number is RANDOM, so "
-                "two devices repaired within the same second can receive the "
-                "same one - repair them one at a time and re-scan between.";
-
-            // Writing a serial is not undoable from this tool: there is no
-            // record of what the device had before, because it had nothing.
-            repair.reversible = false;
-            d.repairs.push_back(repair);
-        }
+            d.repairs.push_back(no_serial_repair(r.serial_number));
 
         return d;
     }

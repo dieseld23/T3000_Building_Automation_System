@@ -131,6 +131,8 @@
     <ClCompile Include="discovery\scan_response_selftest.cpp" />
     <ClCompile Include="discovery\scanner.cpp" />
     <ClCompile Include="discovery\scanner_selftest.cpp" />
+    <ClCompile Include="discovery\serial_scan.cpp" />
+    <ClCompile Include="discovery\serial_scan_selftest.cpp" />
     <ClCompile Include="net\interfaces.cpp" />
     <ClCompile Include="http\server.cpp" />
     <ClCompile Include="http\server_selftest.cpp" />
@@ -138,6 +140,10 @@
     <ClCompile Include="json\read_selftest.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="selftest_main.cpp" />
+    <ClCompile Include="serial\ports.cpp" />
+    <ClCompile Include="serial\ports_selftest.cpp" />
+    <ClCompile Include="serial\rtu.cpp" />
+    <ClCompile Include="serial\rtu_selftest.cpp" />
     <ClCompile Include="store\device_db.cpp" />
     <ClCompile Include="store\device_db_selftest.cpp" />
     <ClCompile Include="store\sqlite.cpp" />
@@ -167,13 +173,17 @@
     <ClInclude Include="device\read_path.h" />
     <ClInclude Include="discovery\scan_response.h" />
     <ClInclude Include="discovery\scanner.h" />
+    <ClInclude Include="discovery\serial_scan.h" />
     <ClInclude Include="net\interfaces.h" />
+    <ClInclude Include="serial\ports.h" />
+    <ClInclude Include="serial\rtu.h" />
     <ClInclude Include="store\device_db.h" />
     <ClInclude Include="store\sqlite.h" />
     <ClInclude Include="http\server.h" />
     <ClInclude Include="json\read.h" />
     <ClInclude Include="testing\check.h" />
     <ClInclude Include="testing\fake_transport.h" />
+    <ClInclude Include="testing\fake_serial_line.h" />
     <ClInclude Include="testing\temp_file.h" />
     <ClInclude Include="web\devices_page.h" />
     <ClInclude Include="web\inputs_page.h" />

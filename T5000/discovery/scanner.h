@@ -114,6 +114,11 @@ namespace t5000::discovery
     // "a.b.c.d" for an address in host byte order.
     std::string ipv4_text(uint32_t host_order);
 
+    // The repair for a device reporting no serial number (0 or 0xFFFFFFFF):
+    // what T3000 writes to one during a scan, without asking. Shared by the
+    // network scan and the serial one (serial_scan.h).
+    device::Repair no_serial_repair(uint32_t serial);
+
     // Duplicate Modbus ids used to be detected here, over one scan's results.
     // They are now found by device::Registry::refresh_duplicate_modbus_ids
     // over the whole known list, because two devices sharing an id can answer
