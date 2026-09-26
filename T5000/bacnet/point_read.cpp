@@ -31,6 +31,8 @@ namespace t5000::bacnet
             const std::string span = std::to_string(r.first) + "-" + std::to_string(r.last);
             switch (r.command)
             {
+            case ReadCommand::Outputs:
+                return "outputs " + span;
             case ReadCommand::Inputs:
                 return "points " + span;
             case ReadCommand::Settings:

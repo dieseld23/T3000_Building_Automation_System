@@ -172,7 +172,8 @@ namespace
         dest.len = 0;
 
         // Every read T5000 sends, in the shapes it sends them - which are
-        // T3000's own calls (BacnetView.cpp:5905, :6472, :6563-6565). The
+        // T3000's own calls (BacnetView.cpp:5905, :6472, :6563-6565, and the
+        // Outputs read at :5353-5377). The
         // Settings read is the first whose entity size needs its high byte:
         // 400 is 0x0190, so a header that dropped or swapped a byte would
         // pass every Inputs case and fail only here.
@@ -188,6 +189,9 @@ namespace
             { ReadCommand::Inputs, READINPUT_T3000, 10, 19, (int16_t)sizeof(Str_in_point) },
             { ReadCommand::Inputs, READINPUT_T3000, 60, 63, (int16_t)sizeof(Str_in_point) },
             { ReadCommand::Inputs, READINPUT_T3000, 5, 5, (int16_t)sizeof(Str_in_point) },
+            { ReadCommand::Outputs, READOUTPUT_T3000, 0, 9, (int16_t)sizeof(Str_out_point) },
+            { ReadCommand::Outputs, READOUTPUT_T3000, 60, 63, (int16_t)sizeof(Str_out_point) },
+            { ReadCommand::Outputs, READOUTPUT_T3000, 250, 254, (int16_t)sizeof(Str_out_point) },
             { ReadCommand::Settings, READ_SETTING_COMMAND, 0, 0, (int16_t)sizeof(Str_Setting_Info) },
             { ReadCommand::CustomUnits, READUNIT_T3000, 0, 7, (int16_t)sizeof(Str_Units_element) },
             { ReadCommand::AnalogCustomTables, READANALOG_CUS_TABLE_T3000, 0, 3, (int16_t)sizeof(Str_table_point) },

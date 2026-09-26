@@ -48,4 +48,16 @@ namespace t5000::wire
     // the code says what the wire format is instead of depending on the compiler
     // agreeing with it.
     bool decode_input_point(const uint8_t* buffer, size_t length, InputPoint& out);
+
+    // What one output point occupies on the wire: 45, not 46 - see
+    // OutputPoint in points.h.
+    inline constexpr size_t kOutputPointWireSize = 45;
+    static_assert(kOutputPointWireSize == sizeof(OutputPoint),
+        "The wire size and the packed struct size have diverged.");
+
+    // Decodes one output point, as fill_in_output (global_function.cpp:3401)
+    // does - which is not quite as fill_in_input does inputs. The two differ
+    // over text that does not fit its field, and this follows the output
+    // decoder: see decode.cpp.
+    bool decode_output_point(const uint8_t* buffer, size_t length, OutputPoint& out);
 }

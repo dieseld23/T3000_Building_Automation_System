@@ -123,6 +123,192 @@ namespace
         // not shift the walk.
         check_eq(p.range, 6, "range still correct after a blanked description");
     }
+
+    // ------------------------------------------------------------- outputs
+
+    // A full 45-byte output point, every field distinct, as the input fixture
+    // is. Offsets: description 0-18, low and high voltage 19-20, label
+    // 21-29, value 30-33, then eleven single bytes.
+    void build_output(uint8_t (&buf)[kOutputPointWireSize])
+    {
+        memset(buf, 0, sizeof(buf));
+
+        memcpy(buf + 0, "Supply Fan", 10);     // description, NUL-padded
+        buf[19] = 25;                          // low_voltage, 2.5 V
+        buf[20] = 95;                          // high_voltage, 9.5 V
+        memcpy(buf + 21, "SF-1.A", 6);         // label, with both separators
+
+        // value = 73500, little-endian: 0x00011F1C
+        buf[30] = 0x1C;
+        buf[31] = 0x1F;
+        buf[32] = 0x01;
+        buf[33] = 0x00;
+
+        buf[34] = 1;    // auto_manual      (1 = manual)
+        buf[35] = 1;    // digital_analog   (1 = analog)
+        buf[36] = 2;    // hw_switch_status (2 = hand)
+        buf[37] = 3;    // control
+        buf[38] = 4;    // digital_control
+        buf[39] = 5;    // decom
+        buf[40] = 6;    // range
+        buf[41] = 7;    // sub_id
+        buf[42] = 8;    // sub_product
+        buf[43] = 9;    // sub_number
+        buf[44] = 10;   // pwm_period
+    }
+
+    void test_decodes_every_output_field()
+    {
+        section("decodes every output field in wire order");
+
+        uint8_t buf[kOutputPointWireSize];
+        build_output(buf);
+
+        OutputPoint p;
+        memset(&p, 0xAA, sizeof(p));   // poison, so "not written" != "zero"
+
+        check(decode_output_point(buf, sizeof(buf), p), "decode returned true");
+        check(memcmp(p.description, "Supply Fan\0\0\0\0\0\0\0\0\0", kOutputDescriptionLength) == 0,
+              "description, with its padding");
+        check_eq(p.low_voltage, 25, "low_voltage");
+        check_eq(p.high_voltage, 95, "high_voltage");
+        check(memcmp(p.label, "SF_1_A\0\0\0", kOutputLabelLength) == 0, "label separators sanitized");
+        check_eq(p.value, 73500, "value (little-endian)");
+        check_eq(p.auto_manual, 1, "auto_manual");
+        check_eq(p.digital_analog, 1, "digital_analog");
+        check_eq(p.hw_switch_status, 2, "hw_switch_status");
+        check_eq(p.control, 3, "control");
+        check_eq(p.digital_control, 4, "digital_control");
+        check_eq(p.decom, 5, "decom");
+        check_eq(p.range, 6, "range");
+        check_eq(p.sub_id, 7, "sub_id");
+        check_eq(p.sub_product, 8, "sub_product");
+        check_eq(p.sub_number, 9, "sub_number");
+        check_eq(p.pwm_period, 10, "pwm_period");
+
+        // A negative value, so the sign comes from the top byte.
+        buf[30] = 0x2E;
+        buf[31] = 0xFB;
+        buf[32] = 0xFF;
+        buf[33] = 0xFF;
+        check(decode_output_point(buf, sizeof(buf), p) && p.value == -1234, "a negative value");
+    }
+
+    void test_rejects_short_output_buffer()
+    {
+        section("refuses to read past a short output buffer");
+
+        uint8_t buf[kOutputPointWireSize];
+        build_output(buf);
+
+        OutputPoint p;
+        bool all_refused = true;
+        for (size_t len = 0; len < kOutputPointWireSize; len++)
+            all_refused = all_refused && !decode_output_point(buf, len, p);
+        check(all_refused, "every buffer shorter than 45 bytes is refused");
+        check(decode_output_point(buf, kOutputPointWireSize, p), "an exact-length buffer is accepted");
+        check(!decode_output_point(nullptr, kOutputPointWireSize, p), "a null buffer is refused");
+    }
+
+    void test_output_voltages()
+    {
+        section("output voltages above 12.0 V are zeroed, as fill_in_output does");
+
+        uint8_t buf[kOutputPointWireSize];
+        build_output(buf);
+        OutputPoint p;
+
+        buf[19] = 120;
+        buf[20] = 121;
+        decode_output_point(buf, sizeof(buf), p);
+        check_eq(p.low_voltage, 120, "120 - 12.0 V - is kept");
+        check_eq(p.high_voltage, 0, "121 is zeroed");
+
+        buf[19] = 255;
+        buf[20] = 0;
+        decode_output_point(buf, sizeof(buf), p);
+        check_eq(p.low_voltage, 0, "255 is zeroed");
+        check_eq(p.high_voltage, 0, "0 stays 0");
+    }
+
+    void test_output_description_that_does_not_fit()
+    {
+        section("an output description that does not fit is cut to 18, not blanked");
+
+        uint8_t buf[kOutputPointWireSize];
+        OutputPoint p;
+
+        // 19 characters, and a low voltage of 0 after them: strlen is 19,
+        // which is not more than 19, so all 19 are kept.
+        build_output(buf);
+        memset(buf + 0, 'D', kOutputDescriptionLength);
+        buf[19] = 0;
+        decode_output_point(buf, sizeof(buf), p);
+        check(memcmp(p.description, "DDDDDDDDDDDDDDDDDDD", kOutputDescriptionLength) == 0,
+              "19 characters, then a zero low voltage: all 19 kept");
+
+        // The same 19, and a low voltage after them: strlen runs on into it,
+        // so the description is cut to 18 - and the voltage is still read.
+        buf[19] = 25;
+        decode_output_point(buf, sizeof(buf), p);
+        check(memcmp(p.description, "DDDDDDDDDDDDDDDDDD\0", kOutputDescriptionLength) == 0,
+              "19 characters, then a non-zero low voltage: cut to 18");
+        check_eq(p.low_voltage, 25, "  and the low voltage is still read");
+
+        // The test is on the wire byte, before the voltage is zeroed: 200 is
+        // non-zero on the wire, so the description is cut, and then the
+        // voltage becomes 0.
+        buf[19] = 200;
+        decode_output_point(buf, sizeof(buf), p);
+        check(p.description[kOutputDescriptionLength - 1] == 0 && p.description[17] == 'D',
+              "a low voltage of 200 cuts it too, though it is then zeroed");
+        check_eq(p.low_voltage, 0, "  and the voltage is zeroed");
+
+        // 18 characters fit with room for their terminator.
+        build_output(buf);
+        memset(buf + 0, 'E', kOutputDescriptionLength - 1);
+        buf[18] = 0;
+        decode_output_point(buf, sizeof(buf), p);
+        check(memcmp(p.description, "EEEEEEEEEEEEEEEEEE\0", kOutputDescriptionLength) == 0, "18 characters kept");
+        check_eq(p.range, 6, "the fields after it still land correctly");
+    }
+
+    void test_output_label_that_does_not_fit()
+    {
+        section("an output label that does not fit is blanked, depending on the byte after it");
+
+        uint8_t buf[kOutputPointWireSize];
+        OutputPoint p;
+
+        // Nine characters, and a value whose first byte is 0 after them:
+        // strlen is 9, so the label is kept.
+        build_output(buf);
+        memset(buf + 21, 'L', kOutputLabelLength);
+        buf[30] = 0x00;
+        buf[31] = 0x10;   // value 4096: first byte 0
+        buf[32] = 0x00;
+        buf[33] = 0x00;
+        decode_output_point(buf, sizeof(buf), p);
+        check(memcmp(p.label, "LLLLLLLLL", kOutputLabelLength) == 0, "9 characters, value 4096: kept");
+        check_eq(p.value, 4096, "  and the value is read");
+
+        // The same, with a value whose first byte is not 0: blanked.
+        buf[30] = 0x08;
+        buf[31] = 0x00;
+        decode_output_point(buf, sizeof(buf), p);
+        bool blank = true;
+        for (int i = 0; i < kOutputLabelLength; i++)
+            blank = blank && p.label[i] == 0;
+        check(blank, "9 characters, value 8: blanked");
+        check_eq(p.value, 8, "  and the value is still read");
+
+        // Eight characters always fit.
+        build_output(buf);
+        memcpy(buf + 21, "ABCDEFGH", 8);
+        buf[29] = 0;
+        decode_output_point(buf, sizeof(buf), p);
+        check(memcmp(p.label, "ABCDEFGH", 9) == 0, "8 characters kept");
+    }
 }
 
 int run_wire_tests()
@@ -130,5 +316,10 @@ int run_wire_tests()
     test_decodes_every_field();
     test_rejects_short_buffer();
     test_blanks_unterminated_text();
+    test_decodes_every_output_field();
+    test_rejects_short_output_buffer();
+    test_output_voltages();
+    test_output_description_that_does_not_fit();
+    test_output_label_that_does_not_fit();
     return 0;
 }
