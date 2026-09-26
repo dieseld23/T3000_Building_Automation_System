@@ -298,6 +298,29 @@ namespace
               "putting back an input with no changes is not an error");
     }
 
+    void test_the_changed_inputs_are_listed_as_the_grid_numbers_them()
+    {
+        section("the inputs changed offline are named as the grid numbers them, the first six and a count");
+
+        Bench b;
+        if (!b.open() || !b.add(9551, ProductClassId::Cm5, 0))
+            return;
+
+        check(b.edit(2, offline::InputField::Filter, "6"), "input 3 is changed");
+        check(contains(pending_offline_note(b.db, *b.device()), "Changes to input 3 were made offline"),
+              "  and one is \"input 3\"");
+
+        check(b.edit(6, offline::InputField::Filter, "6"), "input 7 is changed");
+        check(contains(pending_offline_note(b.db, *b.device()), "Changes to inputs 3 and 7 were made offline"),
+              "  and two are \"inputs 3 and 7\"");
+
+        for (int i = 0; i < 8; i++)
+            b.edit(i, offline::InputField::Filter, "7");
+        check(contains(pending_offline_note(b.db, *b.device()),
+                       "Changes to inputs 1, 2, 3, 4, 5, 6 and 2 more were made offline"),
+              "  and eight are the first six and \"2 more\"");
+    }
+
     void test_the_configuration_outlives_a_restart_and_a_scan()
     {
         section("the configuration stays with the entry through a restart and a scan that finds it");
@@ -324,6 +347,14 @@ namespace
         const std::string note = pending_offline_note(b.db, *b.device());
         check(contains(note, "input 5") && contains(note, "not written"),
               "and its Inputs page will say input 5 was changed offline and is not written");
+
+        // Its grid shows the device's inputs now, so a change that cannot be
+        // seen cannot be undone either.
+        std::string message;
+        check(!revert_offline_input(b.registry, b.db, b.status, b.handle, 4, message),
+              "undo is refused once a scan has found it");
+        check(contains(message, "read from it"), "  saying its inputs are read from it now");
+        check(b.saved(9601).size() == 1, "  and the change is kept");
 
         std::vector<DeviceRecord> restored;
         check(b.db.load(restored, error) && restored.size() == 1, "a restart restores it");
@@ -537,6 +568,7 @@ int run_offline_inputs_tests()
     test_a_refused_change_saves_nothing();
     test_changes_are_refused_where_they_would_not_be_kept_or_shown();
     test_undo_puts_an_input_back();
+    test_the_changed_inputs_are_listed_as_the_grid_numbers_them();
     test_the_configuration_outlives_a_restart_and_a_scan();
     test_forgetting_a_device_takes_its_configuration();
     test_the_model_can_be_chosen_after_adding();

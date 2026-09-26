@@ -799,6 +799,8 @@ namespace
         if (!open_memory(db) || !require(db.add_by_hand(typed_in(8351), error), "a device is added by hand"))
             return;
 
+        check(db.references_held(), "the list holds each change to its device");
+
         check(!db.save_offline_input(8399, a_change(0, 'a', 'b'), error), "a serial not in the list is refused");
         check(error.find("not in the saved list") != std::string::npos, "  saying so");
 
@@ -812,6 +814,7 @@ namespace
         check(!db.save_offline_input(8351, long_base, error), "a 47-byte base is refused");
 
         check(!db.save_offline_input(8351, a_change(255, 'a', 'b'), error), "index 255 is refused");
+        check(error.find("not one a panel can have") != std::string::npos, "  saying so, before the table does");
         check(!db.save_offline_input(8351, a_change(-1, 'a', 'b'), error), "  and -1");
         check(db.save_offline_input(8351, a_change(254, 'a', 'b'), error), "index 254, the last a panel can have, is not");
         check(changes(db, 8351).size() == 1, "only that one was saved");

@@ -96,7 +96,10 @@ namespace
         check(label(inputs[0]) == "AHU_1", "  as AHU_1");
 
         check(edit(inputs, 1, InputField::Label, "abcdefgh"), "8 characters are taken");
-        check(!edit(inputs, 2, InputField::Label, "abcdefghi"), "9 are not");
+        std::string message;
+        check(!edit(inputs, 2, InputField::Label, "abcdefghi", kWestern, nullptr, &message), "9 are not");
+        check(message.find("at most 8 characters") != std::string::npos,
+              "  as too many characters, as T3000 says, before a byte is counted");
         check(label(inputs[2]).empty(), "  and the input is left as it was");
 
         // MakeUpper in the "C" locale: a to z only. "é" is one byte in 1252.
@@ -161,6 +164,13 @@ namespace
               "five, ten bytes, are refused");
         check(message.find("10 bytes") != std::string::npos, "  and the message gives the bytes it would take");
         check(label(inputs[1]).empty(), "  and the input is as it was");
+
+        // Four and a letter: five characters, nine bytes, the ninth of them
+        // where the terminator goes.
+        check(!edit(inputs, 2, InputField::Label, "\xE4\xB8\xAD\xE6\x96\x87\xE6\xA0\x87\xE7\xAD\xBE" "a", kChinese,
+                    nullptr, &message),
+              "four and a letter, nine bytes, are refused too");
+        check(message.find("9 bytes") != std::string::npos, "  as nine bytes");
     }
 
     void test_text_the_code_page_cannot_hold_is_refused()
@@ -204,7 +214,10 @@ namespace
         check(full_label(inputs[0]) == "Supply air temp-1.b", "  as typed: no capitals, no '-' changed");
 
         check(edit(inputs, 1, InputField::FullLabel, "12345678901234567890"), "20 characters are taken");
-        check(!edit(inputs, 2, InputField::FullLabel, "123456789012345678901"), "21 are not");
+        std::string message;
+        check(!edit(inputs, 2, InputField::FullLabel, "123456789012345678901", kWestern, nullptr, &message), "21 are not");
+        check(message.find("at most 20 characters") != std::string::npos,
+              "  as too many characters, before a byte is counted");
         check(full_label(inputs[2]) == "IN3", "  and the input keeps its name");
 
         // Eleven characters, 22 bytes in GBK.
@@ -212,6 +225,14 @@ namespace
         for (int i = 0; i < 11; i++)
             eleven += "\xE4\xB8\xAD";
         check(!edit(inputs, 3, InputField::FullLabel, eleven, kChinese), "eleven Chinese characters are 22 bytes, refused");
+
+        // Ten and a letter: 21 bytes, the last where the terminator goes.
+        const std::string ten = eleven.substr(0, 30);
+        check(!edit(inputs, 3, InputField::FullLabel, ten + "a", kChinese, nullptr, &message),
+              "ten and a letter, 21 bytes, are refused");
+        check(message.find("21 bytes") != std::string::npos, "  as 21 bytes");
+        check(edit(inputs, 3, InputField::FullLabel, ten, kChinese), "ten, 20 bytes, are taken");
+        check_eq((long)full_label(inputs[3]).size(), 20, "  as 20 bytes");
 
         check(edit(inputs, 4, InputField::FullLabel, ""), "an empty full label is taken");
         check(full_label(inputs[4]).empty(), "  and clears it");

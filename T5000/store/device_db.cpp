@@ -708,6 +708,7 @@ namespace t5000::store
 
     bool DeviceDb::revert_offline_input(uint32_t serial, int index, std::string& error)
     {
+        // One statement, so all or nothing without a transaction.
         Statement q(m_db,
                     "DELETE FROM offline_points WHERE kind = 'input' AND idx = ?2 AND device_id ="
                     " (SELECT id FROM devices WHERE kind = 'scanned' AND serial = ?1)");
@@ -719,5 +720,11 @@ namespace t5000::store
             return false;
         }
         return true;
+    }
+
+    bool DeviceDb::references_held()
+    {
+        Statement q(m_db, "PRAGMA foreign_keys");
+        return q.step() == Statement::Step::Row && q.column_int(0) == 1;
     }
 }

@@ -247,6 +247,9 @@ namespace
         has(body, "else if(lCol == INPUT_AUTO_MANUAL)", "a click on Auto/Manual");
         check_eq(occurrences(body, "if (m_Input_data.at(lRow).auto_manual == 0)"), 2,
                  "  makes 0 into 1 and anything else into 0 (once for a third-party device, once for a panel)");
+        check_eq(occurrences(body, "m_Input_data.at(lRow).auto_manual = 1;"), 2, "  writing 1");
+        check_eq(occurrences(body, "m_Input_data.at(lRow).auto_manual = 0;"), 2, "  and 0");
+        check_eq(occurrences(body, "auto_manual = "), 4, "  and nothing else is written to it");
         has(body, "m_input_list.SetItemText(lRow, INPUT_AUTO_MANUAL, _T(\"Manual\"));", "  shown as Manual");
         has(body, "m_input_list.SetItemText(lRow, INPUT_AUTO_MANUAL, _T(\"Auto\"));", "  and Auto");
     }
@@ -277,6 +280,8 @@ namespace
             check_eq(occurrences(body, "for ("), 8, "  and nothing else");
             check_eq(occurrences(body, ".description) == 0"), 8, "  each by strcmp with its full label: case and all");
             check_eq(occurrences(body, "strcmp("), 8, "  and by nothing else");
+            check_eq(occurrences(body, "if(strcmp(cTemp1,(char *)m_") + occurrences(body, "if (strcmp(cTemp1, (char*)m_"), 8,
+                     "  each comparison the whole of its test");
         }
 
         if (body_or_fail(text, "bool Check_Label_Exsit(LPCTSTR m_new_label)", body))
@@ -295,6 +300,8 @@ namespace
             check_eq(occurrences(body, "for ("), 9, "  and nothing else");
             check_eq(occurrences(body, ".label) == 0"), 9, "  each by strcmp with its label");
             check_eq(occurrences(body, "strcmp("), 9, "  and by nothing else");
+            check_eq(occurrences(body, "if(strcmp(cTemp1,(char *)m_") + occurrences(body, "if (strcmp(cTemp1, (char*)m_"), 9,
+                     "  each comparison the whole of its test");
             check_eq(occurrences(body, "MakeUpper"), 0, "  as the caller made it: in capitals, with '_' for '-'");
         }
     }

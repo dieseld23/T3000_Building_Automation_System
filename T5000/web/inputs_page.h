@@ -208,6 +208,12 @@ namespace t5000::web
   // by hand, or null for points read from a device or the fixture.
   let offline = null;
 
+  // True while a cell is being typed in. The grid is not rebuilt then: the
+  // answer to a change made in another cell can arrive meanwhile, and
+  // rebuilding would take away the cell and what is typed in it. It is
+  // rebuilt, from the latest payload, when the cell closes.
+  let editing = false;
+
   function showBanner(data) {
     const rp = data.readPath || {};
 
@@ -320,6 +326,7 @@ namespace t5000::web
   }
 
   function render() {
+    if (editing) return;
     const needle = $("filter").value.trim().toLowerCase();
     const rows = needle
       ? allRows.filter(r => (r.fullLabel + " " + r.label + " " + r.input).toLowerCase().includes(needle))
@@ -359,6 +366,7 @@ namespace t5000::web
 
   const READ_ONLY = "Read-only. Editing arrives once the write path is verified against hardware.";
   const KEPT = "Changes are kept in T5000's device list. Nothing is sent to any device.";
+  const NOT_KEPT = "The device list is not being saved, so nothing here can be changed. Nothing is sent to any device.";
 
   // A payload, from a read or from a change: the grid and its banners.
   function show(data) {
@@ -379,7 +387,7 @@ namespace t5000::web
     }
 
     render();
-    $("status").textContent = offline ? KEPT : READ_ONLY;
+    $("status").textContent = !offline ? READ_ONLY : offline.saving ? KEPT : NOT_KEPT;
   }
 
   async function load() {
@@ -432,6 +440,7 @@ namespace t5000::web
     input.setAttribute("aria-label", "Input " + row.input + " " + field);
     td.textContent = "";
     td.appendChild(input);
+    editing = true;
     input.focus();
     input.select();
 
@@ -439,6 +448,7 @@ namespace t5000::web
     const finish = save => {
       if (done) return;
       done = true;
+      editing = false;
       if (save && input.value !== was) {
         send("/api/inputs/edit", { handle: offline.handle, index: String(row.index), field: field, value: input.value });
       } else {

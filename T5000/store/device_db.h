@@ -138,6 +138,12 @@ namespace t5000::store
         // error when it had none.
         bool revert_offline_input(uint32_t serial, int index, std::string& error);
 
+        // Whether this connection holds offline_points to their device, as
+        // open() sets it to. Without it a change could outlive its device
+        // and be handed to the next device given that row. For the
+        // self-test, which cannot see it any other way.
+        bool references_held();
+
     private:
         bool write(const device::DeviceRecord& d, bool with_placement, std::string& error);
         bool insert(const device::DeviceRecord& d, bool added_by_hand, std::string& error);

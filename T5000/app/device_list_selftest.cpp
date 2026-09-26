@@ -490,6 +490,35 @@ namespace
         check_eq((long)to_number(h), 12, "with its handle");
         check(!read_handle_request("{}", h, message), "and refused without one");
     }
+
+    void test_a_model_is_read_with_the_placement()
+    {
+        section("the Edit dialog's model comes with the placement, and is kept when left out");
+
+        Handle h = kNoHandle;
+        Placement p;
+        std::string message;
+        int model = -2;
+
+        check(read_placement_request("{\"handle\":\"7\",\"name\":\"AHU\",\"miniType\":\"11\"}", h, p, model, message),
+              "a model is read");
+        check_eq(model, 11, "  as its panel type");
+        check(p.name == "AHU", "  beside the name");
+
+        check(read_placement_request("{\"handle\":\"7\",\"miniType\":\"\"}", h, p, model, message),
+              "\"Model not known\" is read");
+        check_eq(model, 0, "  as panel type 0, as when adding");
+
+        check(read_placement_request("{\"handle\":\"7\",\"name\":\"AHU\"}", h, p, model, message),
+              "a placement without one is read");
+        check_eq(model, kKeepModel, "  and keeps the model");
+
+        check(!read_placement_request("{\"handle\":\"7\",\"miniType\":\"256\"}", h, p, model, message),
+              "panel type 256 is refused");
+        check(!read_placement_request("{\"handle\":\"7\",\"miniType\":\"T3-OEM\"}", h, p, model, message),
+              "  and a name");
+        check(message.find("one from the list") != std::string::npos, "  saying to pick one from the list");
+    }
 }
 
 namespace
@@ -894,6 +923,7 @@ int run_device_list_tests()
     test_a_device_with_no_serial_is_listed_not_saved();
     test_naming_a_device();
     test_a_typed_name_is_read_as_typed();
+    test_a_model_is_read_with_the_placement();
     test_adding_a_device_by_hand();
     test_what_adding_by_hand_refuses();
     test_adding_by_hand_is_refused_when_nothing_is_saved();
