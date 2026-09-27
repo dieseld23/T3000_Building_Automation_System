@@ -45,6 +45,11 @@ namespace
         CLEARPANEL_T3000,               // :70  "clear panel"
         SEND_ALARM_COMMAND,             // :71
 
+        // Below 100 and named as a read, but T3000 sends it through its
+        // write encoder with a 450-byte payload (global_function.cpp:1667,
+        // :1902). "Below 100" would not catch it.
+        READ_AT_COMMAND,
+
         // The write block.
         WRITEOUTPUT_T3000,
         WRITEINPUT_T3000,

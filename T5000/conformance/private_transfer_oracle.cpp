@@ -19,8 +19,9 @@
 //
 // It is part of the conformance checks, not of T5000.exe: the stack is
 // T3000's, built with MFC, and T5000 neither links it nor needs it to run.
-// Its own codec is bacnet/private_transfer.cpp, which this file compiles and
-// compares.
+// Its own codecs are bacnet/private_transfer.cpp and bacnet/private_write.cpp,
+// which this file compiles and compares: reads the way GetPrivateData sends
+// them, and writes the way WritePrivateData does.
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -41,6 +42,7 @@
 
 #include "cm5_header.h"
 #include "../bacnet/private_transfer.h"
+#include "../bacnet/private_write.h"
 #include "../testing/check.h"
 
 #pragma comment(lib, "ws2_32.lib")
@@ -248,6 +250,129 @@ namespace
         ::closesocket(stack);
     }
 
+    // WritePrivateData, global_function.cpp:1777-1792 and :2161-2172, with the
+    // points handed in as its ext_data (:1867-1870) rather than taken from
+    // m_Input_data, and the destination handed in as address_get_by_device
+    // would have. The same 1000-byte SendBuffer and 480-byte test_value, so a
+    // write too long for T3000 overruns here too rather than passing.
+    int send_like_t3000_write(BACNET_ADDRESS& dest, uint8_t command, uint8_t start_instance,
+                              uint8_t end_instance, unsigned short entitysize, const uint8_t* points)
+    {
+        static char SendBuffer[1000];
+        memset(SendBuffer, 0, sizeof(SendBuffer));
+
+        Str_user_data_header private_data_chunk;
+        private_data_chunk.total_length =
+            PRIVATE_HEAD_LENGTH + ((unsigned char)end_instance - (unsigned char)start_instance + 1) * entitysize;
+        private_data_chunk.command              = command;
+        private_data_chunk.point_start_instance = start_instance;
+        private_data_chunk.point_end_instance   = end_instance;
+        private_data_chunk.entitysize           = entitysize;
+        Set_transfer_length(private_data_chunk.total_length);
+        memcpy_s(SendBuffer, PRIVATE_HEAD_LENGTH, &private_data_chunk, PRIVATE_HEAD_LENGTH);
+        memcpy_s(SendBuffer + PRIVATE_HEAD_LENGTH, sizeof(SendBuffer) - PRIVATE_HEAD_LENGTH, points,
+                 (size_t)(end_instance - start_instance + 1) * entitysize);
+
+        static BACNET_APPLICATION_DATA_VALUE data_value;
+        memset(&data_value, 0, sizeof(data_value));
+        uint8_t test_value[480] = { 0 };
+
+        if (!bacapp_parse_application_data(BACNET_APPLICATION_TAG_OCTET_STRING, (char*)&SendBuffer, &data_value))
+            return -100;
+
+        BACNET_PRIVATE_TRANSFER_DATA private_data = { 0 };
+        private_data.vendorID             = BACNET_VENDOR_ID;
+        private_data.serviceNumber        = 1;
+        private_data.serviceParametersLen = bacapp_encode_application_data(&test_value[0], &data_value);
+        private_data.serviceParameters    = &test_value[0];
+
+        return Send_ConfirmedPrivateTransfer(&dest, &private_data);
+    }
+
+    void test_write_matches_the_stack()
+    {
+        section("a write request is byte-identical to what T3000's BACnet stack sends");
+
+        uint16_t device_port = 0, stack_port = 0;
+        SOCKET device = loopback_socket(device_port);
+        SOCKET stack  = loopback_socket(stack_port);
+        if (!require(device != INVALID_SOCKET && stack != INVALID_SOCKET,
+                     "two loopback sockets could be opened"))
+        {
+            if (device != INVALID_SOCKET) ::closesocket(device);
+            if (stack != INVALID_SOCKET) ::closesocket(stack);
+            return;
+        }
+
+        set_datalink_protocol(3);
+        bip_set_socket((int)stack);
+        bip_set_addr(htonl(INADDR_LOOPBACK));
+        bip_set_port(htons(stack_port));
+
+        BACNET_ADDRESS dest = {};
+        dest.mac_len = 6;
+        const uint32_t ip_n   = htonl(INADDR_LOOPBACK);
+        const uint16_t port_n = htons(device_port);
+        memcpy(&dest.mac[0], &ip_n, 4);
+        memcpy(&dest.mac[4], &port_n, 2);
+
+        // One input, as the grid writes it (BacnetInput.cpp:700); then 5 and
+        // 6, either side of the octet string's switch to its long length
+        // form at 254 bytes; then 10, the most T3000's 480-byte buffer holds,
+        // and one input past 64, as an ESP32 T3 has.
+        struct Case
+        {
+            uint8_t first, last;
+        };
+        const Case cases[] = { { 2, 2 }, { 0, 4 }, { 10, 15 }, { 0, 9 }, { 54, 63 }, { 250, 250 } };
+
+        for (const Case& c : cases)
+        {
+            const int count = c.last - c.first + 1;
+            std::vector<uint8_t> points((size_t)count * sizeof(Str_in_point));
+            for (size_t i = 0; i < points.size(); i++)
+                points[i] = (uint8_t)(i * 11 + c.first + 5);
+
+            char label[96];
+            snprintf(label, sizeof(label), "WRITEINPUT_T3000, points %d-%d", c.first, c.last);
+
+            const int invoke = send_like_t3000_write(dest, WRITEINPUT_T3000, c.first, c.last,
+                                                     (unsigned short)sizeof(Str_in_point), points.data());
+            if (!require(invoke >= 0, "Send_ConfirmedPrivateTransfer accepted the write"))
+            {
+                printf("        %s: it returned %d\n", label, invoke);
+                continue;
+            }
+
+            uint8_t theirs[1500];
+            const int n = receive_one(device, theirs, sizeof(theirs));
+            if (!require(n > 0, "the stack's datagram arrived on loopback"))
+                continue;
+
+            WriteRequest request;
+            request.command  = WriteCommand::Inputs;
+            request.first    = c.first;
+            request.last     = c.last;
+            request.entities = points;
+
+            uint8_t ours[1500];
+            const size_t len = encode_write_request(request, (uint8_t)invoke, ours, sizeof(ours));
+
+            check_eq((long)len, (long)n, "same length as the stack's datagram");
+            const bool same = (len == (size_t)n) && memcmp(ours, theirs, len) == 0;
+            check(same, "same bytes as the stack's datagram");
+            if (!same)
+            {
+                printf("        %s\n        stack: %s\n        ours:  %s\n", label,
+                       hex(theirs, (size_t)n).c_str(), hex(ours, len).c_str());
+            }
+        }
+
+        bip_set_socket(-1);
+        ::closesocket(device);
+        ::closesocket(stack);
+    }
+
     // The reply side has no exported encoder to compare with, so the check runs
     // the other way: one reply, decoded by both, must yield the same bytes.
     // This is T3000's decode path - ptransfer_decode_service_request, then
@@ -330,6 +455,8 @@ int run_private_transfer_oracle_tests()
     }
 
     test_request_matches_the_stack();
+    printf("\n");
+    test_write_matches_the_stack();
     printf("\n");
     test_reply_decodes_the_same_as_the_stack();
 
