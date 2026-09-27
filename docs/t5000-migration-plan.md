@@ -623,10 +623,24 @@ operator sets: the full label and label, Auto/Manual, the range, the filter,
 the calibration and its sign, and the signal type. It keeps the value, and
 the control byte a digital input's value is, only for an input in Manual:
 in Auto those are what the panel measured when the file was saved. It never
-keeps the status or the external module's bytes, which the panel sets. So
-an imported input is one the page could have made, and C writes only what
-the operator set. Nothing else in the file is kept: not its outputs,
-variables, programs, schedules or settings. Nothing is sent to any device.
+keeps the status or the external module's bytes, which the panel sets, so
+C can only write what an operator set. Nothing else in the file is kept: not
+its outputs, variables, programs, schedules or settings. Nothing is sent to
+any device.
+
+The operator's columns are kept as T3000 saved them, even where the page's
+rules are stricter. So an imported input can be one the page would not let
+be typed: a label with no terminating 0, a range the Range dialog does not
+offer the row (PT 1K, a custom digital range, a fixed row's other range), a
+filter or calibration on a digital input, a signal type while the range is
+not Table 1-5, or a value in Manual on a digital input past range 22. Each is
+what the panel held when the file was saved; refusing or changing it would
+lose it.
+
+For C: an imported input's change starts from T3000's default, so on the
+device the file came from, every imported field is already the edited
+value. C should treat a field whose device value equals the edited value as
+nothing to write, not as the device having moved.
 
 `offline/prog_file.cpp` reads the file; `conformance/prog_file_guard.cpp`
 holds each table's count and item size to `global_define.h` and

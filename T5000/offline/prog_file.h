@@ -77,8 +77,8 @@ namespace t5000::offline
 
     // What an import keeps of input `index` from the file's `from_file`: the
     // columns the operator sets, over the input as T3000 starts it
-    // (default_input). Nothing else, so an imported input could have been
-    // made by changing it here:
+    // (default_input). Never what the panel sets, so C can only write what
+    // an operator set:
     //   - full label, label, filter, Auto/Manual, range (with the analog or
     //     digital byte), calibration and its sign, and the signal type (the
     //     high nibble of decom), as the file has them;
@@ -90,6 +90,15 @@ namespace t5000::offline
     //     sub_id, sub_product and sub_number: the panel sets those.
     // Text is kept to its first 0 and zeros after it, as a change typed here
     // stores it; what followed the 0 is not shown, by T3000 or here.
+    //
+    // The operator's columns are kept as T3000 saved them, even where the
+    // page's rules are stricter, so an imported input can be one the page
+    // would not let be typed: a label or full label with no 0, a range the
+    // Range dialog does not offer the row (PT 1K, a custom digital range, a
+    // fixed row's other range), a filter or calibration on a digital input,
+    // a signal type while the range is not Table 1-5, or a value in Manual
+    // on a digital input past range 22. Each is what the panel held when
+    // the file was saved, and refusing or changing it would lose it.
     InputBytes imported_input(int index, const InputBytes& from_file);
 
     // What an import keeps of the whole file, for a model whose grid shows
