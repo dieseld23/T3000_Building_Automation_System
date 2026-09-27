@@ -536,6 +536,22 @@ namespace
                   "  names it");
         }
         {
+            DeviceRecord spare = typed_in(kFirstVirtualSerial);
+            spare.provenance     = Provenance::Virtual;
+            spare.placement.name = "Spare";
+            registry.add_or_merge(spare);
+
+            Settings as_virtual;
+            as_virtual.serial = kFirstVirtualSerial;
+            FakeTransport t;
+            answers(t, as_virtual);
+            uint8_t invoke = 1;
+            const FindOutcome o = find_at(t, device_at(), entry, registry, instant(), invoke, kNow);
+            check(!o.found, "the serial of a virtual device in the list");
+            check(!has(o.message, "in the list already") && !has(o.message, "Spare"),
+                  "  names no entry: a virtual device is no device");
+        }
+        {
             Settings zero;
             zero.serial = 0;
             FakeTransport t;

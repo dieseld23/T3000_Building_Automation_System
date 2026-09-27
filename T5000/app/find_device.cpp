@@ -118,12 +118,12 @@ namespace t5000::app
         }
 
         // The entry another serial belongs to, for a message, or empty when
-        // it is not in the list.
+        // it is not in the list. Not a virtual device's: that is no device.
         std::string listed_as(const Registry& registry, uint32_t serial)
         {
             for (const auto& d : registry.devices())
             {
-                if (d.serial_number != serial || !d.has_stable_identity())
+                if (d.serial_number != serial || !d.has_stable_identity() || d.is_virtual())
                     continue;
                 const std::string& name = !d.placement.name.empty() ? d.placement.name : d.panel_name;
                 return " A device with serial " + std::to_string(serial) + " is in the list already" +

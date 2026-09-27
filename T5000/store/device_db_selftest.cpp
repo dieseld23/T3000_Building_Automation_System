@@ -1219,6 +1219,44 @@ namespace
         return out;
     }
 
+    void test_a_version_4_list_is_marked_as_one_that_may_hold_virtual_devices()
+    {
+        section("a list version 4 wrote is raised to 5, so a build before virtual devices refuses it");
+
+        // Version 4 listed and forgot kind 'scanned' only.
+        check(kSchemaVersion >= 5, "this build's version is past 4");
+
+        TempFile file(L"v4");
+        {
+            DeviceDb db;
+            std::string error;
+            if (!require(db.open(file.utf8(), error), "a new list is made"))
+                return;
+            check(db.save_scanned({ scanned(8701) }, error), "with a device in it");
+        }
+        {
+            // Version 5 changed no table, so a version 4 file is this one
+            // with the old number.
+            Database raw;
+            std::string error;
+            if (!require(raw.open(file.utf8(), error) && raw.exec("PRAGMA user_version = 4", error),
+                         "as version 4 of T5000 left it"))
+                return;
+        }
+
+        DeviceDb db;
+        std::string error;
+        if (!require(db.open(file.utf8(), error), "this build opens it"))
+            return;
+        const auto list = load(db);
+        check(list.size() == 1 && list[0].serial_number == 8701, "its device comes back");
+        db.close();
+
+        Database raw;
+        if (require(raw.open(file.utf8(), error), "the file opens directly"))
+            check_eq((long)single_int(raw, "PRAGMA user_version"), kSchemaVersion, "it is at this build's version");
+    }
+
     void test_a_virtual_device_comes_back_as_virtual()
     {
         section("a virtual device is saved as kind 'virtual', and comes back as one");
@@ -1382,6 +1420,7 @@ int run_device_db_tests()
     test_a_version_3_list_is_brought_up_to_date();
     test_the_table_refuses_a_transport_it_does_not_know();
     test_the_default_path_is_beside_the_exe();
+    test_a_version_4_list_is_marked_as_one_that_may_hold_virtual_devices();
     test_a_virtual_device_comes_back_as_virtual();
     test_a_virtual_and_a_real_device_with_one_serial_are_two_rows();
     test_forgetting_all_takes_virtual_devices();

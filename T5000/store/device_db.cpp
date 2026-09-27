@@ -263,6 +263,7 @@ namespace t5000::store
                 ok = m_db.exec(kUpgradeToV3, error);
             if (ok && version < 4)
                 ok = m_db.exec(kUpgradeToV4, error);
+            // Version 5 has no step: only the version changes (device_db.h).
             if (ok)
                 ok = m_db.exec(set_version.c_str(), error);
             if (ok)

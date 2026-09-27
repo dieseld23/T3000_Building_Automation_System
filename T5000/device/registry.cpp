@@ -347,7 +347,7 @@ namespace t5000::device
         // A device known only from the saved list is left out on both sides;
         // see the header.
         const auto takes_part = [](const DeviceRecord& d) {
-            return d.modbus_id_reported != 0 && d.provenance != Provenance::Restored && !d.is_virtual();
+            return d.modbus_id_reported != 0 && d.provenance != Provenance::Restored;
         };
 
         // An id is an address on one bus. A device a serial scan found shares

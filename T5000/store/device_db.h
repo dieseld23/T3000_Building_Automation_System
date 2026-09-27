@@ -48,7 +48,14 @@ namespace t5000::store
     // 2: added_by_hand, for a device the operator added before it was found.
     // 3: offline_points, for a device's points changed before it can be
     //    reached.
-    constexpr int kSchemaVersion = 4;
+    // 4: transport, serial_port, baud and slave_id, for a device reached
+    //    over a serial port.
+    // 5: no table changes; the CHECK on kind has taken 'virtual' since 1.
+    //    Raised because a list may now hold virtual devices, which a build
+    //    before 5 reads past: it lists and forgets only kind 'scanned', so it
+    //    would hide them, and leave them behind when told to forget every
+    //    device. It refuses the file instead, as written by a newer T5000.
+    constexpr int kSchemaVersion = 5;
 
     // One point the operator has changed on a device that cannot be reached:
     // the bytes it goes to the device as (Str_in_point for an input), before
