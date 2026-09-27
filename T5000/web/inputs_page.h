@@ -161,6 +161,8 @@ namespace t5000::web
   <span class="meta"><b id="count">0</b> points</span>
   <span class="spacer"></span>
   <input type="search" id="filter" placeholder="Filter points" autocomplete="off">
+  <button id="import" hidden title="Take this device's inputs from a .prog file T3000 saved from it">Import .prog</button>
+  <input type="file" id="import-file" accept=".prog" hidden>
   <button id="settings">Connection</button>
   <button id="refresh">Refresh</button>
 </header>
@@ -243,6 +245,15 @@ namespace t5000::web
   <footer>
     <button type="button" id="sign-cancel">Cancel</button>
     <button type="button" class="primary" id="sign-ok">Change it</button>
+  </footer>
+</dialog>
+
+<dialog class="ranges ask" id="import-dlg" aria-labelledby="import-title">
+  <h2 id="import-title">Import</h2>
+  <div class="body"><p id="import-text"></p></div>
+  <footer>
+    <button type="button" id="import-cancel">Cancel</button>
+    <button type="button" class="primary" id="import-ok">Import</button>
   </footer>
 </dialog>
 
@@ -388,6 +399,71 @@ namespace t5000::web
       : "") + "</td>";
   }
 
+  // ------------------------------------------------------- .prog import
+
+  // The file goes to the server as it is, in base64; the server checks it
+  // and says what an import would do, and nothing is saved until the
+  // operator agrees.
+  let importBody = null;
+
+  function base64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let s = "";
+    for (let i = 0; i < bytes.length; i += 0x8000)
+      s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(s);
+  }
+
+  async function postImport(body) {
+    const res = await fetch("/api/inputs/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    return res.json();
+  }
+
+  $("import").onclick = () => { $("import-file").value = ""; $("import-file").click(); };
+
+  $("import-file").onchange = async () => {
+    const f = $("import-file").files[0];
+    if (!f || !offline) return;
+    $("edit-msg").hidden = true;
+    // Well past the largest (67184 bytes); the server says why a file
+    // this side of it is refused.
+    if (f.size > 180000) { refuse(f.name + " is too large to be a .prog file."); return; }
+    try {
+      const body = { handle: offline.handle, file: base64(await f.arrayBuffer()) };
+      const data = await postImport(Object.assign({ check: true }, body));
+      if (!data.ok) { refuse(data.message || "The file was refused."); return; }
+      importBody = body;
+      $("import-title").textContent = "Import " + f.name;
+      $("import-text").textContent = data.message;
+      $("import-dlg").showModal();
+      $("import-cancel").focus();
+    } catch (err) {
+      refuse("The file could not be sent: " + err.message);
+    }
+  };
+
+  $("import-ok").onclick = async () => {
+    const body = importBody;
+    $("import-dlg").close();
+    if (!body) return;
+    try {
+      const data = await postImport(body);
+      if (data.inputs) show(data.inputs);
+      if (!data.ok) { refuse(data.message || "The file was refused."); return; }
+      $("edit-msg").hidden = false;
+      $("edit-msg").className = "banner ok";
+      $("edit-msg").textContent = data.message;
+    } catch (err) {
+      refuse("The file could not be sent: " + err.message);
+    }
+  };
+  $("import-cancel").onclick = () => $("import-dlg").close();
+  $("import-dlg").addEventListener("close", () => { importBody = null; });
+
   function render() {
     if (editing) return;
     const needle = $("filter").value.trim().toLowerCase();
@@ -440,6 +516,7 @@ namespace t5000::web
     allRows = data.inputs || [];
     showBanner(data);
     $("undo-head").hidden = !offline;
+    $("import").hidden = !(offline && offline.saving);
 
     if (allRows.length === 0) {
       $("empty-title").textContent = data.unavailable
@@ -471,6 +548,7 @@ namespace t5000::web
 
   function refuse(message) {
     $("edit-msg").hidden = false;
+    $("edit-msg").className = "banner warn";
     $("edit-msg").innerHTML = "<b>Not changed.</b> " + esc(message);
   }
 

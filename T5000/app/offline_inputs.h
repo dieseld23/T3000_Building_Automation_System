@@ -104,6 +104,32 @@ namespace t5000::app
     bool revert_offline_input(const device::Registry& registry, store::DeviceDb& db, const StoreStatus& status,
                               device::Handle handle, int index, std::string& message);
 
+    // An import as the page sends it: {"handle":"12","file":"VQ8I..."}, the
+    // .prog file in base64. With "check":true, nothing is saved, and the
+    // answer says what the import would do, for the page to ask first.
+    struct InputImportRequest
+    {
+        device::Handle       handle = device::kNoHandle;
+        std::vector<uint8_t> file;
+        bool                 check = false;
+    };
+
+    bool read_input_import_request(const std::string& body, InputImportRequest& request, std::string& message);
+
+    // Takes a device's inputs from a .prog file T3000 saved from it, in place
+    // of every change made here to its inputs. Of each input shown for the
+    // model, what the operator sets is kept (offline/prog_file.h,
+    // imported_input); nothing else in the file is.
+    //
+    // Refused, with `message` saying why and the list as it was, as a change
+    // is (a device a scan has found, no model, a list not being saved), and
+    // for a file that is not a .prog file T5000 reads, one whose settings
+    // give another serial, or 0, and one saved from another model. With
+    // request.check, `message` says what the import would do, and nothing
+    // is saved; without, what it did.
+    bool import_offline_inputs(const device::Registry& registry, store::DeviceDb& db, const StoreStatus& status,
+                               const InputImportRequest& request, std::string& message);
+
     // For a device read from the network: that inputs were changed offline
     // before it was found, and wait unwritten. Empty when none were.
     std::string pending_offline_note(store::DeviceDb& db, const device::DeviceRecord& d);

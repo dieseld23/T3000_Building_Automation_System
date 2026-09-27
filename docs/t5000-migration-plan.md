@@ -246,8 +246,9 @@ running the hardware checks. In this order:
    list](#the-device-list-and-virtual-devices). The owner settled
    decisions A to E there on 2026-09-26. Adding a device by hand is built,
    and so are configuring its inputs offline, every column T3000's grid lets
-   be changed, and D. Next come import and export, E and C, in the order
-   given there.
+   be changed, D, and importing its inputs from a `.prog` file saved from
+   it. Next come E, export (decided 2026-09-27: with T3000's defaults,
+   behind a warning) and C, in the order given there.
 3. **Serial ports.** Scanning is built: a port picked on the Devices page is
    opened and scanned at each of the six rates, and the devices found are
    listed and saved with their port, rate and id. It is tested on com0com's
@@ -363,10 +364,16 @@ What T3000 does:
   `55 FF` and the version. It then writes every section to whichever device
   is open (`Send_Set_Config_Command_Thread`, `MainFrm.cpp:5166`): inputs
   (`:5364`), outputs, variables, programs, PID loops, screens, holidays and
-  schedules. Last comes the settings block (`WRITE_SETTING_COMMAND`, `:5764`),
-  which holds the serial, IP address and panel number. It reads nothing first
-  and nothing back, so loading one panel's file onto another gives the second
-  panel the first one's identity.
+  schedules. Last comes the settings block (`WRITE_SETTING_COMMAND`, `:5764`).
+  Of that, it keeps the open device's serial, object instance, panel number,
+  Modbus id, IP address, subnet, gateway, MAC address and panel name
+  (`global_function.cpp:11243-11272`), and writes the rest from the file:
+  among it the panel type, DHCP or static, the serial ports' settings, the
+  Modbus port and the time zone. It reads nothing first and nothing back, and
+  no serial is compared, so one panel's file loaded onto another gives the
+  second the first one's points, programs and schedules.
+  *Corrected 2026-09-27:* this said the whole settings block was written,
+  identity included.
 - **A virtual device** (`BacnetAddVirtualDevice.cpp:187-220`) gets a random
   serial and a `.prog` file in `Database\temp`. Nothing writes one to
   hardware.
@@ -454,14 +461,19 @@ by. *Built;* see below.
    entry, which then goes through C.
 2. As T3000 does it: a random serial, matched like any other.
 
-**Decided: 1,** a configuration with no device behind it.
+**Decided: 1,** a configuration with no device behind it. **And on
+2026-09-27:** a `.prog` file imported into a virtual device is matched by
+its panel type only, not its serial, since a virtual device's serial is
+T5000's and no file carries it. A device added by hand, or found, is still
+matched by its serial (A).
 
 The order:
 
 1. B's panel type. *Built.*
 2. A's storage, with editing Inputs offline. *Built,* for every column
    T3000's grid lets be changed.
-3. Import and export.
+3. Import and export. *Import built,* for inputs. Export decided (2,
+   below), and next after E, since it covers virtual devices too.
 4. D. *Built.*
 5. E.
 6. C, the apply, once Stage 2's write transport and the first hardware check
@@ -599,6 +611,83 @@ defaults. Where T5000 differs, on purpose:
   signal type 15 and status 15, when the table's button was not clicked
   (`:1723`). The signal type is changed in its own column.
 
+*Built: importing a device's inputs from a `.prog` file.* On the Inputs page
+of a device configured offline, Import .prog takes a file T3000 saved, with
+Save File, from that device. The page sends the file itself; T5000 reads
+nothing from disk. It is imported only if:
+
+- it is the format T3000 writes today: `55 FF`, version 5 to 8, and exactly
+  as long as that version is (65,956 to 67,184 bytes). An older T3000's INI
+  file is not read; T3000 opens it and saves it again as this format;
+- the serial in its settings block is this device's, and not 0 (decision A);
+- its panel type is the model chosen for the device. A CM5's is 0, its own.
+
+The server first says what the import would do, and the page asks before it
+is done. It replaces every change made on the page to the device's inputs,
+in one transaction. Of each input the model shows, it keeps what the
+operator sets: the full label and label, Auto/Manual, the range, the filter,
+the calibration and its sign, and the signal type. It keeps the value, and
+the control byte a digital input's value is, only for an input in Manual:
+in Auto those are what the panel measured when the file was saved. It never
+keeps the status or the external module's bytes, which the panel sets, so
+C can only write what an operator set. Nothing else in the file is kept: not
+its outputs, variables, programs, schedules or settings. Nothing is sent to
+any device.
+
+The operator's columns are kept as T3000 saved them, even where the page's
+rules are stricter. So an imported input can be one the page would not let
+be typed: a label with no terminating 0, a range the Range dialog does not
+offer the row (PT 1K, a custom digital range, a fixed row's other range), a
+filter or calibration on a digital input, a signal type while the range is
+not Table 1-5, or a value in Manual on a digital input past range 22. Each is
+what the panel held when the file was saved; refusing or changing it would
+lose it.
+
+For C: an imported input's change starts from T3000's default, so on the
+device the file came from, every imported field is already the edited
+value. C should treat a field whose device value equals the edited value as
+nothing to write, not as the device having moved.
+
+`offline/prog_file.cpp` reads the file; `conformance/prog_file_guard.cpp`
+holds each table's count and item size to `global_define.h` and
+`CM5/ud_str.h`, Save File's order, and Load File's tests of the first bytes
+and of each version, and reads the sample file as T5000 does. Where T5000
+differs, on purpose:
+
+- A file whose length is not its version's is refused. T3000 reads past the
+  end of one cut short.
+- A file from another serial or model is refused. T3000 loads any file onto
+  the open device.
+- When T3000 opens a file offline, it makes each input with range 0 analog
+  (`global_function.cpp:11315`). The import keeps the file's byte, as
+  Load File does for a device that is online.
+
+*Export, for the owner.* T3000's Load File writes every table of a `.prog`
+file to the open panel, and the settings apart from its identity (above).
+T5000 knows only the inputs of a device configured offline, so an export
+would hold T3000's defaults for everything else: loaded onto a panel, it
+would put back its outputs, variables, programs, PID loops, schedules and
+screens as new, and could set its panel type, DHCP and serial ports from
+the file. Options:
+
+1. Export only for a device T5000 has read in full: every table, and the
+   settings. Not possible until the other screens are read.
+2. Export what T5000 has, with the defaults, behind a warning that says what
+   Load File would put back.
+3. No export for now. A device configured offline reaches a panel through
+   C, which writes only what the operator changed, after checking the
+   device's serial. Export follows 1 when T5000 reads every table.
+   (Recommended before the owner decided.)
+
+**Decided: 2** (2026-09-27), export with T3000's defaults, behind a warning.
+The defaults are T3000's own for a panel it has not read
+(`Initial_All_Point`) and for a new virtual device's settings
+(`Initial_Virtual_Device_Setting`), with the device's serial and panel type.
+The warning says what this file would put back over a panel's if loaded with
+T3000's Load File, from the values it actually holds. Export is offered only
+where T5000 holds the configuration: a device added by hand and not yet
+found, and a virtual device.
+
 *Built: finding a device at an address (D).* A device in the list that has
 not answered a scan since T5000 started - added by hand, from the saved list,
 or found before - and whose settings T5000 reads by private transfer has a
@@ -643,7 +732,7 @@ What T3000's virtual devices are, from `BacnetAddVirtualDevice.cpp` and
   version 6 adds variable units (66,056), 7 adds multi-state ranges (66,608),
   and 8, which T3000 writes, adds schedule flags (67,184).
   `Documentation/BTUMeterRev22.prog` is a version 6 file to test against. The
-  loader never checks the length; T5000's should.
+  loader never checks the length; T5000's does.
 - A new device's points are `Initial_All_Point`'s defaults (`global_function.cpp:17693`)
   and its settings `Initial_Virtual_Device_Setting`'s (`:17621`).
 - Not to copy: the serial is `rand() % 10000000 + 1000000`, which on MSVC

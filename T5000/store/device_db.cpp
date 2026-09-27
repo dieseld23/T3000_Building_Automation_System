@@ -795,6 +795,82 @@ namespace t5000::store
         return true;
     }
 
+    bool DeviceDb::replace_offline_inputs(uint32_t serial, const std::vector<OfflinePoint>& points,
+                                          std::string& error)
+    {
+        // Every point first, so a bad one refuses the lot before anything
+        // is deleted.
+        for (const auto& point : points)
+        {
+            if (point.base.size() != wire::kInputPointWireSize || point.edited.size() != wire::kInputPointWireSize)
+            {
+                error = "an input is " + std::to_string(wire::kInputPointWireSize) + " bytes";
+                return false;
+            }
+            if (point.index < 0 || point.index > 254)
+            {
+                error = "input " + std::to_string(point.index + 1) + " is not one a panel can have";
+                return false;
+            }
+        }
+
+        Transaction t(m_db);
+        if (!t.began())
+        {
+            error = t.error();
+            return false;
+        }
+
+        Statement device(m_db, "SELECT id FROM devices WHERE kind = 'scanned' AND serial = ?1");
+        device.bind(1, (int64_t)serial);
+        const Statement::Step found = device.step();
+        if (found == Statement::Step::Error)
+        {
+            error = device.error();
+            return false;
+        }
+        if (found != Statement::Step::Row)
+        {
+            error = "serial " + std::to_string(serial) + " is not in the saved list";
+            return false;
+        }
+        const int64_t id = device.column_int(0);
+
+        Statement clear(m_db, "DELETE FROM offline_points WHERE device_id = ?1 AND kind = 'input'");
+        clear.bind(1, id);
+        if (clear.step() != Statement::Step::Done)
+        {
+            error = clear.error();
+            return false;
+        }
+
+        for (const auto& point : points)
+        {
+            if (point.edited == point.base)
+                continue;
+
+            // The table's key refuses a second change to one input.
+            Statement write(m_db, "INSERT INTO offline_points (device_id, kind, idx, base, edited)"
+                                  " VALUES (?1, 'input', ?2, ?3, ?4)");
+            write.bind(1, id);
+            write.bind(2, (int64_t)point.index);
+            write.bind_blob(3, point.base.data(), point.base.size());
+            write.bind_blob(4, point.edited.data(), point.edited.size());
+            if (write.step() != Statement::Step::Done)
+            {
+                error = write.error();
+                return false;
+            }
+        }
+
+        if (!t.commit())
+        {
+            error = t.error();
+            return false;
+        }
+        return true;
+    }
+
     bool DeviceDb::references_held()
     {
         Statement q(m_db, "PRAGMA foreign_keys");

@@ -1,0 +1,292 @@
+// Tests for reading a .prog file's inputs and settings, and for what an
+// import keeps of each input.
+//
+// The property most worth guarding is that an import keeps only what the
+// operator sets. A .prog file also holds what the panel measured and set
+// itself when it was saved; kept here, that would be written to the device
+// as though the operator had asked for it.
+
+#include "prog_file.h"
+
+#include <string.h>
+
+#include <algorithm>
+
+#include "../testing/check.h"
+
+namespace
+{
+    using namespace t5000::offline;
+    using namespace t5000::testing;
+    namespace wire = t5000::wire;
+
+    bool contains(const std::string& text, const std::string& part)
+    {
+        return text.find(part) != std::string::npos;
+    }
+
+    bool has(const std::vector<std::string>& names, const char* name)
+    {
+        return std::find(names.begin(), names.end(), name) != names.end();
+    }
+
+    // A file as T3000 saves one for a panel whose inputs are as it starts
+    // them, with this serial and panel type byte in its settings.
+    std::vector<uint8_t> file_of(int version, uint32_t serial, uint8_t mini_type_byte)
+    {
+        std::vector<uint8_t> f(prog_file_length(version), 0);
+        if (f.empty())
+            f.resize(prog_file_length(kLastProgVersion), 0);
+        f[0] = 0x55;
+        f[1] = 0xFF;
+        f[2] = (uint8_t)version;
+        for (int i = 0; i < kProgInputs; i++)
+        {
+            const InputBytes p = default_input(i);
+            memcpy(&f[prog_at::inputs + (size_t)i * p.size()], p.data(), p.size());
+        }
+        uint8_t* settings = &f[prog_at::settings];
+        settings[wire::settings_at::mini_type] = mini_type_byte;
+        for (int k = 0; k < 4; k++)
+            settings[wire::settings_at::serial_number + k] = (uint8_t)(serial >> (8 * k));
+        return f;
+    }
+
+    InputBytes& input_in(std::vector<uint8_t>& f, int index, InputBytes& scratch)
+    {
+        memcpy(scratch.data(), &f[prog_at::inputs + (size_t)index * scratch.size()], scratch.size());
+        return scratch;
+    }
+
+    void put_input(std::vector<uint8_t>& f, int index, const InputBytes& p)
+    {
+        memcpy(&f[prog_at::inputs + (size_t)index * p.size()], p.data(), p.size());
+    }
+
+    void test_the_lengths_are_t3000s()
+    {
+        section("a .prog file is as long as the tables its version has");
+
+        check_eq((long)prog_file_length(5), 65956, "version 5 is 65956 bytes");
+        check_eq((long)prog_file_length(6), 66056, "version 6 adds the variables' units: 66056");
+        check_eq((long)prog_file_length(7), 66608, "version 7 adds the multi-state values: 66608");
+        check_eq((long)prog_file_length(8), 67184, "version 8 adds the schedules' flags: 67184");
+        check_eq((long)prog_file_length(4), 0, "version 4 is not this format");
+        check_eq((long)prog_file_length(9), 0, "nor is version 9, which T5000 does not know");
+
+        // The settings follow the ten tables before them.
+        size_t at = prog_at::inputs;
+        const auto& sections = prog_sections();
+        for (size_t k = 0; k < 10 && k < sections.size(); k++)
+            at += (size_t)sections[k].items * sections[k].size;
+        check_eq((long)at, (long)prog_at::settings, "the settings are where the ten tables before them end");
+        check(sections.size() > 10 && sections[10].size == wire::kSettingsWireSize && sections[10].items == 1,
+              "  and are one Str_Setting_Info");
+        check(sections.front().size == wire::kInputPointWireSize && sections.front().items == kProgInputs,
+              "the inputs come first, 64 Str_in_point");
+    }
+
+    void test_a_file_is_read()
+    {
+        section("a .prog file's inputs and settings are read");
+
+        std::vector<uint8_t> f = file_of(8, 9251, 0x45);
+        InputBytes p;
+        input_in(f, 63, p);
+        memcpy(&p[input_at::label], "LAST", 4);
+        put_input(f, 63, p);
+
+        ProgFile file;
+        std::string why;
+        if (!require(read_prog_file(f.data(), f.size(), file, why), "a version 8 file is read"))
+            return;
+        check_eq(file.version, 8, "  as version 8");
+        check_eq((long)file.settings.serial_number, 9251, "  with the serial in its settings");
+        check_eq(file.settings.mini_type(), 5, "  and its panel type, without the chip's two bits");
+        check_eq((long)file.inputs.size(), 64, "  and 64 inputs");
+        check(file.inputs[0] == default_input(0), "  input 1 as the file has it");
+        check(memcmp(&file.inputs[63][input_at::label], "LAST", 4) == 0, "  and input 64");
+
+        for (int version = kFirstProgVersion; version < kLastProgVersion; version++)
+        {
+            const std::vector<uint8_t> older = file_of(version, 9251, 5);
+            ProgFile o;
+            check(read_prog_file(older.data(), older.size(), o, why) && o.version == version &&
+                      o.settings.serial_number == 9251,
+                  ("a version " + std::to_string(version) + " file is read too").c_str());
+        }
+    }
+
+    void test_what_is_not_a_file_t5000_reads()
+    {
+        section("a file that is not a .prog file T5000 reads is refused, saying why");
+
+        ProgFile file;
+        std::string why;
+
+        check(!read_prog_file(nullptr, 0, file, why), "an empty file is refused");
+        check(contains(why, "not a .prog file"), "  as not a .prog file");
+
+        const uint8_t two[] = { 0x55, 0xFF };
+        check(!read_prog_file(two, sizeof(two), file, why), "two bytes are refused");
+
+        std::vector<uint8_t> f = file_of(8, 9251, 5);
+        f[1] = 0xFE;
+        check(!read_prog_file(f.data(), f.size(), file, why), "a file not starting 55 FF is refused");
+        check(contains(why, "older T3000"), "  saying an older T3000 may have saved it");
+
+        f = file_of(5, 9251, 5);
+        f[2] = 4;
+        check(!read_prog_file(f.data(), f.size(), file, why), "version 4, an older T3000's, is refused");
+        check(contains(why, "not a .prog file"), "  as not this format");
+
+        f = file_of(8, 9251, 5);
+        f[2] = 9;
+        check(!read_prog_file(f.data(), f.size(), file, why), "version 9 is refused");
+        check(contains(why, "version 9") && contains(why, "newer T3000"), "  as a newer T3000's");
+
+        f = file_of(8, 9251, 5);
+        f.pop_back();
+        check(!read_prog_file(f.data(), f.size(), file, why), "a version 8 file a byte short is refused");
+        check(contains(why, "67183 bytes") && contains(why, "67184"), "  saying how long it is and should be");
+
+        f = file_of(8, 9251, 5);
+        f.push_back(0);
+        check(!read_prog_file(f.data(), f.size(), file, why), "a byte over is refused too");
+
+        f = file_of(5, 9251, 5);
+        f[2] = 8;
+        check(!read_prog_file(f.data(), f.size(), file, why), "a version 5 file's length, labelled 8, is refused");
+        check(file.inputs.empty() && file.version == 0, "a file refused gives nothing");
+    }
+
+    InputBytes every_field_set(uint8_t auto_manual)
+    {
+        InputBytes p = {};
+        memcpy(&p[input_at::description], "AHU supply\0junk", 15);
+        memcpy(&p[input_at::label], "ABCDEFGHI", 9);   // all nine bytes, no 0
+        p[input_at::value + 0]      = 0x39;             // 12345
+        p[input_at::value + 1]      = 0x30;
+        p[input_at::filter]         = 9;
+        p[input_at::decom]          = 0x3A;             // signal type 3, status 10
+        p[input_at::sub_id]         = 7;
+        p[input_at::sub_product]    = 8;
+        p[input_at::control]        = 1;
+        p[input_at::auto_manual]    = auto_manual;
+        p[input_at::digital_analog] = 1;
+        p[input_at::calibration_sign] = 1;
+        p[input_at::sub_number]     = 9;
+        p[input_at::calibration_h]  = 2;
+        p[input_at::calibration_l]  = 3;
+        p[input_at::range]          = 11;
+        return p;
+    }
+
+    void test_an_import_keeps_what_the_operator_sets()
+    {
+        section("an import keeps what the operator sets, and not what the panel read");
+
+        const InputBytes manual = imported_input(4, every_field_set(1));
+        check(memcmp(&manual[input_at::description], "AHU supply\0\0\0\0\0\0\0\0\0\0\0", 21) == 0,
+              "the full label, to its first 0, with zeros after it");
+        check(memcmp(&manual[input_at::label], "ABCDEFGHI", 9) == 0, "a label with no 0 in it, whole");
+        check_eq(manual[input_at::filter], 9, "the filter");
+        check_eq(manual[input_at::auto_manual], 1, "Manual");
+        check_eq(manual[input_at::digital_analog], 1, "analog");
+        check_eq(manual[input_at::range], 11, "the range");
+        check(manual[input_at::calibration_sign] == 1 && manual[input_at::calibration_h] == 2 &&
+                  manual[input_at::calibration_l] == 3,
+              "the calibration and its sign");
+        check_eq(manual[input_at::decom], 0x30, "the signal type, and not the status beside it");
+        check(manual[input_at::value] == 0x39 && manual[input_at::value + 1] == 0x30 && manual[input_at::control] == 1,
+              "in Manual, the value and the control byte");
+        check(manual[input_at::sub_id] == 0 && manual[input_at::sub_product] == 0 && manual[input_at::sub_number] == 0,
+              "not the external module");
+
+        const std::vector<std::string> changed = changed_fields(default_input(4), manual);
+        check(!has(changed, "status") && !has(changed, "external"),
+              "an imported input is never marked as having its status or external module changed");
+        check(has(changed, "value") && has(changed, "signalType") && has(changed, "fullLabel"),
+              "  and is marked for what it did change");
+
+        const InputBytes in_auto = imported_input(4, every_field_set(0));
+        check(in_auto[input_at::value] == 0 && in_auto[input_at::value + 1] == 0 && in_auto[input_at::control] == 0,
+              "in Auto, not the value or the control byte: the panel measured those");
+        check(!has(changed_fields(default_input(4), in_auto), "value"), "  so the value is not marked changed");
+        check_eq(in_auto[input_at::range], 11, "  and the rest is kept all the same");
+
+        const InputBytes other = imported_input(4, every_field_set(2));
+        check_eq(other[input_at::value], 0x39, "an Auto/Manual byte of 2 is Manual, as T3000's grid tests for Auto");
+
+        // What the panel sets, alone, makes no change at all.
+        InputBytes readings = default_input(9);
+        readings[input_at::decom]       = 0x05;
+        readings[input_at::sub_id]      = 1;
+        readings[input_at::sub_number]  = 1;
+        readings[input_at::value]       = 0x7F;
+        readings[input_at::control]     = 1;
+        check(imported_input(9, readings) == default_input(9),
+              "an input in Auto that differs only in what the panel read is as T3000 starts it");
+    }
+
+    void test_rows_past_the_model_are_not_kept()
+    {
+        section("only the inputs the model shows are imported; the others are counted");
+
+        std::vector<uint8_t> f = file_of(8, 9251, 5);
+        InputBytes p;
+        input_in(f, 0, p);
+        memcpy(&p[input_at::label], "FIRST", 5);
+        put_input(f, 0, p);
+        input_in(f, 20, p);
+        memcpy(&p[input_at::label], "TWENTY", 6);
+        put_input(f, 20, p);
+        input_in(f, 30, p);
+        p[input_at::decom] = 0x04;   // the status alone
+        put_input(f, 30, p);
+
+        ProgFile file;
+        std::string why;
+        if (!require(read_prog_file(f.data(), f.size(), file, why), "the file is read"))
+            return;
+
+        const ImportedInputs twelve = imported_inputs(file, 12);
+        check(twelve.inputs.size() == 1 && twelve.inputs[0].first == 0, "of 12 rows, input 1 is imported");
+        check_eq(twelve.past, 1, "  and input 21, past them, is counted and not kept");
+
+        const ImportedInputs all = imported_inputs(file, 64);
+        check(all.inputs.size() == 2 && all.inputs[1].first == 20, "of 64, inputs 1 and 21");
+        check_eq(all.past, 0, "  with none past");
+        check(memcmp(&all.inputs[1].second[input_at::label], "TWENTY", 6) == 0, "  each as the file has it");
+    }
+
+    void test_base64()
+    {
+        section("the file is read from base64, strictly");
+
+        std::vector<uint8_t> out;
+        check(base64_decode("", out) && out.empty(), "nothing is nothing");
+        check(base64_decode("QQ==", out) && out == std::vector<uint8_t>{ 'A' }, "QQ== is A");
+        check(base64_decode("QUI=", out) && out == std::vector<uint8_t>{ 'A', 'B' }, "QUI= is AB");
+        check(base64_decode("QUJD", out) && out == std::vector<uint8_t>{ 'A', 'B', 'C' }, "QUJD is ABC");
+        check(base64_decode("VQ+/", out) && out == std::vector<uint8_t>{ 0x55, 0x0F, 0xBF }, "+ and / are 62 and 63");
+
+        check(!base64_decode("QQ=", out), "a length that is not a multiple of 4 is refused");
+        check(!base64_decode("Q===", out), "three = are refused");
+        check(!base64_decode("QQ=A", out), "a digit after = is refused");
+        check(!base64_decode("QQ==QUJD", out), "= before the end is refused");
+        check(!base64_decode("QU J", out) && !base64_decode("QUJ\n", out), "whitespace is refused");
+        check(!base64_decode("QU-_", out), "the URL alphabet's - and _ are refused");
+    }
+}
+
+int run_prog_file_tests()
+{
+    test_the_lengths_are_t3000s();
+    test_a_file_is_read();
+    test_what_is_not_a_file_t5000_reads();
+    test_an_import_keeps_what_the_operator_sets();
+    test_rows_past_the_model_are_not_kept();
+    test_base64();
+    return 0;
+}

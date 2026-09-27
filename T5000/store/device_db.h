@@ -139,6 +139,13 @@ namespace t5000::store
         // error when it had none.
         bool revert_offline_input(uint32_t serial, int index, std::string& error);
 
+        // Puts these changes in place of every input change saved for the
+        // device, in one transaction: an import of a .prog file's inputs.
+        // A point whose edited bytes are its base is not saved, as for one
+        // change. Refused, with nothing changed, for a device that is not
+        // saved and for any point that save_offline_input would refuse.
+        bool replace_offline_inputs(uint32_t serial, const std::vector<OfflinePoint>& points, std::string& error);
+
         // Whether this connection holds offline_points to their device, as
         // open() sets it to. Without it a change could outlive its device
         // and be handed to the next device given that row. For the

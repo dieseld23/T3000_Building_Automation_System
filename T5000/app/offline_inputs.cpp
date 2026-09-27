@@ -7,6 +7,7 @@
 #include "../json/read.h"
 #include "../offline/input_cells.h"
 #include "../offline/input_ranges.h"
+#include "../offline/prog_file.h"
 #include "../wire/decode.h"
 #include "points_json.h"
 
@@ -443,6 +444,165 @@ namespace t5000::app
             message = "The input could not be put back: " + error + ".";
             return false;
         }
+        return true;
+    }
+
+    bool read_input_import_request(const std::string& body, InputImportRequest& request, std::string& message)
+    {
+        std::map<std::string, json::FlatValue> fields;
+        if (!read_fields(body, fields, message))
+            return false;
+
+        InputImportRequest r;
+        if (!handle_from(fields, r.handle, message))
+            return false;
+
+        const auto file = fields.find("file");
+        if (file == fields.end() || !file->second.is_string || !offline::base64_decode(file->second.text, r.file))
+        {
+            message = "file must be the .prog file, in base64.";
+            return false;
+        }
+
+        const auto check = fields.find("check");
+        if (check != fields.end())
+        {
+            if (check->second.is_string || (check->second.text != "true" && check->second.text != "false"))
+            {
+                message = "check must be true or false.";
+                return false;
+            }
+            r.check = check->second.text == "true";
+        }
+
+        request = r;
+        return true;
+    }
+
+    bool import_offline_inputs(const Registry& registry, store::DeviceDb& db, const StoreStatus& status,
+                               const InputImportRequest& request, std::string& message)
+    {
+        const DeviceRecord* d = find(registry, request.handle);
+        if (!d)
+        {
+            message = kGone;
+            return false;
+        }
+
+        const OfflineInputsPlan plan = plan_offline_inputs(*d);
+        if (!plan.can_edit)
+        {
+            message = plan.reason;
+            return false;
+        }
+
+        if (!db.is_open())
+        {
+            message = not_saving(status);
+            return false;
+        }
+
+        offline::ProgFile file;
+        if (!offline::read_prog_file(request.file.data(), request.file.size(), file, message))
+            return false;
+
+        // Matched by the serial in its settings (the owner's decision A,
+        // 2026-09-26), and then by the model, which decides what each
+        // input's bytes mean.
+        const uint32_t serial = file.settings.serial_number;
+        if (serial == 0)
+        {
+            message = "This .prog file does not say which device it was saved from: the serial in its settings "
+                      "is 0. A file's inputs are imported only into the device it was saved from.";
+            return false;
+        }
+        if (serial != d->serial_number)
+        {
+            message = "This .prog file was saved from serial " + std::to_string(serial) + ", and this device is " +
+                      "serial " + std::to_string(d->serial_number) + ". A file's inputs are imported only into the "
+                      "device it was saved from.";
+            return false;
+        }
+
+        const int type = file.settings.mini_type();
+        if (type != (int)static_cast<uint8_t>(plan.type))
+        {
+            if (type == 0)
+            {
+                message = "This .prog file's settings give no panel type, so they do not say it was saved from a " +
+                          plan.model + ". Its inputs are imported only into the model it was saved from.";
+            }
+            else
+            {
+                message = std::string("This .prog file was saved from a ") +
+                          panel_name(d->product, static_cast<MiniType>(type)) + ", and this device is a " +
+                          plan.model + ". Its inputs are imported only into the model it was saved from.";
+            }
+            return false;
+        }
+
+        std::vector<int> earlier;
+        std::string error;
+        if (!offline_input_indexes(db, d->serial_number, earlier, error))
+        {
+            message = "The inputs T5000 keeps for this device could not be read from its list: " + error + ".";
+            return false;
+        }
+
+        // The rows T3000 shows for the model, as for a change; the file's
+        // others are counted, and not kept.
+        const offline::ImportedInputs imported = offline::imported_inputs(file, plan.rows);
+        std::vector<store::OfflinePoint> points;
+        for (const auto& [index, kept] : imported.inputs)
+        {
+            const offline::InputBytes base = offline::default_input(index);
+            store::OfflinePoint point;
+            point.index = index;
+            point.base.assign(base.begin(), base.end());
+            point.edited.assign(kept.begin(), kept.end());
+            points.push_back(point);
+        }
+        const int past = imported.past;
+
+        const std::string of_rows = " of this device's " + std::to_string(plan.rows) + " inputs";
+        const std::string set = points.empty()
+                                    ? "none" + of_rows + " differ from how T3000 starts them"
+                                    : std::to_string(points.size()) + of_rows +
+                                          (points.size() == 1 ? " is" : " are") + " set as the file has "
+                                          + (points.size() == 1 ? "it" : "them");
+        std::string replaced;
+        if (!earlier.empty())
+            replaced = " It replaces the changes made here to " + input_list(earlier) + ".";
+        std::string beyond;
+        if (past != 0)
+        {
+            beyond = " The file holds " + std::to_string(past) + (past == 1 ? " input" : " inputs") +
+                     " past the " + std::to_string(plan.rows) + " a " + plan.model + " shows that " +
+                     (past == 1 ? "is" : "are") + " not as T3000 starts " + (past == 1 ? "it" : "them") +
+                     "; " + (past == 1 ? "it is" : "they are") + " not kept.";
+        }
+        const std::string kept_note =
+            " Of each input, what the operator sets is kept: the labels, Auto/Manual, range, filter, calibration "
+            "and signal type, and the value of an input in Manual. Its status, its external module, and the value "
+            "of an input in Auto are what the panel read, and are not. Nothing else in the file is kept: not its "
+            "outputs, variables, programs, schedules or settings. Nothing is sent to the device.";
+
+        if (request.check)
+        {
+            message = "This .prog file (version " + std::to_string(file.version) + ") was saved from serial " +
+                      std::to_string(serial) + ", a " + plan.model + ". If it is imported, " + set + "." +
+                      replaced + beyond + kept_note;
+            return true;
+        }
+
+        if (!db.replace_offline_inputs(d->serial_number, points, error))
+        {
+            message = "The file's inputs could not be saved: " + error + ".";
+            return false;
+        }
+
+        message = "Imported: " + set + "." + (earlier.empty() ? std::string() : " The changes made here before "
+                  "are replaced.") + beyond;
         return true;
     }
 
