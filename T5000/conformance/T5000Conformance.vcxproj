@@ -96,6 +96,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="command_guard.cpp" />
     <ClCompile Include="input_cells_guard.cpp" />
+    <ClCompile Include="prog_file_guard.cpp" />
     <ClCompile Include="input_range_guard.cpp" />
     <ClCompile Include="models_guard.cpp" />
     <ClCompile Include="offline_guard.cpp" />
@@ -128,8 +129,12 @@
     <ClCompile Include="..\bacnet\write_command.cpp" />
     <ClCompile Include="..\device\product.cpp" />
     <ClCompile Include="..\offline\input_cells.cpp" />
+    <ClCompile Include="..\offline\input_edit.cpp" />
     <ClCompile Include="..\offline\input_ranges.cpp" />
+    <ClCompile Include="..\offline\prog_file.cpp" />
     <ClCompile Include="..\serial\rtu.cpp" />
+    <ClCompile Include="..\wire\decode.cpp" />
+    <ClCompile Include="..\wire\panel.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cm5_header.h" />
