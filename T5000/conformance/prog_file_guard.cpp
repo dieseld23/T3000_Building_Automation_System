@@ -448,7 +448,7 @@ namespace
 
         // Initial_All_Point's memset, then Add virtual device's panel type
         // and serial, then Initial_Virtual_Device_Setting
-        // (BacnetAddVirtualDevice.cpp:201-221, global_function.cpp:17621).
+        // (BacnetAddVirtualDevice.cpp:201-225, global_function.cpp:17621).
         ::Str_Setting_Info s;
         memset(&s, 0, sizeof s);
         s.reg.mini_type       = 5;

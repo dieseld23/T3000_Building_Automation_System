@@ -157,17 +157,17 @@ namespace t5000::offline
     // 2026-09-27: what T5000 has, with T3000's defaults for the rest). Version
     // 8, prog_file_length(8) bytes. Of its tables, T5000 keeps the inputs
     // only; every other one is as T3000's Add virtual device saves it for a
-    // new panel (BacnetAddVirtualDevice.cpp:208-222: ClearBacnetData, then
+    // new panel (BacnetAddVirtualDevice.cpp:201-225: ClearBacnetData, then
     // Initial_All_Point, then the settings, then SaveBacnetBinaryFile):
     //   - outputs OUT1 to OUT64, their hand switches at Auto
     //     (hw_switch_status 1); variables VAR1 to VAR128; programs PRG1 to
     //     PRG16, with no code; every other byte of them 0
-    //     (Initial_All_Point, global_function.cpp:17726-17760);
+    //     (Initial_All_Point, global_function.cpp:17721-17758);
     //   - the schedules' time flags all 0xFF (:17791-17793);
     //   - every other table 0. ClearBacnetData zeroes the ones
     //     Initial_All_Point leaves as they were: the graphic labels, the
     //     range tables, the variable units, the holidays' codes and the
-    //     program code (:13422-13525);
+    //     program code (:13422-13526);
     //   - the settings 0 (:17908) but for the serial, the panel type, and
     //     Initial_Virtual_Device_Setting's (:17621-17630): ports 0 and 2 at
     //     115200 baud, IP 192.168.0.3, Modbus TCP port 502. Not the object
@@ -179,7 +179,7 @@ namespace t5000::offline
     // for the page to show before an export: read back from the file's
     // bytes, not restated, so the page says what the file holds. Load File
     // writes every table, and every setting but the ones it keeps
-    // (global_function.cpp:11243-11272): the serial, the object instance,
+    // (global_function.cpp:11261-11272): the serial, the object instance,
     // the panel number, the Modbus id, the IP address, subnet, gateway and
     // MAC, and the name.
     std::string describe_prog_export(const std::vector<uint8_t>& file, const std::string& model);
