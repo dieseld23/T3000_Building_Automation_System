@@ -28,7 +28,7 @@ synthetic devices on loopback.
 | Area | State |
 | --- | --- |
 | Scan | Done. Broadcasts T3000's discovery query on a chosen interface and lists what answers. |
-| Serial ports | First part done. The Devices page lists the computer's COM ports, read from the registry without opening any. A serial scan is built and tested against a scripted line: it listens first, finds each device by halving the id range as T3000 does, and cannot send a write. Nothing opens a port yet, so no serial device can be found. See the migration plan. |
+| Serial ports | Scanning done; reading not yet. The Devices page lists the computer's COM ports, read from the registry without opening any, and a port picked there is scanned at 9600, 19200, 38400, 57600, 76800 and 115200 baud in turn, as T3000 scans one. At each rate it listens first, then finds each device by halving the id range, and it can send only the range query and a read of registers 0-9: nothing is written. A line that runs MS/TP, or where something else is talking, is left alone. The devices found are listed and saved with their port, rate and id. Tested on com0com's virtual pair only; no real adapter has been opened. Reading their points is still to do; see the migration plan. |
 | Device list | Done. Identifies each product and flags problems the scan noticed, as repairs for someone to approve later. Nothing is written to a device. |
 | Saved device list | Done. Every device with a serial number that answers a scan, or is found by Find, is saved in `T5000.db` and listed again the next time T5000 starts, with when it was last seen. (A device reporting no serial is listed but cannot be saved: there is nothing to know it by next time.) Each can be given a name, building, floor and room, and the list is grouped by them. A device can be forgotten. |
 | Devices added by hand | Partly done. A device no scan has found - on another network, or not installed yet - can be added with its model and serial, named and placed. The models are T3000's Add virtual device list (a T3-OEM is a TSTAT10 set up as panel type T3_OEM), held to T3000's source by the conformance checks, with "Model not known" for each product and every other product as itself. It is saved and shown as "added by hand", and nothing is sent to it unless Find is clicked. Once its model is chosen (Edit; a CM5 needs none), its inputs can be configured on the Inputs page before it is found: Full Label, Label, Auto/Manual, Range, from the ranges T3000's Range dialog offers each input of that model, and an analog input's Filter, by T3000's rules, kept in `T5000.db`. When a scan, or Find, finds its serial, that device takes its place, keeping the name, the location and those changes, which its Inputs page says are not written yet. The inputs' Value, Calibration, Sign and Signal Type, and outputs and variables, are still to do; see the migration plan. |
@@ -37,7 +37,7 @@ synthetic devices on loopback.
 | Inputs | Done for the five BACnet private-data products (CM5, MiniPanel, MiniPanel ARM, ESP32 T3, TSTAT10) over BACnet/IP. The grid matches T3000's column by column, including the panel's own custom range names and its row count per model. The Panel and Type columns are not done. |
 | Outputs | Done for the same five products over BACnet/IP. The grid matches T3000's column by column: the HOA Switch column and the rows it marks, each model's row count, the panel's custom digital range names, and outputs on T3 expansion modules. The Panel, Type and Product Name columns are not done. |
 | Variables | Done for the same five products over BACnet/IP. The grid matches T3000's column by column: every variable the panel has, three decimals, times, the fixed and the panel's own state pairs, the panel's own units, and names from its multi-state tables. |
-| Every other screen | Not started. See the migration plan's stages. |
+| Every other screen | Not started. The bar across the top of every page names them all in T3000's toolbar order, dimmed until they are built; Alt+I, Alt+O and Alt+V open Inputs, Outputs and Variables, as in T3000. See the migration plan's stages. |
 | Writes | Started. A write of inputs can be encoded, and a panel's answer classified, byte for byte as T3000's BACnet stack does it, but nothing can send one yet. Writing one input's Filter, approved in the page and confirmed by reading it back, is next. See the migration plan's Writes. |
 | Tstats and Modbus modules | Identified in the device list; not read. They need the register path, which does not exist yet. |
 | Devices behind a controller | Refused, with the controller named. T3000 reaches them through the controller over Modbus; T5000 does not yet. |
@@ -58,8 +58,10 @@ of its settings.
 - **The scans and the read path cannot write.** None of their transports can
   express a write. The scan can only broadcast the discovery query and
   receive (`discovery/scanner.h`). The serial scan can only send the range
-  query and the read of registers 0-9 (`serial/rtu.h`), and opens no port
-  yet. A read can only send a command on the `ReadCommand` whitelist
+  query and the read of registers 0-9 (`serial/rtu.h`), and opens a port
+  only when the operator picks it, and only one Windows lists as a serial
+  port (`discovery/com_port_line.h`). A read can only send a command on the
+  `ReadCommand` whitelist
   (`bacnet/command.h`). A compile-time guard checks
   the whitelist against T3000's command codes and against a list of codes
   that must never be sent (`conformance/command_guard.cpp`).

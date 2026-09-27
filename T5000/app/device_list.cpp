@@ -173,6 +173,53 @@ namespace t5000::app
             target = it->second.text;
             return true;
         }
+
+        // What every scan does with what it found, over the network or a
+        // serial port alike.
+        void take_in(Registry& registry, store::DeviceDb& db, const std::vector<DeviceRecord>& found,
+                     int64_t now, ScanSummary& summary, StoreStatus& status)
+        {
+            const int scan = registry.begin_scan();
+
+            // Merged, not replaced. A controller that answered earlier and stayed
+            // quiet this time is information worth keeping on screen; dropping it
+            // would make a flaky device look like one that was never there.
+            for (DeviceRecord d : found)
+            {
+                d.answered_scan = scan;
+                d.first_seen    = now;
+                d.last_seen     = now;
+                registry.add_or_merge(d);
+            }
+
+            // Over the WHOLE list, not just this scan. Two devices sharing an id
+            // can answer on different scans and never appear in one result, and a
+            // rescan that only one of a pair answers would otherwise leave the
+            // other accusing a device the page now shows as clean.
+            summary.stats.duplicate_modbus_ids = registry.refresh_duplicate_modbus_ids();
+
+            if (!db.is_open())
+                return;
+
+            // Every device seen this session, not only those in this scan. A
+            // save that failed earlier is then made good by the next one that
+            // works, and clearing the error below is true rather than hopeful.
+            // A device from an earlier scan keeps its own last_seen: the file
+            // takes the later of the two.
+            //
+            // The merged records, not the raw ones: a field this scan did not
+            // carry keeps what an earlier one learned, on disk as in memory.
+            std::vector<DeviceRecord> answered;
+            for (const auto& d : registry.devices())
+                if (d.answered_scan != 0)
+                    answered.push_back(d);
+
+            std::string error;
+            if (db.save_scanned(answered, error))
+                status.error.clear();
+            else
+                status.error = "the last scan could not be saved: " + error;
+        }
     }
 
     StoreStatus open_saved_list(store::DeviceDb& db, const std::string& path, Registry& registry)
@@ -211,47 +258,15 @@ namespace t5000::app
     {
         summary.stats = result.stats;
         summary.error = result.error;
+        take_in(registry, db, result.devices, now, summary, status);
+    }
 
-        const int scan = registry.begin_scan();
-
-        // Merged, not replaced. A controller that answered earlier and stayed
-        // quiet this time is information worth keeping on screen; dropping it
-        // would make a flaky device look like one that was never there.
-        for (DeviceRecord d : result.devices)
-        {
-            d.answered_scan = scan;
-            d.first_seen    = now;
-            d.last_seen     = now;
-            registry.add_or_merge(d);
-        }
-
-        // Over the WHOLE list, not just this scan. Two devices sharing an id
-        // can answer on different scans and never appear in one result, and a
-        // rescan that only one of a pair answers would otherwise leave the
-        // other accusing a device the page now shows as clean.
-        summary.stats.duplicate_modbus_ids = registry.refresh_duplicate_modbus_ids();
-
-        if (!db.is_open())
-            return;
-
-        // Every device seen this session, not only those in this scan. A
-        // save that failed earlier is then made good by the next one that
-        // works, and clearing the error below is true rather than hopeful.
-        // A device from an earlier scan keeps its own last_seen: the file
-        // takes the later of the two.
-        //
-        // The merged records, not the raw ones: a field this scan did not
-        // carry keeps what an earlier one learned, on disk as in memory.
-        std::vector<DeviceRecord> answered;
-        for (const auto& d : registry.devices())
-            if (d.answered_scan != 0)
-                answered.push_back(d);
-
-        std::string error;
-        if (db.save_scanned(answered, error))
-            status.error.clear();
-        else
-            status.error = "the last scan could not be saved: " + error;
+    void record_serial_scan(Registry& registry, store::DeviceDb& db, const discovery::PortScanResult& result,
+                            int64_t now, ScanSummary& summary, StoreStatus& status)
+    {
+        summary.serial_scanned = true;
+        summary.serial         = result;
+        take_in(registry, db, result.devices, now, summary, status);
     }
 
     bool forget_device(Registry& registry, store::DeviceDb& db, Handle handle, ScanSummary& summary,

@@ -40,7 +40,9 @@
 #include "device/connection.h"
 #include "device/read_path.h"
 #include "device/registry.h"
+#include "discovery/com_port_line.h"
 #include "discovery/scanner.h"
+#include "discovery/serial_scan.h"
 #include "http/server.h"
 #include "json/read.h"
 #include "net/interfaces.h"
@@ -48,6 +50,7 @@
 #include "store/device_db.h"
 #include "web/devices_page.h"
 #include "web/inputs_page.h"
+#include "web/nav.h"
 #include "web/outputs_page.h"
 #include "web/variables_page.h"
 
@@ -314,20 +317,27 @@ int main(int argc, char** argv)
     // The device list is the front door. Every other screen needs a selected
     // device before it can mean anything, and landing on a grid of fixture
     // points invites the reader to believe it came from somewhere.
+    //
+    // Each page is served with the bar of pages across its top (web/nav.h),
+    // put together once.
     server.route("/", [](const http::Request&) {
-        return http::Response::html(web::kDevicesPage);
+        static const std::string page = web::with_nav(web::kDevicesPage, "/");
+        return http::Response::html(page);
     });
 
     server.route("/inputs", [](const http::Request&) {
-        return http::Response::html(web::kInputsPage);
+        static const std::string page = web::with_nav(web::kInputsPage, "/inputs");
+        return http::Response::html(page);
     });
 
     server.route("/outputs", [](const http::Request&) {
-        return http::Response::html(web::kOutputsPage);
+        static const std::string page = web::with_nav(web::kOutputsPage, "/outputs");
+        return http::Response::html(page);
     });
 
     server.route("/variables", [](const http::Request&) {
-        return http::Response::html(web::kVariablesPage);
+        static const std::string page = web::with_nav(web::kVariablesPage, "/variables");
+        return http::Response::html(page);
     });
 
     // Loaded once at startup and held in memory. A tool driven by one person at
@@ -445,7 +455,8 @@ int main(int argc, char** argv)
     });
 
     // Runs one scan, synchronously. The request takes as long as the scan
-    // does - up to about nine seconds - and the page says so before it starts.
+    // does - up to about nine seconds on the network, and two or more seconds
+    // a rate on a serial port - and the page says so before it starts.
     //
     // Deliberately not on a worker thread. The scanner returns its whole
     // result at the end, so a thread would publish nothing sooner; getting
@@ -457,6 +468,7 @@ int main(int argc, char** argv)
             return bad_request("A scan is started with POST.");
 
         std::string interface_ip;
+        std::string serial_port;
         int wait_ms = discovery::ScanSettings().total_timeout_ms;
 
         if (!req.body.empty())
@@ -465,6 +477,55 @@ int main(int argc, char** argv)
                 return bad_request("interfaceIp must be a string.");
             if (!json::read_int(req.body, "waitMs", wait_ms))
                 return bad_request("waitMs must be a number.");
+            if (!json::read_string(req.body, "serialPort", serial_port))
+                return bad_request("serialPort must be a string.");
+        }
+
+        // A serial port, when the operator picked one. Only a port the
+        // registry lists as one is opened - never a name the request makes
+        // up - and the line it becomes can send the range query and the
+        // identity read and nothing else (discovery/com_port_line.h).
+        //
+        // Each rate in turn, as T3000 scans a port. The port is closed again
+        // before the response goes, so T3000 or a terminal can have it back
+        // straight away.
+        if (!serial_port.empty())
+        {
+            g_summary = app::ScanSummary();
+            g_summary.has_scanned    = true;
+            g_summary.serial_scanned = true;
+            g_summary.serial.port    = serial_port;
+
+            std::string list_error;
+            const std::vector<serial::Port> ports = serial::list_ports(list_error);
+            const serial::Port* port = serial::find_port(ports, serial_port);
+            if (!port)
+            {
+                g_summary.error = serial_port + " is not among the serial ports Windows lists now" +
+                                  (list_error.empty() ? std::string() : " (" + list_error + ")") +
+                                  ". It may have been unplugged; reload the page to see the ports there are.";
+                return http::Response::json(devices_json());
+            }
+            g_summary.serial.port = port->name;
+
+            const std::vector<int>& rates = device::supported_baud_rates();
+            discovery::ComPortLine line;
+            std::string open_error;
+            if (!line.open(port->name, rates.front(), open_error))
+            {
+                g_summary.error = open_error;
+                return http::Response::json(devices_json());
+            }
+
+            discovery::SerialScanSettings settings;
+            settings.port_name = port->name;
+            settings.com_port  = port->number;
+
+            const discovery::PortScanResult result = discovery::scan_serial_port(line, rates, settings);
+            line.close();
+
+            app::record_serial_scan(g_registry, g_db, result, (int64_t)time(nullptr), g_summary, g_store);
+            return http::Response::json(devices_json());
         }
 
         // Clamped rather than rejected. These come from the page's own

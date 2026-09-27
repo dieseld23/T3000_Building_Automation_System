@@ -50,7 +50,11 @@ namespace t5000::device
         int  udp_port = 47808;   // BACnet/IP; fixed in practice, see below
         int  tcp_port = 502;     // Modbus TCP
 
-        // Serial transports.
+        // Serial transports. serial_port is the port's name as the registry
+        // lists it - "COM3", or "CNCA0" for a virtual one - and is set for a
+        // device a serial scan found. com_port is the number of a COMn port,
+        // which the Connection dialog takes.
+        std::string serial_port;
         int  com_port = 1;       // COMn
         int  baud     = 38400;
 

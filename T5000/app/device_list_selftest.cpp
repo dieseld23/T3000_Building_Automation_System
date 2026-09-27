@@ -909,6 +909,115 @@ namespace
     }
 }
 
+namespace
+{
+    DeviceRecord on_port(uint32_t serial, int modbus_id, const char* port, int baud)
+    {
+        DeviceRecord d = answered(serial, modbus_id);
+        d.connection.host.clear();
+        d.answered_from.clear();
+        d.reported_ip.clear();
+        d.connection.transport       = Transport::ModbusRtu;
+        d.connection.serial_port     = port;
+        d.connection.baud            = baud;
+        d.address_note               = std::string(port) + " id " + std::to_string(modbus_id);
+        d.provenance                 = Provenance::SerialScan;
+        return d;
+    }
+
+    discovery::PortScanResult a_port_scan(std::vector<DeviceRecord> devices)
+    {
+        discovery::PortScanResult r;
+        r.port = "CNCA0";
+        discovery::RateScan at;
+        at.baud = 9600;
+        at.result.devices = devices;
+        at.result.stats.frames_sent = 4;
+        r.rates.push_back(at);
+        r.devices = std::move(devices);
+        return r;
+    }
+
+    void test_a_serial_scan_is_saved_and_comes_back()
+    {
+        section("what a serial scan finds is saved, and is back on its port after a restart");
+
+        TempFile file(L"serial");
+        {
+            store::DeviceDb db;
+            Registry reg;
+            StoreStatus status = open_saved_list(db, file.utf8(), reg);
+            if (!require(status.saving, "a new list opens"))
+                return;
+
+            ScanSummary summary;
+            record_serial_scan(reg, db, a_port_scan({ on_port(8701, 5, "CNCA0", 9600) }), 100, summary, status);
+            check(status.error.empty(), "the scan is saved");
+            check(summary.serial_scanned, "the summary says the port was scanned");
+            check(summary.serial.port == "CNCA0", "which port");
+            check_eq((long)summary.serial.rates.size(), 1, "and keeps what each rate found");
+            check_eq(summary.serial.frames_sent(), 4, "with its numbers");
+
+            const DeviceRecord* d = by_serial(reg, 8701);
+            if (require(d != nullptr, "the device is listed"))
+            {
+                check(reg.answered_last_scan(*d), "as having answered the last scan");
+                check_eq((long)d->last_seen, 100, "now");
+            }
+        }
+
+        store::DeviceDb db;
+        Registry reg;
+        const StoreStatus status = open_saved_list(db, file.utf8(), reg);
+        check_eq(status.restored, 1, "after a restart the device is there");
+        const DeviceRecord* d = by_serial(reg, 8701);
+        if (require(d != nullptr, "the same device"))
+        {
+            check(d->connection.transport == Transport::ModbusRtu, "over Modbus RTU");
+            check(d->connection.serial_port == "CNCA0", "on CNCA0");
+            check_eq(d->connection.baud, 9600, "at 9600");
+        }
+    }
+
+    void test_ids_on_different_ports_are_not_duplicates()
+    {
+        section("a network scan and a serial scan finding the same id are not a conflict");
+
+        store::DeviceDb db;
+        Registry reg;
+        ScanSummary summary;
+        StoreStatus status;
+
+        record_scan(reg, db, a_scan({ answered(8801, 5) }), 100, summary, status);
+        record_serial_scan(reg, db, a_port_scan({ on_port(8802, 5, "CNCA0", 9600) }), 200, summary, status);
+        check_eq(summary.stats.duplicate_modbus_ids, 0, "id 5 on the network and on CNCA0: no conflict");
+
+        record_serial_scan(reg, db, a_port_scan({ on_port(8803, 5, "CNCA0", 19200) }), 300, summary, status);
+        check_eq(summary.stats.duplicate_modbus_ids, 2, "a second id 5 on CNCA0 is one");
+        const DeviceRecord* net = by_serial(reg, 8801);
+        if (require(net != nullptr, "the network device is listed"))
+            check(!has_duplicate_repair(*net), "and is not accused");
+    }
+
+    void test_a_network_scan_after_a_serial_one_forgets_the_port_summary()
+    {
+        section("a network scan's summary is not taken for a serial one");
+
+        store::DeviceDb db;
+        Registry reg;
+        ScanSummary summary;
+        StoreStatus status;
+
+        record_serial_scan(reg, db, a_port_scan({}), 100, summary, status);
+        check(summary.serial_scanned, "after a serial scan the summary is a serial one");
+
+        // The route starts each scan with a fresh summary, as here.
+        summary = ScanSummary();
+        record_scan(reg, db, a_scan({ answered(8901) }), 200, summary, status);
+        check(!summary.serial_scanned, "after a network scan it is not");
+    }
+}
+
 int run_device_list_tests()
 {
     test_a_list_that_cannot_be_opened_is_not_fatal();
@@ -933,5 +1042,8 @@ int run_device_list_tests()
     test_a_scan_drops_the_model_chosen_by_hand();
     test_a_restored_device_keeps_its_panel_type();
     test_an_add_request_is_read();
+    test_a_serial_scan_is_saved_and_comes_back();
+    test_ids_on_different_ports_are_not_duplicates();
+    test_a_network_scan_after_a_serial_one_forgets_the_port_summary();
     return 0;
 }

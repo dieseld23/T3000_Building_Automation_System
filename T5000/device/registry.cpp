@@ -93,10 +93,26 @@ namespace t5000::device
                 // reported no id, and host is always set on a scan record - so
                 // the replace always fired and overwrote a slave id learned
                 // earlier with one the device never reported.
+                //
+                // A device is reached over the network or over a serial port,
+                // and the latest observation says which: one a serial scan
+                // finds takes its port, rate and transport, and drops the
+                // network address a scan or Find gave it, and the other way
+                // round. Keeping both would leave the list naming an address
+                // T5000 no longer reaches it at.
                 if (!device.connection.host.empty())
                 {
                     existing.connection.host      = device.connection.host;
                     existing.connection.transport = device.connection.transport;
+                    existing.connection.serial_port.clear();
+                }
+                else if (!device.connection.serial_port.empty())
+                {
+                    existing.connection.serial_port = device.connection.serial_port;
+                    existing.connection.com_port    = device.connection.com_port;
+                    existing.connection.baud        = device.connection.baud;
+                    existing.connection.transport   = device.connection.transport;
+                    existing.connection.host.clear();
                 }
                 if (device.connection.udp_port != 0)
                     existing.connection.udp_port = device.connection.udp_port;
@@ -333,23 +349,35 @@ namespace t5000::device
             return d.modbus_id_reported != 0 && d.provenance != Provenance::Restored;
         };
 
-        std::map<int, int> counts;
+        // An id is an address on one bus. A device a serial scan found shares
+        // its bus with the others on that port and no one else, so id 5 on
+        // COM3 and id 5 on the network, or on COM4, are not in conflict.
+        // Everything reached over the network is compared together, as
+        // before.
+        const auto bus = [](const DeviceRecord& d) {
+            return transport_is_serial(d.connection.transport) ? "serial " + d.connection.serial_port
+                                                               : std::string();
+        };
+
+        std::map<std::pair<std::string, int>, int> counts;
         for (const auto& d : m_devices)
             if (takes_part(d))
-                counts[d.modbus_id_reported]++;
+                counts[{ bus(d), d.modbus_id_reported }]++;
 
         int flagged = 0;
         for (auto& d : m_devices)
         {
             const int id = d.modbus_id_reported;
-            if (!takes_part(d) || counts[id] < 2)
+            const std::string on = bus(d);
+            if (!takes_part(d) || counts[{ on, id }] < 2)
                 continue;
 
+            const int claimed = counts[{ on, id }];
             Repair repair;
             repair.kind    = RepairKind::ResolveDuplicateModbusId;
-            repair.problem = "Modbus id " + std::to_string(id) + " is claimed by " +
-                             std::to_string(counts[id]) +
-                             " devices, so none of them can be addressed reliably.";
+            repair.problem = "Modbus id " + std::to_string(id) + " is claimed by " + std::to_string(claimed) +
+                             " devices" + (on.empty() ? std::string() : " on " + d.connection.serial_port) +
+                             ", so none of them can be addressed reliably.";
             repair.action  = "Write a free id to register 10 on this device, "
                              "leaving the others on " + std::to_string(id) + ".";
             repair.consequence =

@@ -99,6 +99,62 @@ namespace
         check(!ports[8].usb, "not when the name only ends in one");
     }
 
+    void test_com_numbers()
+    {
+        section("a name's COM number");
+
+        check_eq(com_number("COM3"), 3, "COM3 is 3");
+        check_eq(com_number("com12"), 12, "com12 is 12, in any case");
+        check_eq(com_number("COM0"), 0, "COM0 is none");
+        check_eq(com_number("COM"), 0, "COM alone is none");
+        check_eq(com_number("CNCA0"), 0, "CNCA0 is none");
+        check_eq(com_number("COM1x"), 0, "COM1x is none");
+        check_eq(com_number(""), 0, "nothing is none");
+    }
+
+    void test_only_plain_names_are_opened()
+    {
+        section("only a plain name is a port T5000 opens");
+
+        check(is_plain_port_name("COM3"), "COM3");
+        check(is_plain_port_name("CNCA0"), "CNCA0");
+        check(is_plain_port_name("com_7"), "letters, digits and underscores");
+        check(is_plain_port_name(std::string(32, 'A')), "32 characters");
+
+        check(!is_plain_port_name(""), "not nothing");
+        check(!is_plain_port_name(std::string(33, 'A')), "not 33 characters");
+        check(!is_plain_port_name("COM3\\"), "not with a backslash");
+        check(!is_plain_port_name("..\\PhysicalDrive0"), "not a path out of \\.\\");
+        check(!is_plain_port_name("COM3."), "not with a dot");
+        check(!is_plain_port_name("C:"), "not with a colon");
+        check(!is_plain_port_name("COM 3"), "not with a space");
+        check(!is_plain_port_name("COM3/x"), "not with a slash");
+        check(!is_plain_port_name(std::string("COM3\0x", 6)), "not with a NUL in it");
+        check(!is_plain_port_name("COM\xC3\xA9"), "not with a letter outside ASCII");
+    }
+
+    void test_a_port_is_found_by_name()
+    {
+        section("a port is found in the list by its name, in any case");
+
+        const auto ports = ports_from_values({
+            { "\\Device\\VCP0", "COM3" },
+            { "\\Device\\com0com10", "CNCA0" },
+        });
+
+        const Port* p = find_port(ports, "cnca0");
+        if (require(p != nullptr, "cnca0 finds CNCA0"))
+            check_streq(p->name.c_str(), "CNCA0", "as the list names it");
+        p = find_port(ports, "COM3");
+        if (require(p != nullptr, "COM3 is found"))
+            check_eq(p->number, 3, "with its number");
+
+        check(find_port(ports, "COM4") == nullptr, "a port not listed is not found");
+        check(find_port(ports, "COM") == nullptr, "nor is the start of a name");
+        check(find_port(ports, "") == nullptr, "nor is nothing");
+        check(find_port({}, "COM3") == nullptr, "and nothing is found in an empty list");
+    }
+
     void test_the_registry_can_be_read()
     {
         section("this machine's ports are listed without opening any");
@@ -117,6 +173,9 @@ int run_serial_ports_tests()
     test_port_numbers();
     test_ports_with_no_name_are_left_out();
     test_usb_adapters_are_marked();
+    test_com_numbers();
+    test_only_plain_names_are_opened();
+    test_a_port_is_found_by_name();
     test_the_registry_can_be_read();
     return 0;
 }

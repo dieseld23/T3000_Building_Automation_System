@@ -249,12 +249,11 @@ running the hardware checks. In this order:
    Auto/Manual, Filter and Range, and D. Next come Value, Calibration, Sign
    and Signal type, then import and export, E and C, in the order given
    there.
-3. **Serial ports.** The first slice is built: the computer's COM ports are
-   listed, and a serial scan that cannot write is tested against a scripted
-   line. The owner has decided how opening a port is tested (com0com's
-   virtual pair, and nothing else), the rates (all six) and MS/TP (join the
-   ring). Opening a port, on that pair only, is next; see [Serial
-   ports](#serial-ports).
+3. **Serial ports.** Scanning is built: a port picked on the Devices page is
+   opened and scanned at each of the six rates, and the devices found are
+   listed and saved with their port, rate and id. It is tested on com0com's
+   pair only. Reading them is next, and MS/TP (join the ring) is designed
+   with the owner first; see [Serial ports](#serial-ports).
 4. **Finish Inputs and Outputs:** the Panel and Type columns, and Outputs'
    Product Name. Type needs `GetOutputType` and its input counterpart, and
    Product Name needs T3000's product names, which are not T5000's.
@@ -669,14 +668,13 @@ What T3000 does:
   (`common.cpp:7406-7407`, `TStatScanner.cpp:1363-1371`). After a five-byte
   reply, it takes them for a second device (`common.cpp:7383-7387`).
 
-*Built: the first slice.* Nothing opens a port yet, so none of this has sent a
-byte to a line.
+*Built: the first slice.* Listing ports and the scan itself, before any
+port was opened.
 
 - `serial/ports` lists the ports under `SERIALCOMM` without opening any, in
   port-number order, and marks the USB-serial drivers it knows by their
   device's name. `/api/interfaces` returns them beside the network
-  interfaces, and the Devices page shows them under "Serial ports - not
-  scanned yet", where none can be picked.
+  interfaces, and the Devices page lists them under "Serial ports".
 - `serial/rtu` builds the only two frames a serial scan can send, the range
   query and the read of registers 0-9 (`ScanFrame`), and reads their replies
   by T3000's rules. `ScanFrame` has no constructor that takes bytes and no
@@ -702,21 +700,66 @@ byte to a line.
   CRC and every frame the scan can build against T3000's `CRC16` and its
   tables.
 
+*Built: opening and scanning a port* (2026-09-27). Tested on com0com's pair
+only: T5000 opens CNCA0, and a scripted device holds CNCB0. No real adapter
+has been opened.
+
+- `discovery/com_port_line` is the port. It opens `\\.\` and the name as
+  T3000 does (`ModbusDllforVc/common.cpp:5030-5098`): exclusive, 8 data
+  bits, no parity, 1 stop bit, with flow control, DTR and RTS left as the
+  driver has them, and the buffers purged before each frame. It is a
+  `SerialLine`, so it too can be handed a `ScanFrame` and nothing else.
+  - Only a plain name (letters, digits and underscores, at most 32) is
+    opened, and `/api/scan` passes only a name the registry lists at that
+    moment.
+  - A port another program holds, one that has gone, and one that stops
+    mid-scan each have their own message. T3000 says "Cannot open the COM
+    Port" for all of them (`TStatScanner.cpp:729-731`).
+  - A reply is read until the line has been quiet for 160 ms, T3000's
+    `ReadIntervalTimeout`, rather than for a fixed 13 bytes, so a reply that
+    arrives in pieces is read whole and a second device's is not cut off.
+  - An adapter's echo of the frame is taken off the front of the reply,
+    unless the whole is one frame by its CRC: a reply that only begins like
+    the query.
+  - `fAbortOnError` is cleared, so one framing error does not stop every
+    read after it.
+- `scan_serial_port` scans the port at each of the six rates in turn (S2),
+  listening first at each.
+  - MS/TP heard at a rate stops the scan of the port: a line runs one
+    protocol, and the rates after would send Modbus into it.
+  - A rate where something else is talking is skipped.
+  - A port that fails, or will not take a rate, stops the scan, and what was
+    found before is kept.
+  - A device heard at several rates is listed once, at the first. On a real
+    line a device answers at its own rate only; com0com has no rates, and an
+    adapter that loops back hears everything.
+- The Devices page lists the ports beside the network interfaces. "All
+  network interfaces" never includes them: a port is opened only when it is
+  picked and Scan is pressed, and it is closed before the answer comes back.
+  When a port finds nothing, the page says why: in use, gone, MS/TP, busy
+  rates, ids more than one device answers to, ids that could not be read,
+  and the wiring to check.
+- The devices found are saved with their port, rate and id (schema 4), and
+  come back on the port after a restart. A device is reached where it was
+  last found. A serial scan moves it off the network address a scan or Find
+  gave it, and a network scan moves it back.
+- A Modbus id conflicts only with devices on the same bus. Id 5 on COM3, on
+  COM4 and on the network is three devices, not a conflict.
+- Checked end to end on the pair, with 80 checks: one device, several, a
+  shared id, serial 0, a device that will not be read, garbled replies, a
+  silent line, MS/TP, another master talking, an echoing adapter, a device
+  at one rate only, a port another program holds, a name Windows does not
+  list, and a restart. Every frame the scripted devices received was a range
+  query or a read of registers 0-9.
+
 Still to build:
 
-1. **The port.** `CreateFile` on `\\.\COMn`, with the line settings T3000
-   uses, read from its source first, and tested on com0com's pair only (S1). The transport has to handle what the
-   scripted line does not:
-   - a port another program holds, T3000 included, which cannot be opened;
-   - an adapter that echoes what it sends, putting the query in front of
-     the reply;
-   - a reply that arrives in pieces;
-   - a USB adapter unplugged during a scan.
-2. **Scanning from the page:** a port and a rate, and the devices found
-   added to the list.
-3. **Saving them.** The saved list keeps no port or rate yet.
-4. **Reading them.** On a Modbus line, this is the register path under Next.
-   On an MS/TP line it is BACnet, over MS/TP.
+1. **Reading them.** On a Modbus line, this is the register path under Next.
+   On an MS/TP line it is BACnet over MS/TP, joining the ring (S3), designed
+   with the owner before it is built.
+2. **The first scan of a real adapter,** which the owner runs: COM3 with a
+   device on it. A real line's timing - the turnaround, and a USB adapter's
+   latency - is not tested until then.
 
 Decisions for the owner, and what the owner decided (2026-09-26, and S1 again
 on 2026-09-27):

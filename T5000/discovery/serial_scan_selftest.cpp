@@ -21,10 +21,14 @@ namespace
     using namespace t5000::testing;
     using t5000::serial::ScanFrame;
 
-    // The line can be handed a ScanFrame and nothing else.
+    // The line can be handed a ScanFrame and nothing else, and a port that
+    // changes rate adds nothing that sends.
     static_assert(std::is_same_v<decltype(&SerialScanTransport::send),
                                  bool (SerialScanTransport::*)(const ScanFrame&, std::string&)>,
                   "a serial scan's line takes scan frames, not bytes");
+    static_assert(std::is_same_v<decltype(&SerialLine::send),
+                                 bool (SerialScanTransport::*)(const ScanFrame&, std::string&)>,
+                  "a port's line sends through the scan transport's send, and has no other");
 
     SerialScanSettings settings()
     {
@@ -547,6 +551,201 @@ namespace
             only_scan_frames(line);
         }
     }
+
+    // ---- A port, at each rate in turn ------------------------------------
+
+    const std::vector<int> kRates = { 9600, 19200, 38400, 57600, 76800, 115200 };
+
+    SerialScanSettings port_settings()
+    {
+        SerialScanSettings s;
+        s.port_name = "CNCA0";
+        return s;
+    }
+
+    SerialDevice device_at(uint8_t id, uint32_t serial, int baud)
+    {
+        SerialDevice d = device(id, serial);
+        d.baud = baud;
+        return d;
+    }
+
+    void test_a_port_is_scanned_at_each_rate()
+    {
+        section("a port is scanned at each rate in turn, listening first at each");
+
+        FakeSerialLine line;
+        const PortScanResult r = scan_serial_port(line, kRates, port_settings());
+
+        check(line.rates == kRates, "every rate, in the order given");
+        if (require(r.rates.size() == kRates.size(), "each rate has its own result"))
+            for (size_t i = 0; i < kRates.size(); i++)
+                check_eq(r.rates[i].baud, kRates[i], "in the same order");
+        check_eq(line.receives, 12, "a listen and one reply at each: nothing on the line");
+        for (const int baud : kRates)
+            check_eq(line.sent_at[baud], 1, "one query at each rate");
+        check_eq(r.frames_sent(), 6, "six frames in all");
+        check(r.devices.empty() && r.error.empty() && !r.runs_mstp, "nothing found, and nothing wrong");
+        check_streq(r.port.c_str(), "CNCA0", "the port is named");
+        only_scan_frames(line);
+    }
+
+    void test_devices_are_found_at_their_own_rate()
+    {
+        section("a device is found at its own rate, and kept with it");
+
+        FakeSerialLine line;
+        line.devices.push_back(device_at(3, 3003, 19200));
+        line.devices.push_back(device_at(7, 7007, 76800));
+        line.devices.push_back(device_at(9, 9009, 76800));
+
+        const PortScanResult r = scan_serial_port(line, kRates, port_settings());
+
+        if (!require(r.devices.size() == 3, "all three are found"))
+            return;
+        check_eq(r.devices[0].connection.baud, 19200, "the first at 19200");
+        check_eq(r.devices[1].connection.baud, 76800, "the second at 76800");
+        check_eq(r.devices[2].connection.baud, 76800, "the third at 76800 too");
+        check_eq(r.repeats, 0, "none twice");
+        for (const DeviceRecord& d : r.devices)
+        {
+            check(d.connection.transport == Transport::ModbusRtu, "over Modbus RTU");
+            check_streq(d.connection.serial_port.c_str(), "CNCA0", "on the port scanned");
+            check_eq(d.connection.com_port, 0, "which is not COMn");
+        }
+        check_streq(r.devices[1].address_note.c_str(), "CNCA0 id 7, 76800 baud", "said as port, id and rate");
+        if (require(r.rates.size() == 6, "every rate was tried"))
+        {
+            check_eq((long)r.rates[1].result.devices.size(), 1, "one at 19200");
+            check_eq((long)r.rates[4].result.devices.size(), 2, "two at 76800");
+            check_eq((long)r.rates[0].result.devices.size(), 0, "none at 9600");
+        }
+        only_scan_frames(line);
+    }
+
+    void test_a_device_answering_at_every_rate_is_listed_once()
+    {
+        section("a device that answers at every rate is listed once, at the first");
+
+        // com0com has no rates: a device scripted on the far end answers at
+        // all six.
+        FakeSerialLine line;
+        line.devices.push_back(device(4, 4004));
+        line.devices.push_back(device(5, 0));   // no serial: known by its id
+
+        const PortScanResult r = scan_serial_port(line, kRates, port_settings());
+
+        if (require(r.devices.size() == 2, "two devices, not twelve"))
+        {
+            check_eq(r.devices[0].connection.baud, 9600, "listed at the first rate it answered");
+            check_eq(r.devices[1].connection.baud, 9600, "the one with no serial too");
+        }
+        check_eq(r.repeats, 10, "and the other five answers of each are counted");
+        only_scan_frames(line);
+    }
+
+    void test_two_devices_with_no_serial_on_different_ids_are_both_kept()
+    {
+        section("devices with no serial are told apart by the id they answered");
+
+        FakeSerialLine line;
+        line.devices.push_back(device_at(5, 0, 9600));
+        line.devices.push_back(device_at(6, 0, 38400));
+        line.devices.push_back(device_at(5, 0, 115200));   // id 5 again, at another rate
+
+        const PortScanResult r = scan_serial_port(line, kRates, port_settings());
+
+        check_eq((long)r.devices.size(), 2, "ids 5 and 6: the second 5 is taken for the first");
+        check_eq(r.repeats, 1, "and counted as a repeat");
+        only_scan_frames(line);
+    }
+
+    void test_mstp_stops_the_port_scan()
+    {
+        section("MS/TP heard at one rate stops the scan of the port");
+
+        FakeSerialLine line;
+        line.devices.push_back(device_at(3, 3003, 9600));
+        line.chatter_at[38400] = { 0x55, 0xFF, 0x00, 0x02, 0x01, 0x00, 0x00, 0x7C,
+                                   0x55, 0xFF, 0x00, 0x03, 0x02, 0x00, 0x00, 0x3B };
+
+        const PortScanResult r = scan_serial_port(line, kRates, port_settings());
+
+        check(r.runs_mstp, "the port runs MS/TP");
+        check_eq(r.mstp_baud, 38400, "heard at 38400");
+        check((line.rates == std::vector<int>{ 9600, 19200, 38400 }), "no rate after it was set");
+        check_eq(line.sent_at[38400], 0, "nothing was sent at 38400");
+        check_eq((long)r.devices.size(), 1, "what 9600 found is kept");
+        check_eq(r.busy_rates(), 0, "MS/TP is not counted as a busy rate");
+        only_scan_frames(line);
+    }
+
+    void test_a_busy_rate_is_skipped()
+    {
+        section("a rate where something else is talking is skipped, and the next tried");
+
+        FakeSerialLine line;
+        line.devices.push_back(device_at(3, 3003, 57600));
+        line.chatter_at[19200] = { 0x12, 0x34, 0x56 };
+
+        const PortScanResult r = scan_serial_port(line, kRates, port_settings());
+
+        check(!r.runs_mstp, "not MS/TP");
+        check_eq(r.busy_rates(), 1, "one busy rate");
+        check_eq(line.sent_at[19200], 0, "nothing sent at it");
+        check_eq((long)line.rates.size(), 6, "every rate tried");
+        check_eq((long)r.devices.size(), 1, "the device at 57600 is found");
+        check(r.error.empty(), "and a busy rate is not an error");
+        only_scan_frames(line);
+    }
+
+    void test_a_refused_rate_stops_the_port_scan()
+    {
+        section("a rate the port refuses stops the scan, keeping what was found");
+
+        FakeSerialLine line;
+        line.devices.push_back(device_at(3, 3003, 9600));
+        line.fail_rate_at = 2;
+
+        const PortScanResult r = scan_serial_port(line, kRates, port_settings());
+
+        check(r.error.find("38400") != std::string::npos, "the error names the rate");
+        check(r.error.find("the driver refused it") != std::string::npos, "and says why");
+        check_eq((long)r.rates.size(), 2, "the two rates before it were scanned");
+        check_eq((long)r.devices.size(), 1, "and what they found is kept");
+        only_scan_frames(line);
+    }
+
+    void test_a_failing_port_stops_the_port_scan()
+    {
+        section("a port that fails mid-scan stops the scan, keeping what was found");
+
+        FakeSerialLine line;
+        line.devices.push_back(device_at(3, 3003, 9600));
+        // Receives 0-2 are the listen, query and read at 9600, 3 the listen
+        // at 19200, and 4 the reply to its query.
+        line.fail_receive_at = 4;
+
+        const PortScanResult r = scan_serial_port(line, kRates, port_settings());
+
+        check_streq(r.error.c_str(), "the adapter was unplugged", "the line's reason");
+        check_eq((long)r.rates.size(), 2, "no rate after the failure");
+        check_eq((long)line.rates.size(), 2, "and none set");
+        check_eq((long)r.devices.size(), 1, "what 9600 found is kept");
+        only_scan_frames(line);
+    }
+
+    void test_no_rates_scan_nothing()
+    {
+        section("a port scanned at no rates has nothing sent to it");
+
+        FakeSerialLine line;
+        line.devices.push_back(device(3, 3003));
+        const PortScanResult r = scan_serial_port(line, {}, port_settings());
+
+        check(line.sent.empty() && line.receives == 0, "nothing sent, nothing listened for");
+        check(r.devices.empty() && r.rates.empty(), "and nothing found");
+    }
 }
 
 int run_serial_scan_tests()
@@ -569,5 +768,14 @@ int run_serial_scan_tests()
     test_settings_that_cannot_be_scanned();
     test_a_failing_line_stops_the_scan();
     test_what_a_device_reports_is_kept();
+    test_a_port_is_scanned_at_each_rate();
+    test_devices_are_found_at_their_own_rate();
+    test_a_device_answering_at_every_rate_is_listed_once();
+    test_two_devices_with_no_serial_on_different_ids_are_both_kept();
+    test_mstp_stops_the_port_scan();
+    test_a_busy_rate_is_skipped();
+    test_a_refused_rate_stops_the_port_scan();
+    test_a_failing_port_stops_the_port_scan();
+    test_no_rates_scan_nothing();
     return 0;
 }

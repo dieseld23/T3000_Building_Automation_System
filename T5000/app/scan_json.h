@@ -13,6 +13,7 @@
 
 #include "../device/registry.h"
 #include "../discovery/scanner.h"
+#include "../discovery/serial_scan.h"
 #include "../net/interfaces.h"
 #include "../serial/ports.h"
 
@@ -42,6 +43,13 @@ namespace t5000::app
         // How long the last scan waited, so the page can offer to wait longer
         // rather than just repeating the same thing.
         int waited_ms = 0;
+
+        // Set when the last scan was of a serial port: which port, and what
+        // each rate found. serial.error is a port that failed part way, with
+        // what was found before kept; error above is one that could not be
+        // opened at all, and then serial holds only the port's name.
+        bool serial_scanned = false;
+        discovery::PortScanResult serial;
     };
 
     // Whether the device list is being saved, and if not, why.
@@ -73,8 +81,9 @@ namespace t5000::app
                                   device::Handle handle);
 
     // The network interfaces a scan could go out of, and the machine's
-    // serial ports. The ports are listed so the page can show them, and
-    // cannot be scanned yet: nothing in T5000 opens a port.
+    // serial ports, with the rates a serial scan tries in turn. Listing a
+    // port opens nothing; a port is opened only when the operator picks it
+    // and presses Scan.
     std::string build_interfaces_json(const std::vector<net::Interface>& interfaces,
                                       const std::string& error,
                                       const std::vector<serial::Port>& ports = {},

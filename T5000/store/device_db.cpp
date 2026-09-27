@@ -2,6 +2,7 @@
 
 #include <windows.h>
 
+#include "../serial/ports.h"
 #include "../wire/decode.h"
 
 namespace t5000::store
@@ -85,6 +86,45 @@ namespace t5000::store
             "  CHECK (kind <> 'input' OR (length(base) = 46 AND length(edited) = 46)),"
             "  PRIMARY KEY (device_id, kind, idx)"
             ");";
+
+        // Version 4: how a device is reached. One a serial scan found is on a
+        // port, at a rate, on an id, and none of the columns above can hold
+        // those: until now it came back from the list as a BACnet/IP device
+        // with no address. A row from before this is BACnet/IP, which is what
+        // every device saved then was.
+        //
+        // transport allows all four of device::Transport's names now, since a
+        // CHECK cannot be widened later without rebuilding the table.
+        // serial_port, baud and slave_id are set for a serial transport only,
+        // and are '' and 0 otherwise.
+        const char* const kUpgradeToV4 =
+            "ALTER TABLE devices ADD COLUMN transport TEXT NOT NULL DEFAULT 'bacnet-ip'"
+            "  CHECK (transport IN ('bacnet-ip', 'bacnet-mstp', 'modbus-tcp', 'modbus-rtu'));"
+            "ALTER TABLE devices ADD COLUMN serial_port TEXT NOT NULL DEFAULT '';"
+            "ALTER TABLE devices ADD COLUMN baud INTEGER NOT NULL DEFAULT 0;"
+            "ALTER TABLE devices ADD COLUMN slave_id INTEGER NOT NULL DEFAULT 0"
+            "  CHECK (slave_id BETWEEN 0 AND 255);";
+
+        // The serial columns of a device, '' and 0 unless it is reached over
+        // a serial port.
+        struct SerialColumns
+        {
+            std::string port;
+            int64_t     baud     = 0;
+            int64_t     slave_id = 0;
+        };
+
+        SerialColumns serial_columns(const DeviceRecord& d)
+        {
+            SerialColumns c;
+            if (transport_is_serial(d.connection.transport) && !d.connection.serial_port.empty())
+            {
+                c.port     = d.connection.serial_port;
+                c.baud     = d.connection.baud;
+                c.slave_id = d.connection.modbus_slave_id;
+            }
+            return c;
+        }
 
         static_assert(t5000::wire::kInputPointWireSize == 46,
                       "offline_points checks an input's length as 46; change it with the struct");
@@ -221,6 +261,8 @@ namespace t5000::store
                 ok = m_db.exec(kUpgradeToV2, error);
             if (ok && version < 3)
                 ok = m_db.exec(kUpgradeToV3, error);
+            if (ok && version < 4)
+                ok = m_db.exec(kUpgradeToV4, error);
             if (ok)
                 ok = m_db.exec(set_version.c_str(), error);
             if (ok)
@@ -255,7 +297,7 @@ namespace t5000::store
                     "SELECT serial, product_class_id, mini_type, firmware, modbus_id,"
                     "       parent_serial, object_instance, host, answered_from, reported_ip,"
                     "       bacnet_port, panel_name, name, building, floor, room,"
-                    "       first_seen, last_seen, added_by_hand"
+                    "       first_seen, last_seen, added_by_hand, transport, serial_port, baud, slave_id"
                     "  FROM devices WHERE kind = 'scanned' ORDER BY id");
 
         for (;;)
@@ -289,6 +331,25 @@ namespace t5000::store
                 d.connection.udp_port = (int)q.column_int(10);
             d.address_note = d.connection.host;
             d.panel_name   = q.column_text(11);
+
+            // A device found on a serial port comes back on it. A transport
+            // this build does not know, or a serial one with no port, is left
+            // as BACnet/IP with no address, as before version 4: the reads
+            // refuse it, rather than guess where it is.
+            Transport transport = Transport::BacnetIp;
+            const std::string port = q.column_text(20);
+            if (transport_from_name(q.column_text(19), transport) && transport_is_serial(transport) &&
+                !port.empty())
+            {
+                d.connection.transport   = transport;
+                d.connection.serial_port = port;
+                d.connection.com_port    = serial::com_number(port);
+                d.connection.baud        = (int)q.column_int(21);
+                if (q.column_int(22) != 0)
+                    d.connection.modbus_slave_id = (int)q.column_int(22);
+                d.address_note = port + " id " + std::to_string(d.connection.modbus_slave_id) + ", " +
+                                 std::to_string(d.connection.baud) + " baud";
+            }
 
             d.placement.name     = q.column_text(12);
             d.placement.building = q.column_text(13);
@@ -361,7 +422,8 @@ namespace t5000::store
                         "       host = ?8, answered_from = ?9, reported_ip = ?10,"
                         "       bacnet_port = ?11, panel_name = ?12,"
                         "       last_seen = max(last_seen, ?13),"
-                        "       first_seen = CASE WHEN first_seen = 0 THEN ?14 ELSE first_seen END"
+                        "       first_seen = CASE WHEN first_seen = 0 THEN ?14 ELSE first_seen END,"
+                        "       transport = ?15, serial_port = ?16, baud = ?17, slave_id = ?18"
                         " WHERE id = ?1");
             u.bind(1, id);
             u.bind(2, (int64_t)static_cast<uint8_t>(d.product));
@@ -377,6 +439,11 @@ namespace t5000::store
             u.bind(12, d.panel_name);
             u.bind(13, d.last_seen);
             u.bind(14, first);
+            const SerialColumns sc = serial_columns(d);
+            u.bind(15, std::string(transport_name(d.connection.transport)));
+            u.bind(16, sc.port);
+            u.bind(17, sc.baud);
+            u.bind(18, sc.slave_id);
             if (u.step() != Statement::Step::Done)
             {
                 error = u.error();
@@ -415,9 +482,9 @@ namespace t5000::store
                     "INSERT INTO devices (kind, serial, product_class_id, mini_type, firmware,"
                     "       modbus_id, parent_serial, object_instance, host, answered_from,"
                     "       reported_ip, bacnet_port, panel_name, name, building, floor, room,"
-                    "       first_seen, last_seen, added_by_hand)"
+                    "       first_seen, last_seen, added_by_hand, transport, serial_port, baud, slave_id)"
                     " VALUES ('scanned', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,"
-                    "         ?13, ?14, ?15, ?16, ?17, ?18, ?19)");
+                    "         ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)");
         i.bind(1, (int64_t)d.serial_number);
         i.bind(2, (int64_t)static_cast<uint8_t>(d.product));
         i.bind(3, (int64_t)d.mini_type);
@@ -437,6 +504,11 @@ namespace t5000::store
         i.bind(17, first);
         i.bind(18, d.last_seen);
         i.bind(19, (int64_t)(added_by_hand ? 1 : 0));
+        const SerialColumns sc = serial_columns(d);
+        i.bind(20, std::string(transport_name(d.connection.transport)));
+        i.bind(21, sc.port);
+        i.bind(22, sc.baud);
+        i.bind(23, sc.slave_id);
         if (i.step() != Statement::Step::Done)
         {
             error = i.error();

@@ -18,6 +18,7 @@
 
 #include "../device/registry.h"
 #include "../discovery/scanner.h"
+#include "../discovery/serial_scan.h"
 #include "../store/device_db.h"
 #include "scan_json.h"
 
@@ -40,6 +41,13 @@ namespace t5000::app
     void record_scan(device::Registry& registry, store::DeviceDb& db,
                      const discovery::ScanResult& result, int64_t now,
                      ScanSummary& summary, StoreStatus& status);
+
+    // The same for a scan of a serial port. The summary keeps what each rate
+    // found, for the page to say why a port turned up nothing; a port that
+    // failed part way still has what it found before that recorded.
+    void record_serial_scan(device::Registry& registry, store::DeviceDb& db,
+                            const discovery::PortScanResult& result, int64_t now,
+                            ScanSummary& summary, StoreStatus& status);
 
     // What the operator can do to the list. Each returns false, and leaves
     // everything as it was, with `message` saying why.

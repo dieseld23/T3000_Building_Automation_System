@@ -48,7 +48,7 @@ namespace t5000::store
     // 2: added_by_hand, for a device the operator added before it was found.
     // 3: offline_points, for a device's points changed before it can be
     //    reached.
-    constexpr int kSchemaVersion = 3;
+    constexpr int kSchemaVersion = 4;
 
     // One point the operator has changed on a device that cannot be reached:
     // the bytes it goes to the device as (Str_in_point for an input), before

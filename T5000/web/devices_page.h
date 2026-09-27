@@ -199,7 +199,7 @@ namespace t5000::web
   <span class="meta" id="problems" hidden></span>
   <span class="spacer"></span>
   <label class="inline">Scan from
-    <select id="iface"><option value="">All interfaces</option></select>
+    <select id="iface"><option value="">All network interfaces</option></select>
   </label>
   <label class="inline">Wait
     <select id="wait">
@@ -311,8 +311,6 @@ namespace t5000::web
 <footer>
   <span id="readonly-note">Scanning is read-only. No register is written.</span>
   <span id="saved-note"></span>
-  <span class="spacer"></span>
-  <span><a href="/inputs">Inputs</a> &middot; <a href="/outputs">Outputs</a> &middot; <a href="/variables">Variables</a></span>
 </footer>
 )PAGE"
         R"PAGE(
@@ -409,8 +407,13 @@ namespace t5000::web
     if (!scan.hasScanned) {
       $("empty-title").textContent = "Nothing scanned yet";
       $("empty-detail").textContent =
-        "Pick the network the controllers are on and press Scan. " +
+        "Pick the network or the serial port the controllers are on and press Scan. " +
         "Nothing is written to any device.";
+      return;
+    }
+
+    if (scan.serial) {
+      showSerialEmpty(scan, addHints);
       return;
     }
 
@@ -449,6 +452,76 @@ namespace t5000::web
       "Try a different interface - a laptop often prefers Wi-Fi or a VPN adapter over the building network.",
       "Try waiting longer; some panels answer slowly.",
       "Broadcast does not cross subnets. A controller on another subnet will never answer this."
+    ]);
+  }
+
+  // The ids a serial scan heard from but could not list, over every rate.
+  function serialIds(p, key) {
+    var ids = [];
+    p.rates.forEach(function (r) {
+      r[key].forEach(function (id) { if (ids.indexOf(id) < 0) ids.push(id); });
+    });
+    return ids;
+  }
+
+  function idList(ids) {
+    return (ids.length === 1 ? "id " : "ids ") + ids.join(", ");
+  }
+
+  // Why a serial scan found nothing. A silent RS485 bus is most often wiring,
+  // so that comes first.
+  function showSerialEmpty(scan, addHints) {
+    var p = scan.serial;
+    var port = p.port || "the port";
+    if (scan.error) {
+      $("empty-title").textContent = port + " could not be scanned";
+      $("empty-detail").textContent = scan.error;
+      addHints([
+        "Close T3000, a terminal, or anything else that has the port open, and scan again.",
+        "A USB adapter that was unplugged needs the page reloaded to list the ports again.",
+        "Nothing was sent: the port never opened."
+      ]);
+      return;
+    }
+    if (p.runsMstp) {
+      $("empty-title").textContent = port + " runs BACnet MS/TP";
+      $("empty-detail").textContent =
+        "MS/TP frames were heard at " + p.mstpBaud + " baud, so the line is not a Modbus one, and the scan " +
+        "stopped there. " + (p.found ? "" : "Nothing answered at the rates before it.");
+      addHints([
+        "Reading devices over MS/TP is not built into T5000 yet; T3000 reaches them meanwhile.",
+        "A Modbus master sharing a line with MS/TP would collide with it, so none is sent."
+      ]);
+      return;
+    }
+    if (p.error) {
+      $("empty-title").textContent = "The scan of " + port + " stopped part way";
+      $("empty-detail").textContent = p.error;
+      addHints([
+        "A USB adapter unplugged mid-scan stops it; plug it back in, reload the page, and scan again."
+      ]);
+      return;
+    }
+
+    var shared = serialIds(p, "sharedIds"), unreadable = serialIds(p, "unreadableIds");
+    var heard = shared.length || unreadable.length;
+    $("empty-title").textContent = heard ? "Devices answered on " + port + ", but none could be listed"
+                                         : "No devices answered on " + port;
+    var tried = p.rates.map(function (r) { return r.baud; }).join(", ");
+    var detail = "Tried " + tried + " baud: " + p.framesSent + " frame" + (p.framesSent === 1 ? "" : "s") + " sent.";
+    if (p.busyRates) detail += " At " + p.busyRates + " rate" + (p.busyRates === 1 ? "" : "s") +
+      " something else was already talking, so nothing was sent there.";
+    if (shared.length) detail += " More than one device answers to " + idList(shared) +
+      ", so none of them can be read; T3000 would renumber one, and T5000 changes nothing.";
+    if (unreadable.length) detail += " " + idList(unreadable).replace(/^i/, "I") +
+      " answered, but could not be read: the replies never checked out, or the read of registers 0-9 " +
+      "went unanswered.";
+    $("empty-detail").textContent = detail;
+    addHints([
+      "Check the RS485 wiring: A and B swapped is the most common reason a bus is silent.",
+      "Check the devices are powered, on a Modbus id from 1 to 254, and at one of the rates tried.",
+      "A long bus needs termination at each end; noise shows as replies that never check out.",
+      "Some USB adapters need their driver to switch RS485 direction, or replies never come back."
     ]);
   }
 
@@ -669,7 +742,8 @@ namespace t5000::web
     // say so, rather than leave the operator to wonder which is in use.
     // With the port when it is not BACnet/IP's own, as a device found at
     // another port is read there.
-    var addr = el("td", "opt", d.address && d.port && d.port !== 47808 ? d.address + ":" + d.port : d.address);
+    var addr = el("td", "opt", d.address && !onSerialLine(d) && d.port && d.port !== 47808 ? d.address + ":" + d.port
+                                                                                            : d.address);
     if (!d.address) {
       addr.className = "dim opt";
       addr.textContent = "—";
@@ -774,15 +848,27 @@ namespace t5000::web
         setBanner("info", more + " Scanning does not write to any device.");
       } else {
         setBanner("info",
-          "Nothing has been scanned yet. Scanning sends one broadcast and listens - " +
-          "it does not write to any device.");
+          "Nothing has been scanned yet. Scanning a network sends one broadcast and listens; scanning a " +
+          "serial port asks each rate in turn which ids are there. Neither writes to any device.");
       }
       return;
     }
 
     var answered = devices.filter(function (d) { return d.answeredLastScan; }).length;
     var parts = [];
-    parts.push("<b>" + answered + "</b> answered the last scan");
+    var serialTrouble = false;
+    parts.push("<b>" + answered + "</b> answered the last scan" + (s.serial ? " of " + esc(s.serial.port) : ""));
+    if (s.serial) {
+      var p = s.serial;
+      var shared = serialIds(p, "sharedIds"), unreadable = serialIds(p, "unreadableIds");
+      if (p.runsMstp) parts.push("MS/TP heard at " + p.mstpBaud + " baud, so the scan stopped there");
+      if (p.busyRates) parts.push("<b>" + p.busyRates + "</b> rate" + (p.busyRates === 1 ? "" : "s") +
+                                  " left alone, with something else talking");
+      if (shared.length) parts.push(idList(shared) + " answered by more than one device, and not listed");
+      if (unreadable.length) parts.push(idList(unreadable) + " answered unreadably");
+      if (p.error) parts.push("stopped part way: " + esc(p.error));
+      serialTrouble = !!(shared.length || unreadable.length || p.error);
+    }
     if (st.inBootloader > 0) parts.push("<b>" + st.inBootloader + "</b> in bootloader");
     if (st.withoutSerial > 0) parts.push("<b>" + st.withoutSerial + "</b> with no serial");
     if (st.duplicateModbusIds > 0) parts.push("<b>" + st.duplicateModbusIds + "</b> with a duplicate Modbus id");
@@ -797,7 +883,7 @@ namespace t5000::web
     var quiet = devices.length - answered;
     if (quiet > 0) parts.push("<b>" + quiet + "</b> listed that did not answer it");
 
-    var kind = (st.malformed > 0 || state.pendingRepairs > 0) ? "warn" : "ok";
+    var kind = (st.malformed > 0 || state.pendingRepairs > 0 || serialTrouble) ? "warn" : "ok";
     setBanner(kind, parts.join(" &middot; ") + " &middot; nothing was written to any device");
   }
 
@@ -877,15 +963,17 @@ namespace t5000::web
         o.textContent = n.name + " (" + n.ip + ")" + suffix;
         sel.appendChild(o);
       });
-      // The serial ports are shown so it is plain which ones this computer
-      // has, and cannot be picked: T5000 does not open a port yet.
+      // The serial ports, each of which can be picked and scanned. Only
+      // picking one and pressing Scan opens it; "All network interfaces"
+      // never includes them.
       var ports = data.serialPorts || [];
+      serialRates = data.serialRates || [];
       if (ports.length || data.serialError) {
         var group = document.createElement("optgroup");
-        group.label = "Serial ports - not scanned yet";
+        group.label = "Serial ports";
         ports.forEach(function (p) {
           var o = document.createElement("option");
-          o.disabled = true;
+          o.value = "serial:" + p.name;
           o.textContent = p.name + (p.usb ? " - USB adapter" : "");
           group.appendChild(o);
         });
@@ -904,9 +992,27 @@ namespace t5000::web
         return n.isUp && !n.isLoopback && !n.looksVirtual;
       })[0];
       if (best) sel.value = best.ip;
+      syncWait();
     } catch (e) {
       // Not fatal. All-interfaces still works; the operator just cannot pick.
     }
+  }
+
+  // The rates a serial scan tries, in turn, from /api/interfaces.
+  var serialRates = [];
+
+  // The serial port picked, or "" for a network.
+  function pickedPort() {
+    var v = $("iface").value;
+    return v.indexOf("serial:") === 0 ? v.slice(7) : "";
+  }
+
+  // Wait is how long a network scan listens. A serial scan takes as long as
+  // its rates do, so Wait does not apply to it.
+  function syncWait() {
+    var serial = !!pickedPort();
+    $("wait").disabled = serial;
+    $("wait").title = serial ? "A serial port is scanned at each rate in turn, for as long as that takes." : "";
   }
 
   async function load() {
@@ -918,18 +1024,27 @@ namespace t5000::web
     if (scanning) return;
     scanning = true;
 
+    var port = pickedPort();
     var seconds = Math.round(parseInt($("wait").value, 10) / 1000);
     $("scan").disabled = true;
     $("scan").textContent = "Scanning…";
-    setBanner("info",
-      "Listening for up to " + seconds + " s. The page is waiting for the scan to " +
-      "finish; nothing is being written to any device.");
+    if (port) {
+      var rates = serialRates.length ? serialRates.join(", ") + " baud" : "each rate";
+      setBanner("info",
+        "Scanning " + esc(port) + " at " + rates + ", in turn. Each rate takes two seconds or more, and " +
+        "longer when devices answer; the page is waiting. Only the id query and a read of registers 0-9 " +
+        "are sent - nothing is written to any device.");
+    } else {
+      setBanner("info",
+        "Listening for up to " + seconds + " s. The page is waiting for the scan to " +
+        "finish; nothing is being written to any device.");
+    }
 
     try {
       var res = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify(port ? { serialPort: port } : {
           interfaceIp: $("iface").value,
           waitMs: parseInt($("wait").value, 10)
         })
@@ -1185,6 +1300,12 @@ namespace t5000::web
   var finding = null;
   var findNumber = 0;
 
+  // Last found on a serial port, whose address is the port, not one Find
+  // can look at.
+  function onSerialLine(d) {
+    return d.transport === "modbus-rtu" || d.transport === "bacnet-mstp";
+  }
+
   function openFind(handle) {
     var d = findDevice(handle);
     if (!d || !d.canFind) return;
@@ -1192,8 +1313,8 @@ namespace t5000::web
     findNumber++;
     finding = handle;
     $("find-which").textContent = describe(d) + ", " + d.productName;
-    $("find-host").value = d.address || "";
-    $("find-port").value = String(d.port || 47808);
+    $("find-host").value = onSerialLine(d) ? "" : d.address || "";
+    $("find-port").value = String(onSerialLine(d) ? 47808 : d.port || 47808);
     $("find-note").textContent = "When you click Find, T5000 asks this address for the panel's " +
       "settings, which cannot change anything: one request, sent once more if nothing answers. " +
       "It is found if they give serial " + d.serialNumber + ". Its address is then kept, and its " +
@@ -1249,6 +1370,7 @@ namespace t5000::web
   $("find-cancel").addEventListener("click", function () { $("find-dialog").close(); });
 
   $("scan").addEventListener("click", doScan);
+  $("iface").addEventListener("change", syncWait);
   $("clear").addEventListener("click", forgetAll);
 
   $("rows").addEventListener("click", function (ev) {
