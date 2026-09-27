@@ -55,6 +55,7 @@ int run_crc_oracle_tests();
 int run_variables_guard_tests();
 int run_offline_guard_tests();
 int run_input_range_guard_tests();
+int run_input_cells_guard_tests();
 int run_write_command_guard_tests();
 int run_write_separation_guard_tests();
 
@@ -82,6 +83,8 @@ int main(int argc, char** argv)
     run_offline_guard_tests();
     printf("\n");
     run_input_range_guard_tests();
+    printf("\n");
+    run_input_cells_guard_tests();
     printf("\n");
     run_write_command_guard_tests();
     printf("\n");
