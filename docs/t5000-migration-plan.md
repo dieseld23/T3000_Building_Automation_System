@@ -14,17 +14,19 @@ those surveys, made by opening the files.
 **Nothing in T5000 has yet touched a live controller.** Every claim here is
 source-against-source, except the struct sizes, which the compiler asserts.
 
-**Where it stands, 2026-09-26:** Stage 0 is done, and the device list is now
+**Where it stands, 2026-09-27:** Stage 0 is done, and the device list is
 saved between runs, as T3000's building database is ([The device
-list](#the-device-list-and-virtual-devices)). In Stage 1, Inputs are read and
-shown as T3000 shows them, after each panel's settings and custom range names
-(#17), and so are Outputs and Variables. The Panel and Type columns are
-still to do. A device added by hand can have its inputs configured before a
-scan finds it, kept in the device list and sent nowhere ([part
-2](#the-device-list-and-virtual-devices)). The stage table below has each
-stage's state, and
-[Next](#next) is the list of what comes after.
-[`T5000/README.md`](../T5000/README.md) describes the tool as it is today.
+list](#the-device-list-and-virtual-devices)). A device added by hand can have
+its inputs configured before a scan finds it, kept in the device list and sent
+nowhere, and a device no scan reaches can be found at an address the operator
+gives ([part 2](#the-device-list-and-virtual-devices)). In Stage 1, Inputs,
+Outputs and Variables are read and shown as T3000 shows them, after each
+panel's settings and custom range names (#17). The Panel and Type columns are
+still to do. Stage 2 has started: a write of inputs can be encoded, and a
+panel's answer classified, but nothing can send one yet ([Writes](#writes)).
+The stage table below has each stage's state, and [Next](#next) is the list of
+what comes after. [`T5000/README.md`](../T5000/README.md) describes the tool as
+it is today.
 
 T5000 builds on its own, from `T5000/T5000.sln`: it compiles nothing of
 T3000's, links only Windows libraries, and CI builds it from a checkout of
@@ -173,11 +175,11 @@ would check each before acting on it.
 
 Each ships on its own. Ordered by dependency, not by difficulty.
 
-| Stage | Delivers | Changed by all-products? | State, 2026-09-26 |
+| Stage | Delivers | Changed by all-products? | State, 2026-09-27 |
 |---|---|---|---|
-| **0** | Discovery, selection, firmware detection, **product-identity model** | **Larger** — two id axes, capability table | Done (#9, #12, #13, #15). The device list is saved between runs (#19), and takes devices added by hand, whose inputs can be configured offline |
-| **1** | Inputs + Outputs + Variables read | Unchanged — one shared layout | Inputs done (#14, #16, #17), except the Panel and Type columns. Outputs done (#27), except those and Product Name. Variables done |
-| **2** | Write support for points, then Arrays, PVar | Unchanged | Started 2026-09-27: a write can be encoded and its reply classified, byte for byte as T3000's stack does, but nothing can send one yet. See [Writes](#writes) |
+| **0** | Discovery, selection, firmware detection, **product-identity model** | **Larger** — two id axes, capability table | Done (#9, #12, #13, #15). The device list is saved between runs (#19), and takes devices added by hand (#22, #24), whose inputs can be configured offline (#29), and devices found at an address (#31) |
+| **1** | Inputs + Outputs + Variables read | Unchanged — one shared layout | Inputs done (#14, #16, #17), except the Panel and Type columns. Outputs done (#27), except those and Product Name. Variables done (#28) |
+| **2** | Write support for points, then Arrays, PVar | Unchanged | Started 2026-09-27: a write can be encoded and its reply classified, byte for byte as T3000's stack does, but nothing can send one yet (W1a, #32). W1b, the first write that is sent, is next. See [Writes](#writes) |
 | **3** | Device settings, user login | Slightly larger — per-product field ranges | Not started. The settings block is already read and guarded, for Inputs |
 | **4** | PID loops, then Tstat | **Larger** — Tstat is a second data model | Not started |
 | **5** | Weekly + annual schedules | Larger — Tstats encode schedules differently | Not started |
@@ -231,27 +233,34 @@ not reproduce](#what-the-write-path-must-not-reproduce).
 ## Next
 
 On 2026-09-27 the owner asked for every T3000 function in T5000, and allowed
-writes: to loopback test panels first, and to real devices. Writes, item 5,
-now come first; [Writes](#writes) has their order. The rest follow in this
-order:
+writes: to loopback test panels first, then to a real device, with the owner
+running the hardware checks. In this order:
 
-1. **Devices added by hand and virtual devices,** then **importing T3000's
+1. **Stage 2, writes.** W1b first: one input's Filter, approved in the page
+   and confirmed by reading it back. Then W2 to W10, as [Writes](#writes)
+   orders them. Editing a device's points offline (item 2) changes the saved
+   configuration, not a controller, and reaches one through the write path's
+   review step (W6 there).
+2. **Devices added by hand and virtual devices,** then **importing T3000's
    building database.** Parts 2 and 3 of [the device
    list](#the-device-list-and-virtual-devices). The owner settled
    decisions A to E there on 2026-09-26. Adding a device by hand is built,
-   and so is configuring its inputs offline, for Full Label, Label,
-   Auto/Manual and Filter. Next come the rest of its inputs' columns, then
-   import and export, D, E and C, in the order given there.
-2. **Serial ports.** The first slice is built: the computer's COM ports are
+   and so are configuring its inputs offline, for Full Label, Label,
+   Auto/Manual and Filter, and D. Next come the rest of its inputs' columns,
+   with the range dialog that W8 needs too, then import and export, E and C,
+   in the order given there.
+3. **Serial ports.** The first slice is built: the computer's COM ports are
    listed, and a serial scan that cannot write is tested against a scripted
-   line. The owner has decided the rates (all six) and MS/TP (join the
-   ring). Opening a port is not yet decided, so nothing opens one; see
-   [Serial ports](#serial-ports).
-3. **Finish Inputs and Outputs:** the Panel and Type columns, and Outputs'
+   line. The owner has decided how opening a port is tested (com0com's
+   virtual pair, and nothing else), the rates (all six) and MS/TP (join the
+   ring). Opening a port, on that pair only, is next; see [Serial
+   ports](#serial-ports).
+4. **Finish Inputs and Outputs:** the Panel and Type columns, and Outputs'
    Product Name. Type needs `GetOutputType` and its input counterpart, and
    Product Name needs T3000's product names, which are not T5000's.
-4. **The first hardware check,** once a controller is available and the owner
-   agrees. Two things above all:
+5. **The first hardware check,** which the owner runs on a controller, after
+   W1b; [Writes](#writes) says what it looks at. It also settles two things
+   about reads:
    - the serial check: the settings' `n_serial_number` must equal the serial
      in the scan response, or for a device from the saved list the saved
      serial, or the page refuses the panel;
@@ -261,12 +270,17 @@ order:
 
    Later, when there is a Modbus device on firmware below 525 to try, the
    firmware gate (see the end of Risks).
-5. **Stage 2, writes,** now first; see [Writes](#writes). Editing a
-   device's points offline came first, and has started with inputs (item 1).
-   It changes the saved configuration, not a controller, and reaches one
-   through the write path's review step (W6 there).
-6. **The register path** for Tstats and the Modbus modules, starting with the
-   guard on the Tstat registers described under Risks.
+6. **The other screens,** each read first, on the read path, and then
+   written, admitting one write command at a time, as [Writes](#writes) does.
+   In stage order: Arrays and PVars (2), device settings and user login (3), PID
+   loops and the Tstat screen (4), weekly and annual schedules (5), trend logs
+   and alarms (6), and programs (7), which still waits on its decision. Remote
+   points, which no stage names yet, are placed when they are reached.
+7. **The register path** for Tstats and the Modbus modules, starting with the
+   guard on the Tstat registers described under Risks, and then a Modbus
+   write path for Tstats and the scan's repairs.
+8. **Files and firmware:** loading and saving `.prog` files (item 2's import
+   and export), and updating firmware through T3000's ISP.
 
 Smaller loose ends:
 
@@ -656,7 +670,7 @@ byte to a line.
 Still to build:
 
 1. **The port.** `CreateFile` on `\\.\COMn`, with the line settings T3000
-   uses, read from its source first. The transport has to handle what the
+   uses, read from its source first, and tested on com0com's pair only (S1). The transport has to handle what the
    scripted line does not:
    - a port another program holds, T3000 included, which cannot be opened;
    - an adapter that echoes what it sends, putting the query in front of
@@ -669,11 +683,12 @@ Still to build:
 4. **Reading them.** On a Modbus line, this is the register path under Next.
    On an MS/TP line it is BACnet, over MS/TP.
 
-Decisions for the owner, and what the owner decided (2026-09-26):
+Decisions for the owner, and what the owner decided (2026-09-26, and S1 again
+on 2026-09-27):
 
 *S1. How opening a port is tested.* Opening one is the first step that sends
 anything, and the rule is never to open a port with hardware on it. This
-machine's COM3 is an FTDI adapter (`\Device\VCP0`), and there is no virtual
+machine's COM3 is an FTDI adapter (`\Device\VCP0`), and there was no virtual
 null-modem pair.
 
 - com0com: a pair of virtual ports wired to each other, with a scripted
@@ -685,6 +700,11 @@ null-modem pair.
 **Decided: not yet.** No port is opened. What can be built without opening
 one is built first, and opening one waits until the owner says how it is
 tested.
+
+**Changed on 2026-09-27: com0com,** as recommended. The owner installed it
+(2.2.2.0, the signed build), and its pair, CNCA0 and CNCB0, passes bytes both
+ways when opened as `\\.\CNCA0` and `\\.\CNCB0`. Only that pair is opened,
+with a scripted device on the far end. COM3 is never opened.
 
 *S2. Which rates a scan tries.* The default is 38400, as
 `device::Connection` has it. T3000 scans every port at each rate in its scan
@@ -772,7 +792,7 @@ firmware is not here, and T3000 treats every answer alike.
 
 | | Delivers |
 |---|---|
-| W1a | Write encoding, reply classification and guards; nothing can send. Done |
+| W1a | Write encoding, reply classification and guards; nothing can send. Done (#32) |
 | W1b | One input's Filter, approved in the page and read back |
 | W2 | Evidence: a log of each write with the panel's raw answer, and a check of T3000's reply handling through its DLL; then the first hardware check |
 | W3 | Inputs' Auto/Manual |

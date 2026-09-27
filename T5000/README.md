@@ -21,7 +21,7 @@ are in:
 
 ## Where it stands
 
-As of 2026-09-26. **Nothing in T5000 has been run against a real controller
+As of 2026-09-27. **Nothing in T5000 has been run against a real controller
 yet.** Everything below is checked against T3000's source and against
 synthetic devices on loopback.
 

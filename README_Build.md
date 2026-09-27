@@ -116,6 +116,8 @@ This builds the stack too, which needs MFC, and nothing else of T3000's. T5000's
 * `T5000\wire\`
 * `T5000\bacnet\command.h`
 * `T5000\bacnet\private_transfer.cpp`, which the oracle checks byte for byte against T3000's stack
+* `T5000\bacnet\write_command.h`
+* `T5000\bacnet\private_write.cpp`, which the oracle also checks against T3000's stack
 * `T5000\device\product.h`
 * `T5000\display\tables.h`
 * the constants the table guard lists
