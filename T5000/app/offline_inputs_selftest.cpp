@@ -158,8 +158,18 @@ namespace
                               "\",\"model\":\"T3-OEM\",\"saving\":true,\"edited\":0,"),
               "the payload says it is configured offline, for this device, as a T3-OEM, being saved, with nothing "
               "changed");
-        check(contains(p, "\"editable\":[\"fullLabel\",\"autoManual\",\"filter\",\"label\"]"),
-              "  and which columns can be changed");
+        check(contains(p, "\"rangeChoices\":[{\"n\":0,\"name\":\"Unused\"},{\"n\":1,\"name\":\"Off/On\"},"),
+              "  the ranges that can be chosen, by their numbers in T3000's Range dialog");
+        check(contains(p, "{\"n\":41,\"name\":\"0.0 to 5.0 Volts\"}"), "  analog ones among them");
+        check(contains(p, "\"rangeNote\":\"These are the ranges T3000's Range dialog offers this input of a T3-OEM."),
+              "  and a note on which are listed, and why some are not");
+        check(contains(p, "\"changed\":[],\"editable\":[\"fullLabel\",\"autoManual\",\"range\",\"label\"],"
+                          "\"rangeNumber\":0,\"ranges\":[0,1,2,"),
+              "input 1 lets its names, Auto/Manual and range be changed, not its filter: it is digital");
+        check(contains(p, "\"ranges\":[55,59]}"), "a T3-OEM's input 9 is offered the fast pulse count and RPM alone");
+        check(contains(p, "\"fullLabel\":\"IN14\"") &&
+                  contains(p, "\"editable\":[\"fullLabel\",\"autoManual\",\"label\"],\"rangeNumber\":0,\"ranges\":[]}"),
+              "and its input 14, whose range is fixed, no range");
         check(contains(p, "\"isFixture\":false,\"readFromWire\":false"), "  and never that it was read");
         check(contains(p, "\"readPath\":{\"path\":\"none\",\"summary\":\"configured offline\""),
               "  and its read path is none");
@@ -198,18 +208,50 @@ namespace
         check(contains(p, "\"changed\":[\"label\"]"), "  and marks its Label changed");
 
         // A second change keeps the base; putting it back removes the row.
-        check(b.edit(2, offline::InputField::Filter, "9"), "its filter is changed too");
+        check(b.edit(2, offline::InputField::AutoManual, "Manual"), "it is put in Manual too");
         check(b.edit(2, offline::InputField::Label, ""), "its label is cleared again");
         saved = b.saved(9201);
-        if (require(saved.size() == 1, "  it is still saved, for its filter"))
+        if (require(saved.size() == 1, "  it is still saved, for its Auto/Manual"))
         {
-            check_eq(saved[0].base[offline::input_at::filter], 5, "  with base filter 5, what it started from");
-            check_eq(saved[0].edited[offline::input_at::filter], 9, "  and filter 9");
+            check_eq(saved[0].base[offline::input_at::auto_manual], 0, "  with base Auto, what it started from");
+            check_eq(saved[0].edited[offline::input_at::auto_manual], 1, "  and Manual");
         }
-        check(contains(b.payload(), "\"changed\":[\"filter\"]"), "  and only the filter marked changed");
+        check(contains(b.payload(), "\"changed\":[\"autoManual\"]"), "  and only Auto/Manual marked changed");
 
-        check(b.edit(2, offline::InputField::Filter, "5"), "the filter is put back by hand");
+        check(b.edit(2, offline::InputField::AutoManual, "Auto"), "it is put back in Auto by hand");
         check(b.saved(9201).empty(), "and nothing is left saved: it is as it started");
+    }
+
+    void test_a_range_is_saved_and_shown()
+    {
+        section("a range chosen is saved, shown, and lets the input's filter be changed");
+
+        Bench b;
+        if (!b.open() || !b.add(9251, ProductClassId::MiniPanelArm, 5))
+            return;
+
+        std::string message;
+        check(!b.edit(0, offline::InputField::Filter, "9", &message), "input 1's filter is refused while it is digital");
+        check(contains(message, "digital"), "  saying so");
+
+        check(b.edit(0, offline::InputField::Range, "41"), "input 1 is given 0.0 to 5.0 Volts");
+        const auto saved = b.saved(9251);
+        if (require(saved.size() == 1, "  which is saved"))
+        {
+            check_eq(saved[0].edited[offline::input_at::digital_analog], 1, "  analog");
+            check_eq(saved[0].edited[offline::input_at::range], 11, "  range 11");
+        }
+
+        const std::string p = b.payload();
+        check(contains(p, "\"range\":\"0.0 to 5.0\""), "the grid shows its range as T3000's Range column does");
+        check(contains(p, "\"changed\":[\"range\"],\"editable\":[\"fullLabel\",\"autoManual\",\"range\",\"filter\","
+                          "\"label\"],\"rangeNumber\":41,"),
+              "  marks it changed, numbers it 41, and now lets its filter be changed");
+
+        check(b.edit(0, offline::InputField::Filter, "9"), "its filter is changed");
+        check(!b.edit(0, offline::InputField::Range, "55", &message), "the fast pulse count on input 1 of a T3-BB is refused");
+        check(contains(message, "input 1 of a T3-BB"), "  naming the input and the model");
+        check(b.edit(26, offline::InputField::Range, "55"), "  and taken on input 27, which counts fast pulses");
     }
 
     void test_a_refused_change_saves_nothing()
@@ -225,6 +267,8 @@ namespace
         check(contains(message, "input 2"), "  and the message says whose it is");
         check(!b.edit(0, offline::InputField::Filter, "300"), "a filter of 300 is refused");
         check(!b.edit(64, offline::InputField::Filter, "1"), "input 65 of 64 is refused");
+        check(!b.edit(13, offline::InputField::Range, "41", &message), "a T3-OEM's input 14, whose range is fixed, is refused");
+        check(contains(message, "fixed"), "  saying so");
         check(b.saved(9301).empty(), "and nothing is saved");
 
         check(b.edit(0, offline::InputField::FullLabel, "IN1"), "input 1 given its own name is taken");
@@ -306,16 +350,16 @@ namespace
         if (!b.open() || !b.add(9551, ProductClassId::Cm5, 0))
             return;
 
-        check(b.edit(2, offline::InputField::Filter, "6"), "input 3 is changed");
+        check(b.edit(2, offline::InputField::AutoManual, "Manual"), "input 3 is changed");
         check(contains(pending_offline_note(b.db, *b.device()), "Changes to input 3 were made offline"),
               "  and one is \"input 3\"");
 
-        check(b.edit(6, offline::InputField::Filter, "6"), "input 7 is changed");
+        check(b.edit(6, offline::InputField::AutoManual, "Manual"), "input 7 is changed");
         check(contains(pending_offline_note(b.db, *b.device()), "Changes to inputs 3 and 7 were made offline"),
               "  and two are \"inputs 3 and 7\"");
 
         for (int i = 0; i < 8; i++)
-            b.edit(i, offline::InputField::Filter, "7");
+            b.edit(i, offline::InputField::AutoManual, "Manual");
         check(contains(pending_offline_note(b.db, *b.device()),
                        "Changes to inputs 1, 2, 3, 4, 5, 6 and 2 more were made offline"),
               "  and eight are the first six and \"2 more\"");
@@ -540,9 +584,12 @@ namespace
               "index 255 is refused: a point's index is one byte, and 255 is not a point");
         check(!read_input_edit_request("{\"handle\":\"0\",\"index\":\"1\",\"field\":\"label\",\"value\":\"A\"}", r, message),
               "handle 0 is refused");
-        check(!read_input_edit_request("{\"handle\":\"12\",\"index\":\"1\",\"field\":\"range\",\"value\":\"A\"}", r, message),
+        check(read_input_edit_request("{\"handle\":\"12\",\"index\":\"1\",\"field\":\"range\",\"value\":\"41\"}", r, message) &&
+                  r.field == offline::InputField::Range && r.value == "41",
+              "a range, by its number, is read");
+        check(!read_input_edit_request("{\"handle\":\"12\",\"index\":\"1\",\"field\":\"value\",\"value\":\"A\"}", r, message),
               "a field that cannot be changed is refused");
-        check(contains(message, "fullLabel, autoManual, filter, label"), "  naming the ones that can");
+        check(contains(message, "fullLabel, autoManual, range, filter, label"), "  naming the ones that can");
         check(!read_input_edit_request("{\"handle\":\"12\",\"index\":\"1\",\"field\":\"label\"}", r, message),
               "a change with no value is refused");
         check(!read_input_edit_request("{\"handle\":\"12\",\"index\":\"1\",\"field\":\"filter\",\"value\":5}", r, message),
@@ -565,6 +612,7 @@ int run_offline_inputs_tests()
     test_which_devices_are_configured_offline();
     test_a_new_configuration_is_t3000s();
     test_a_change_is_saved_with_what_it_started_from();
+    test_a_range_is_saved_and_shown();
     test_a_refused_change_saves_nothing();
     test_changes_are_refused_where_they_would_not_be_kept_or_shown();
     test_undo_puts_an_input_back();

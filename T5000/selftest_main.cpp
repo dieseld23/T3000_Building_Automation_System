@@ -42,6 +42,7 @@ int run_variables_read_tests();
 int run_device_db_tests();
 int run_device_list_tests();
 int run_input_edit_tests();
+int run_input_ranges_tests();
 int run_offline_inputs_tests();
 int run_find_device_tests();
 int run_http_server_tests();
@@ -114,6 +115,8 @@ int run_selftests(int, char**)
     run_device_list_tests();
     printf("\n");
     run_input_edit_tests();
+    printf("\n");
+    run_input_ranges_tests();
     printf("\n");
     run_offline_inputs_tests();
     printf("\n");

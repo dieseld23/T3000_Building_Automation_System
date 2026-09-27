@@ -3,7 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <algorithm>
+
 #include <windows.h>
+
+#include "input_ranges.h"
 
 namespace t5000::offline
 {
@@ -301,39 +305,88 @@ namespace t5000::offline
             return true;
         }
 
+        // A whole number from 0 to `most`, with spaces around it allowed and
+        // nothing else: no sign, no fraction, no letters after it.
+        bool whole_number(const std::string& text, int most, int& value)
+        {
+            const size_t first = text.find_first_not_of(" \t");
+            const size_t last  = text.find_last_not_of(" \t");
+            if (first == std::string::npos)
+                return false;
+
+            value = 0;
+            for (size_t i = first; i <= last; i++)
+            {
+                const char c = text[i];
+                if (c < '0' || c > '9')
+                    return false;
+                value = value * 10 + (c - '0');
+                if (value > most)
+                    return false;
+            }
+            return true;
+        }
+
         bool edit_filter(const std::string& text, InputBytes& p, std::string& message)
         {
             // T3000 reads the cell with _wtoi and takes 0-255 (:662-673).
             // _wtoi reads "12abc" as 12 and "abc" as 0; here only a whole
             // number is taken.
-            const char* const kWrong = "The filter must be a whole number from 0 to 255.";
-
-            const size_t first = text.find_first_not_of(" \t");
-            const size_t last  = text.find_last_not_of(" \t");
-            if (first == std::string::npos)
+            int value = 0;
+            if (!whole_number(text, 255, value))
             {
-                message = kWrong;
+                message = "The filter must be a whole number from 0 to 255.";
                 return false;
             }
 
-            int value = 0;
-            for (size_t i = first; i <= last; i++)
+            p[input_at::filter] = (uint8_t)value;
+            return true;
+        }
+
+        std::string model_name(const InputPanel& panel)
+        {
+            return device::panel_name(panel.product, panel.type);
+        }
+
+        bool edit_range(const InputPanel& panel, int index, const std::string& text, InputBytes& p,
+                        std::string& message)
+        {
+            // The number the Range dialog's OK reads (BacnetRange.cpp:1158).
+            // T3000 takes any number typed in its box, whether or not a
+            // button offers it, and stores the range 30 below one above 30
+            // in a byte; here only a range the dialog offers the row is
+            // taken.
+            int number = 0;
+            const InputRangeChoice* choice = nullptr;
+            if (whole_number(text, 999, number))
+                choice = find_input_range(number);
+            if (!choice)
             {
-                const char c = text[i];
-                if (c < '0' || c > '9')
-                {
-                    message = kWrong;
-                    return false;
-                }
-                value = value * 10 + (c - '0');
-                if (value > 255)
-                {
-                    message = kWrong;
-                    return false;
-                }
+                message = "A range is chosen by its number in T3000's Range dialog: 0 for Unused, 1-22 for a "
+                          "digital range, 31-66 for an analog one.";
+                return false;
             }
 
-            p[input_at::filter] = (uint8_t)value;
+            const std::vector<int> offered = input_ranges_offered(panel.product, panel.type, index);
+            if (std::find(offered.begin(), offered.end(), number) == offered.end())
+            {
+                const std::string name = "\"" + input_range_name(*choice) + "\"";
+                if (number == 39 || number == 40)
+                {
+                    message = "T3000 offers " + name + " only on a panel whose settings say it has a PT 1K "
+                              "input, and nothing has been read from this one.";
+                }
+                else
+                {
+                    message = "T3000's Range dialog does not offer " + name + " for input " +
+                              std::to_string(index + 1) + " of a " + model_name(panel) + ".";
+                }
+                return false;
+            }
+
+            const InputRangeBytes b = input_range_bytes(number);
+            p[input_at::digital_analog] = b.digital_analog;
+            p[input_at::range]          = b.range;
             return true;
         }
     }
@@ -357,6 +410,7 @@ namespace t5000::offline
         case InputField::FullLabel:  return "fullLabel";
         case InputField::Label:      return "label";
         case InputField::AutoManual: return "autoManual";
+        case InputField::Range:      return "range";
         case InputField::Filter:     return "filter";
         }
         return "";
@@ -364,7 +418,7 @@ namespace t5000::offline
 
     bool input_field_from_name(const std::string& name, InputField& field)
     {
-        for (const InputField f : editable_input_fields())
+        for (const InputField f : input_fields())
         {
             if (name == input_field_name(f))
             {
@@ -375,12 +429,57 @@ namespace t5000::offline
         return false;
     }
 
-    std::vector<InputField> editable_input_fields()
+    std::vector<InputField> input_fields()
     {
-        return { InputField::FullLabel, InputField::AutoManual, InputField::Filter, InputField::Label };
+        return { InputField::FullLabel, InputField::AutoManual, InputField::Range, InputField::Filter,
+                 InputField::Label };
     }
 
-    bool apply_input_edit(std::vector<InputBytes>& inputs, int rows, int index, InputField field,
+    bool input_field_enabled(const InputPanel& panel, int index, const InputBytes& input, InputField field,
+                             std::string* why)
+    {
+        std::string reason;
+        switch (field)
+        {
+        case InputField::FullLabel:
+        case InputField::Label:
+        case InputField::AutoManual:
+            return true;
+
+        case InputField::Range:
+            if (!input_range_fixed(panel.product, panel.type, index))
+                return true;
+            reason = "The range of input " + std::to_string(index + 1) + " of a " + model_name(panel) +
+                     " is fixed: T3000 does not let it be changed.";
+            break;
+
+        case InputField::Filter:
+            // BAC_UNITS_ANALOG. An input that is neither analog nor digital
+            // is left by T3000 as the grid's last row left the cell; here
+            // its filter cannot be changed.
+            if (input[input_at::digital_analog] == 1)
+                return true;
+            reason = "Input " + std::to_string(index + 1) +
+                     " is digital, and T3000 lets only an analog input's filter be changed. Give it an analog "
+                     "range first.";
+            break;
+        }
+
+        if (why)
+            *why = reason;
+        return false;
+    }
+
+    std::vector<InputField> editable_input_fields(const InputPanel& panel, int index, const InputBytes& input)
+    {
+        std::vector<InputField> out;
+        for (const InputField f : input_fields())
+            if (input_field_enabled(panel, index, input, f))
+                out.push_back(f);
+        return out;
+    }
+
+    bool apply_input_edit(std::vector<InputBytes>& inputs, const InputPanel& panel, int index, InputField field,
                           const std::string& text, bool& changed, std::string& message, unsigned code_page)
     {
         changed = false;
@@ -393,14 +492,16 @@ namespace t5000::offline
 
         // Fresh_Input_Item does nothing past INPUT_LIMITE_ITEM_COUNT (:458):
         // those rows are shown empty and cannot be changed.
-        if (index >= rows)
+        if (index >= panel.rows)
         {
-            message = "T3000 shows " + std::to_string(rows) + " inputs for this model, so input " +
+            message = "T3000 shows " + std::to_string(panel.rows) + " inputs for this model, so input " +
                       std::to_string(index + 1) + " cannot be changed.";
             return false;
         }
 
         InputBytes p = inputs[(size_t)index];
+        if (!input_field_enabled(panel, index, p, field, &message))
+            return false;
 
         bool ok = false;
         switch (field)
@@ -408,6 +509,7 @@ namespace t5000::offline
         case InputField::FullLabel:  ok = edit_full_label(inputs, index, text, code_page, p, message); break;
         case InputField::Label:      ok = edit_label(inputs, index, text, code_page, p, message); break;
         case InputField::AutoManual: ok = edit_auto_manual(text, p, message); break;
+        case InputField::Range:      ok = edit_range(panel, index, text, p, message); break;
         case InputField::Filter:     ok = edit_filter(text, p, message); break;
         }
         if (!ok)

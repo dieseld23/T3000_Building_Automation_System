@@ -162,6 +162,8 @@
     <ClCompile Include="net\interfaces.cpp" />
     <ClCompile Include="offline\input_edit.cpp" />
     <ClCompile Include="offline\input_edit_selftest.cpp" />
+    <ClCompile Include="offline\input_ranges.cpp" />
+    <ClCompile Include="offline\input_ranges_selftest.cpp" />
     <ClCompile Include="http\server.cpp" />
     <ClCompile Include="http\server_selftest.cpp" />
     <ClCompile Include="json\read.cpp" />
@@ -191,6 +193,7 @@
     <ClInclude Include="app\find_device.h" />
     <ClInclude Include="app\offline_inputs.h" />
     <ClInclude Include="offline\input_edit.h" />
+    <ClInclude Include="offline\input_ranges.h" />
     <ClInclude Include="app\panel_read.h" />
     <ClInclude Include="app\outputs_read.h" />
     <ClInclude Include="app\variables_plan.h" />

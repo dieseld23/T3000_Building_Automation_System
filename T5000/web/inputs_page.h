@@ -83,6 +83,26 @@ namespace t5000::web
     border:1px solid var(--accent);border-radius:4px;padding:1px 5px}
   button.undo{padding:1px 8px;font-size:11px}
 
+  /* The Range dialog: T3000's ranges for one input, numbered as T3000's own
+     Range dialog numbers them. */
+  dialog.ranges{padding:0;border:1px solid var(--border);border-radius:10px;background:var(--bg);
+    color:var(--text);width:min(680px,calc(100vw - 32px));max-height:min(86vh,720px);
+    box-shadow:0 12px 40px rgba(0,0,0,.35)}
+  dialog.ranges::backdrop{background:rgba(0,0,0,.45)}
+  dialog.ranges h2{margin:0;padding:14px 18px;font-size:14px;border-bottom:1px solid var(--border)}
+  dialog.ranges .body{padding:12px 18px;display:grid;gap:12px}
+  dialog.ranges .groups{display:grid;grid-template-columns:1fr 1.4fr;gap:12px}
+  dialog.ranges .groups:has(> [hidden]){grid-template-columns:1fr}
+  @media (max-width: 560px) { dialog.ranges .groups{grid-template-columns:1fr} }
+  dialog.ranges h3{margin:0 0 4px;font-size:11px;font-weight:600;color:var(--dim);
+    letter-spacing:.04em;text-transform:uppercase}
+  dialog.ranges .choice{display:block;width:100%;text-align:left;border-color:transparent;
+    padding:3px 8px;font-variant-numeric:tabular-nums}
+  dialog.ranges .choice.current{border-color:var(--accent);color:var(--accent);font-weight:600}
+  dialog.ranges .note{margin:0;font-size:11px;color:var(--dim)}
+  dialog.ranges footer{display:flex;justify-content:flex-end;padding:10px 18px;
+    border-top:1px solid var(--border);background:var(--surface)}
+
   .empty{display:flex;align-items:center;justify-content:center;height:100%;
          color:var(--dim);text-align:center;padding:32px}
   .empty div{max-width:420px}
@@ -193,6 +213,19 @@ namespace t5000::web
     </footer>
   </div>
 </div>
+
+<dialog class="ranges" id="range-dlg" aria-labelledby="range-title">
+  <h2 id="range-title">Range</h2>
+  <div class="body">
+    <div id="range-unused"></div>
+    <div class="groups">
+      <section id="range-digital-group"><h3>Digital</h3><div id="range-digital"></div></section>
+      <section id="range-analog-group"><h3>Analog</h3><div id="range-analog"></div></section>
+    </div>
+    <p class="note" id="range-note"></p>
+  </div>
+  <footer><button type="button" id="range-cancel">Cancel</button></footer>
+</dialog>
 
 <footer id="status">Read-only. Editing arrives once the write path is verified against hardware.</footer>
 
@@ -311,10 +344,10 @@ namespace t5000::web
   }
 
   // The cell's attributes: its classes, and in an offline configuration
-  // whether it can be changed and whether it has been.
+  // whether it can be changed, as the input stands, and whether it has been.
   function cell(r, field, cls) {
     let c = cls || "";
-    if (offline && offline.saving && offline.editable.includes(field)) c += " edit";
+    if (offline && offline.saving && r.editable && r.editable.includes(field)) c += " edit";
     if (r.changed && r.changed.includes(field)) c += " changed";
     return (c.trim() ? ' class="' + c.trim() + '"' : "") + ' data-f="' + field + '"';
   }
@@ -484,8 +517,54 @@ namespace t5000::web
                                  value: row.autoManual === "Manual" ? "Auto" : "Manual" });
       return;
     }
+    if (td.dataset.f === "range") {
+      openRange(row);
+      return;
+    }
     openEditor(td, row, td.dataset.f);
   });
+
+  // The Range dialog lists the ranges T3000 offers this input, numbered as
+  // T3000's Range dialog numbers them: 0 Unused, 1-22 digital, above 30
+  // analog. Choosing one saves it.
+  let rangeRow = null;
+
+  function openRange(row) {
+    const offered = new Set(row.ranges || []);
+    const choices = (offline.rangeChoices || []).filter(c => offered.has(c.n));
+    const button = c => '<button type="button" class="choice' + (c.n === row.rangeNumber ? ' current"'
+        + ' aria-current="true' : '') + '" data-n="' + c.n + '">' + c.n + ". " + esc(c.name) + "</button>";
+    const list = test => choices.filter(c => test(c.n)).map(button).join("");
+
+    $("range-title").textContent = "Range of input " + row.input
+      + (row.fullLabel ? " (" + row.fullLabel + ")" : "");
+    $("range-unused").innerHTML = list(n => n === 0);
+    $("range-digital").innerHTML = list(n => n > 0 && n <= 30);
+    $("range-analog").innerHTML = list(n => n > 30);
+    $("range-digital-group").hidden = !$("range-digital").innerHTML;
+    $("range-analog-group").hidden = !$("range-analog").innerHTML;
+    $("range-note").textContent = offline.rangeNote || "";
+
+    rangeRow = row;
+    $("range-dlg").showModal();
+    const focus = $("range-dlg").querySelector(".choice.current") || $("range-dlg").querySelector(".choice");
+    if (focus) focus.focus();
+  }
+
+  $("range-dlg").addEventListener("click", ev => {
+    // A click on the backdrop lands on the dialog itself.
+    if (ev.target === $("range-dlg")) { $("range-dlg").close(); return; }
+    const b = ev.target.closest("button[data-n]");
+    if (!b || !rangeRow) return;
+    const n = Number(b.dataset.n);
+    const row = rangeRow;
+    $("range-dlg").close();
+    if (n !== row.rangeNumber) {
+      send("/api/inputs/edit", { handle: offline.handle, index: String(row.index), field: "range", value: String(n) });
+    }
+  });
+  $("range-cancel").onclick = () => $("range-dlg").close();
+  $("range-dlg").addEventListener("close", () => { rangeRow = null; });
 
 
   // ------------------------------------------------------------- connection

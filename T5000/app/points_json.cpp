@@ -106,6 +106,20 @@ namespace t5000::app
             out += value ? "true" : "false";
         }
 
+        // ,"name":["a","b"] - a list of names, after a field.
+        void append_names(std::string& out, const char* name, const std::vector<std::string>& names)
+        {
+            out += ",\"";
+            out += name;
+            out += "\":[";
+            for (size_t i = 0; i < names.size(); i++)
+            {
+                if (i != 0) out += ',';
+                out += '"' + json_escape(names[i]) + '"';
+            }
+            out += ']';
+        }
+
         // "device":{...}, - the same for every points payload.
         void append_device(std::string& out, const DeviceInfo& device)
         {
@@ -495,13 +509,17 @@ namespace t5000::app
         append_field(out, "model", view.model); out += ',';
         append_bool(out, "saving", view.saving); out += ',';
         append_int(out, "edited", (long)view.edited); out += ',';
-        out += "\"editable\":[";
-        for (size_t i = 0; i < view.editable.size(); i++)
+        out += "\"rangeChoices\":[";
+        for (size_t i = 0; i < view.range_choices.size(); i++)
         {
             if (i != 0) out += ',';
-            out += '"' + json_escape(view.editable[i]) + '"';
+            out += '{';
+            append_int(out, "n", (long)view.range_choices[i].number); out += ',';
+            append_field(out, "name", view.range_choices[i].name);
+            out += '}';
         }
         out += "],";
+        append_field(out, "rangeNote", view.range_note); out += ',';
         append_field(out, "note", view.note);
         out += "},";
 
@@ -537,13 +555,17 @@ namespace t5000::app
         {
             if (i != 0) out += ',';
             append_input_row(out, points[i], i, context);
-            out += ",\"changed\":[";
-            if (i < view.changed.size())
+            append_names(out, "changed", i < view.changed.size() ? view.changed[i] : std::vector<std::string>());
+            append_names(out, "editable", i < view.editable.size() ? view.editable[i] : std::vector<std::string>());
+            out += ',';
+            append_int(out, "rangeNumber", i < view.range_numbers.size() ? (long)view.range_numbers[i] : 0L);
+            out += ",\"ranges\":[";
+            if (i < view.ranges.size())
             {
-                for (size_t k = 0; k < view.changed[i].size(); k++)
+                for (size_t k = 0; k < view.ranges[i].size(); k++)
                 {
                     if (k != 0) out += ',';
-                    out += '"' + json_escape(view.changed[i][k]) + '"';
+                    out += std::to_string(view.ranges[i][k]);
                 }
             }
             out += "]}";
