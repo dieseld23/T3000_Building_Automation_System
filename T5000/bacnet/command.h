@@ -10,8 +10,13 @@
 //     and wrong exactly where it matters: CLEARPANEL_T3000 is 28 (:70).
 //   - Not the name. READFLASHSTATUS_COMMAND is 119 and
 //     READSTATUSWRITEFLASH_COMMAND is 120, both among the writes (:129-130).
-//   - Not even uniqueness. PANEL_INFO1_COMMAND and WRITEMONITOR_T3000 are both
+//   - Not even uniqueness. Nine values carry two names each: 110-114, 116,
+//     117, 118 and 120. PANEL_INFO1_COMMAND and WRITEMONITOR_T3000 are both
 //     110; ICON_NAME_TABLE_COMMAND and WRITEUNIT_T3000 are both 114.
+//     (:104-113 against :121-130.)
+//
+// Writes have their own list, in write_command.h, and their own type: nothing
+// here can name one.
 //
 // So this is a whitelist, not a rule. It is a scoped enum rather than a uint8_t
 // for the same reason Handle is: the encoder that puts a command on the wire

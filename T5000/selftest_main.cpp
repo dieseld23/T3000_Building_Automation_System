@@ -24,6 +24,7 @@ int run_serial_scan_tests();
 int run_json_read_tests();
 int run_scan_json_tests();
 int run_private_transfer_tests();
+int run_private_write_tests();
 int run_point_read_tests();
 int run_inputs_plan_tests();
 int run_input_text_tests();
@@ -74,6 +75,8 @@ int run_selftests(int, char**)
     run_scan_json_tests();
     printf("\n");
     run_private_transfer_tests();
+    printf("\n");
+    run_private_write_tests();
     printf("\n");
     run_point_read_tests();
     printf("\n");

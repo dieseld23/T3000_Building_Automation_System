@@ -121,6 +121,9 @@
     <ClCompile Include="bacnet\point_read_selftest.cpp" />
     <ClCompile Include="bacnet\private_transfer.cpp" />
     <ClCompile Include="bacnet\private_transfer_selftest.cpp" />
+    <ClCompile Include="bacnet\private_write.cpp" />
+    <ClCompile Include="bacnet\private_write_selftest.cpp" />
+    <ClCompile Include="bacnet\write_command.cpp" />
     <ClCompile Include="display\input_text.cpp" />
     <ClCompile Include="display\input_text_selftest.cpp" />
     <ClCompile Include="display\output_text.cpp" />
@@ -191,6 +194,9 @@
     <ClInclude Include="bacnet\command.h" />
     <ClInclude Include="bacnet\point_read.h" />
     <ClInclude Include="bacnet\private_transfer.h" />
+    <ClInclude Include="bacnet\private_write.h" />
+    <ClInclude Include="bacnet\tag_reader.h" />
+    <ClInclude Include="bacnet\write_command.h" />
     <ClInclude Include="display\input_text.h" />
     <ClInclude Include="display\output_text.h" />
     <ClInclude Include="display\variable_ranges.h" />
