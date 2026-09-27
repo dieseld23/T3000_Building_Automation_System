@@ -1,4 +1,5 @@
 #include "scan_json.h"
+#include "find_device.h"
 #include "points_json.h"
 
 namespace t5000::app
@@ -102,6 +103,10 @@ namespace t5000::app
             append_field(out, "modbusId", (long long)d.modbus_id_reported); out += ',';
             append_field(out, "parentSerial", (long long)d.parent_serial);    out += ',';
             append_field(out, "address", d.address_note);                     out += ',';
+
+            // The UDP port it is read at, so Find opens on the port it was
+            // found at rather than on 47808.
+            append_field(out, "port", (long long)d.connection.udp_port);      out += ',';
             append_field(out, "answeredFrom", d.answered_from);               out += ',';
             append_field(out, "reportedIp", d.reported_ip);                   out += ',';
             append_field(out, "addressMismatch", d.address_mismatch());       out += ',';
@@ -129,6 +134,9 @@ namespace t5000::app
             append_field(out, "lastSeen", (long long)d.last_seen);            out += ',';
             append_field(out, "answeredLastScan", registry.answered_last_scan(d)); out += ',';
             append_field(out, "seenThisSession", d.answered_scan != 0);       out += ',';
+
+            // Whether the page offers Find for it. The route asks again.
+            append_field(out, "canFind", why_not_findable(d).empty());       out += ',';
             append_field(out, "needsAttention", d.needs_attention());         out += ',';
             append_repairs(out, d);
             out += '}';

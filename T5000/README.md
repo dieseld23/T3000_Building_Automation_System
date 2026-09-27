@@ -30,8 +30,9 @@ synthetic devices on loopback.
 | Scan | Done. Broadcasts T3000's discovery query on a chosen interface and lists what answers. |
 | Serial ports | First part done. The Devices page lists the computer's COM ports, read from the registry without opening any. A serial scan is built and tested against a scripted line: it listens first, finds each device by halving the id range as T3000 does, and cannot send a write. Nothing opens a port yet, so no serial device can be found. See the migration plan. |
 | Device list | Done. Identifies each product and flags problems the scan noticed, as repairs for someone to approve later. Nothing is written to a device. |
-| Saved device list | Done. Every device with a serial number that answers a scan is saved in `T5000.db` and listed again the next time T5000 starts, with when it was last seen. (A device reporting no serial is listed but cannot be saved: there is nothing to know it by next time.) Each can be given a name, building, floor and room, and the list is grouped by them. A device can be forgotten. |
-| Devices added by hand | Partly done. A device no scan has found - on another network, or not installed yet - can be added with its model and serial, named and placed. The models are T3000's Add virtual device list (a T3-OEM is a TSTAT10 set up as panel type T3_OEM), held to T3000's source by the conformance checks, with "Model not known" for each product and every other product as itself. It is saved and shown as "added by hand", and nothing is sent to it. Once its model is chosen (Edit; a CM5 needs none), its inputs can be configured on the Inputs page before any scan finds it: Full Label, Label, Auto/Manual and Filter, by T3000's rules, kept in `T5000.db`. When a scan finds its serial, that device takes its place, keeping the name, the location and those changes, which its Inputs page says are not written yet. The inputs' other columns, and outputs and variables, are still to do; see the migration plan. |
+| Saved device list | Done. Every device with a serial number that answers a scan, or is found by Find, is saved in `T5000.db` and listed again the next time T5000 starts, with when it was last seen. (A device reporting no serial is listed but cannot be saved: there is nothing to know it by next time.) Each can be given a name, building, floor and room, and the list is grouped by them. A device can be forgotten. |
+| Devices added by hand | Partly done. A device no scan has found - on another network, or not installed yet - can be added with its model and serial, named and placed. The models are T3000's Add virtual device list (a T3-OEM is a TSTAT10 set up as panel type T3_OEM), held to T3000's source by the conformance checks, with "Model not known" for each product and every other product as itself. It is saved and shown as "added by hand", and nothing is sent to it unless Find is clicked. Once its model is chosen (Edit; a CM5 needs none), its inputs can be configured on the Inputs page before it is found: Full Label, Label, Auto/Manual and Filter, by T3000's rules, kept in `T5000.db`. When a scan, or Find, finds its serial, that device takes its place, keeping the name, the location and those changes, which its Inputs page says are not written yet. The inputs' other columns, and outputs and variables, are still to do; see the migration plan. |
+| Find at an address | Done. For a device a scan does not reach, such as one across a router: Find, on the Devices page, asks the address and port the operator gives for the panel's settings - one read, sent when Find is clicked - and the device is found if they give its serial. It is offered for a device with a serial that has not answered a scan since T5000 started, of the five private-data products. A device found is saved at that address, and every later read checks its serial again first. |
 | Virtual devices | Not started. Designed with devices added by hand; see the migration plan. |
 | Inputs | Done for the five BACnet private-data products (CM5, MiniPanel, MiniPanel ARM, ESP32 T3, TSTAT10) over BACnet/IP. The grid matches T3000's column by column, including the panel's own custom range names and its row count per model. The Panel and Type columns are not done. |
 | Outputs | Done for the same five products over BACnet/IP. The grid matches T3000's column by column: the HOA Switch column and the rows it marks, each model's row count, the panel's custom digital range names, and outputs on T3 expansion modules. The Panel, Type and Product Name columns are not done. |
@@ -47,8 +48,10 @@ device is selected, labelled as such. The Connection dialog saves transport sett
 device is read at the address its scan response came from, and a device from
 the saved list at the address it answered from last time. A device no scan has
 found since T5000 started has nothing read beyond its settings unless they
-give its saved serial, and the page says when it was last seen. A device added
-by hand that no scan has found is sent nothing at all.
+give its saved serial, and the page says when it was last seen, or that Find
+found it. A device added by hand that has not been found is sent nothing at
+all, unless the operator clicks Find, which sends the address given one read
+of its settings.
 
 ## Safety rules
 
@@ -74,7 +77,8 @@ by hand that no scan has found is sent nothing at all.
 - **Test against loopback synthetic devices, never real ones.** Selecting a
   device and opening Inputs, Outputs or Variables sends it real requests, and that includes a
   device from the saved list, at its saved address: at least the settings
-  read, which is how T5000 checks it is still the same panel. Start T5000 with
+  read, which is how T5000 checks it is still the same panel. Find sends the
+  same read to whatever address is typed into it. Start T5000 with
   `--no-browser` and `--db` naming a scratch file, scan with interface
   127.0.0.1, and select only devices you are serving yourself.
 

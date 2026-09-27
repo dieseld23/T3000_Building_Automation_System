@@ -23,9 +23,9 @@ namespace t5000::app
         info.address        = plan.endpoint.text();
         info.sighting       = plan.sighting;
 
-        // As for inputs: a read that got this far under MustConfirm had its
-        // serial checked.
-        if (!info.sighting.empty() && plan.identity == Identity::MustConfirm)
+        // As for inputs: a read that got this far under MustConfirm or
+        // FoundAtAddress had its serial checked.
+        if (!info.sighting.empty() && plan.identity != Identity::VouchedForByScan)
         {
             info.sighting += " Its settings give serial " + std::to_string(d.serial_number) +
                              ", the one saved for it, so it is the same device.";

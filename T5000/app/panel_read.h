@@ -29,9 +29,10 @@ namespace t5000::app
     // How sure T5000 already is that the panel at the address is the device
     // expected there, before its settings are read.
     //
-    // Either way, settings that give another serial stop the read. The two
-    // differ over settings that cannot confirm the serial: refused, not
-    // decodable, or carrying serial 0.
+    // Whichever it is, settings that give another serial stop the read. Only
+    // VouchedForByScan reads on from settings that cannot confirm the serial:
+    // refused, not decodable, or carrying serial 0. The other two stop, and
+    // differ only in what the page is told to do next.
     enum class Identity
     {
         // It answered a scan this session, from this address, with this
@@ -42,8 +43,15 @@ namespace t5000::app
         // Known only from the saved list: it has not answered a scan since
         // T5000 started, and the address is the one it had then. Another
         // panel may have that address now, so unless the settings confirm
-        // the serial, nothing more is read and the page says to scan first.
+        // the serial, nothing more is read and the page says to scan, or to
+        // find it at its address, first.
         MustConfirm,
+
+        // Found by Find this session (app/find_device.h), at an address the
+        // operator gave, and not by a scan. Its settings gave its serial
+        // there once; the address is still only the operator's word, so it
+        // is held to MustConfirm's rule, and the page says to find it again.
+        FoundAtAddress,
     };
 
     struct PanelRead

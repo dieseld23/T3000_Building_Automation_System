@@ -1,8 +1,8 @@
 #pragma once
 
-// The inputs of a device added by hand, configured before any scan has found
-// it: whether they can be, the configuration as the Inputs page shows it, and
-// the operator's changes to it.
+// The inputs of a device added by hand, configured before it is found, by a
+// scan or by Find: whether they can be, the configuration as the Inputs page
+// shows it, and the operator's changes to it.
 //
 // Nothing here sends anything to a device, and nothing here can: it reads and
 // writes T5000.db, through store::DeviceDb, and includes no transport. The
@@ -40,9 +40,9 @@ namespace t5000::app
         int rows   = 0;
     };
 
-    // An entry added by hand that no scan has found. The one kind of device
-    // whose Inputs page shows a configuration kept by T5000 rather than one
-    // read from the device.
+    // An entry added by hand that has not been found, by a scan or by Find.
+    // The one kind of device whose Inputs page shows a configuration kept by
+    // T5000 rather than one read from the device.
     bool is_configured_offline(const device::DeviceRecord& d);
 
     // Refused, with the reason, for a device a scan has found; for a product
@@ -100,7 +100,7 @@ namespace t5000::app
                               device::Handle handle, int index, std::string& message);
 
     // For a device read from the network: that inputs were changed offline
-    // before a scan found it, and wait unwritten. Empty when none were.
+    // before it was found, and wait unwritten. Empty when none were.
     std::string pending_offline_note(store::DeviceDb& db, const device::DeviceRecord& d);
 
     // How many inputs are saved with changes for a device, for place_device's

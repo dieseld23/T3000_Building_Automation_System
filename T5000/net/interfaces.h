@@ -26,6 +26,11 @@ namespace t5000::net
         bool is_up       = false;  // operationally up
         bool is_loopback = false;
 
+        // The on-link prefix length: 24 for a 255.255.255.0 network. 0 when
+        // Windows did not give one. Find uses it to refuse the network's
+        // own address and its broadcast address (app/find_device.h).
+        int prefix_length = 0;
+
         // True for adapters that are almost certainly not the building
         // network: Hyper-V switches, WSL, VPN tunnels, VirtualBox. A guess,
         // and presented as one - it sorts them down the list rather than

@@ -45,7 +45,7 @@ namespace t5000::store
     // step from the previous version added to DeviceDb::open.
     //
     // 1: the devices table.
-    // 2: added_by_hand, for a device the operator added before a scan found it.
+    // 2: added_by_hand, for a device the operator added before it was found.
     // 3: offline_points, for a device's points changed before it can be
     //    reached.
     constexpr int kSchemaVersion = 3;
@@ -89,12 +89,13 @@ namespace t5000::store
         const std::string& path() const { return m_path; }
 
         // Every saved device, in the order each was first saved, with
-        // answered_scan 0. A device added by hand that no scan has found yet
+        // answered_scan 0. A device added by hand that has not been found yet
         // comes back as Provenance::ManuallyAdded and not reached; every other
-        // one as Provenance::Restored.
+        // one - found by a scan or by Find - as Provenance::Restored.
         bool load(std::vector<device::DeviceRecord>& out, std::string& error);
 
-        // Saves what a scan found about these devices, in one transaction.
+        // Saves what a scan, or Find, found about these devices, in one
+        // transaction.
         //
         // A device already saved has its observed fields and last_seen
         // updated, and keeps its name, location and first_seen. A new one is

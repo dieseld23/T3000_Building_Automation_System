@@ -114,6 +114,7 @@ namespace t5000::net
                 iface.description = desc;
                 iface.is_up       = (a->OperStatus == IfOperStatusUp);
                 iface.is_loopback = (a->IfType == IF_TYPE_SOFTWARE_LOOPBACK);
+                iface.prefix_length = u->OnLinkPrefixLength <= 32 ? (int)u->OnLinkPrefixLength : 0;
                 iface.looks_virtual =
                     !iface.is_loopback &&
                     (looks_like_a_virtual_adapter(name) || looks_like_a_virtual_adapter(desc));

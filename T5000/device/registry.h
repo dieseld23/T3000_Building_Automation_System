@@ -69,7 +69,8 @@ namespace t5000::device
     {
         ManuallyAdded,      // an operator supplied the address
         BacnetBroadcast,    // answered a Who-Is
-        BacnetUnicast,      // answered a directed Who-Is at a known address
+        BacnetUnicast,      // found by Find: its settings, read at an address the
+                            // operator gave, gave its serial (app/find_device.h)
         SerialScan,         // found by walking ids on a serial line
         Restored,           // loaded from the saved device list
     };
@@ -279,8 +280,8 @@ namespace t5000::device
         Placement placement;
 
         // Unix seconds, 0 when not known. first_seen is when the device first
-        // answered a scan that was saved; last_seen is when it last answered
-        // one, in this session or an earlier one.
+        // answered a scan, or Find, and was saved; last_seen is when it last
+        // answered one, in this session or an earlier one.
         int64_t first_seen = 0;
         int64_t last_seen  = 0;
 
@@ -424,8 +425,8 @@ namespace t5000::device
         // A device known only from the saved list takes no part. The list
         // spans every building the tool has scanned, over months, and two
         // devices on id 5 in different buildings are not in conflict. Once a
-        // restored device answers a scan its provenance changes and it counts
-        // again.
+        // restored device answers a scan, or is found by Find, its provenance
+        // changes and it counts again.
         int refresh_duplicate_modbus_ids();
 
     private:

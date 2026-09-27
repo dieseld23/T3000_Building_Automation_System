@@ -45,10 +45,12 @@ namespace t5000::app
         Identity identity          = Identity::MustConfirm;
 
         // For the page when !seen_this_session: that it has not been seen
-        // since T5000 started, and when it last was. Empty otherwise.
+        // since T5000 started, and when it last was; or, for a device Find
+        // found, that it was found at the address given, and when. Empty
+        // otherwise.
         std::string sighting;
 
-        // That its inputs were changed offline before a scan found it, and
+        // That its inputs were changed offline before it was found, and
         // the changes wait unwritten (app/offline_inputs.h). Said on the page
         // whatever the read gives. Empty for most devices; set by the caller,
         // which has the saved list.

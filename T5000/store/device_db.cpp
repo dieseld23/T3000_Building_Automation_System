@@ -298,15 +298,16 @@ namespace t5000::store
             d.first_seen = q.column_int(16);
             d.last_seen  = q.column_int(17);
 
-            // A device added by hand that no scan has found has nothing a
-            // scan learned: no address, no firmware, no panel name, only what
+            // A device added by hand that has not been found has nothing a
+            // scan or Find learned: no address, no firmware, no panel name, only what
             // the operator typed. It comes back as it was added, and as never
             // reached, so nothing takes the product the operator picked for
             // one the device reported.
             //
             // Decided on last_seen as well as the flag, which stays set once
             // the device is found. A device added by hand that has since
-            // answered a scan comes back like any other saved device.
+            // been found, by a scan or by Find, comes back like any other
+            // saved device.
             const bool added_by_hand = q.column_int(18) != 0;
             if (added_by_hand && d.last_seen == 0)
             {
@@ -315,8 +316,8 @@ namespace t5000::store
             }
             else
             {
-                // Saved because it answered a scan, so it has been reached -
-                // in an earlier session.
+                // Saved because it answered a scan or Find, so it has been
+                // reached - in an earlier session.
                 d.provenance = Provenance::Restored;
                 d.reached    = true;
             }

@@ -7,10 +7,11 @@
 //                           T5000.db beside the exe
 //
 // It finds devices, keeps a list of them between runs, takes devices added by
-// hand before any scan has found them, and reads a selected controller's
-// inputs, outputs and variables. The inputs of a device added by hand can be
-// configured before then, and the configuration is kept in the list. It
-// cannot yet change anything on a device.
+// hand before any scan has found them, looks for a device at an address the
+// operator gives (Find), and reads a selected controller's inputs, outputs
+// and variables. The inputs of a device added by hand can be configured
+// before it is found, and the configuration is kept in the list. It cannot
+// yet change anything on a device.
 // The scan and the reads are read-only by construction (see
 // discovery/scanner.h and bacnet/command.h), and problems the scan notices
 // are staged as proposals nobody has agreed to yet. With no device selected,
@@ -25,6 +26,7 @@
 #include <time.h>
 
 #include "app/device_list.h"
+#include "app/find_device.h"
 #include "app/fixture.h"
 #include "app/inputs_plan.h"
 #include "app/inputs_read.h"
@@ -211,7 +213,7 @@ namespace
     {
         using namespace t5000;
 
-        // A device added by hand that no scan has found is not read: its
+        // A device added by hand that has not been found is not read: its
         // inputs are the configuration T5000 keeps for it. Decided before
         // any plan to read, which would refuse it anyway.
         if (app::is_configured_offline(d))
@@ -603,10 +605,50 @@ int main(int argc, char** argv)
         return inputs_action_response(ok, message, handle);
     });
 
+    // Looks for one device in the list at the address the operator gives:
+    // one request, for the panel's settings, which cannot change anything,
+    // sent only now, when Find is clicked. Found if the settings give the
+    // device's serial; the list then has its address (app/find_device.h).
+    // Synchronous, like the reads: a silent address costs two attempts of
+    // three seconds.
+    server.route("/api/devices/find", [](const http::Request& req) {
+        if (req.method != "POST")
+            return bad_request("A device is looked for with POST.");
+
+        app::FindRequest request;
+        std::string message;
+        if (!app::read_find_request(req.body, request, message))
+            return bad_request(message);
+
+        // This computer's networks, so an address typed that is one of
+        // their broadcast addresses is refused. Without the list that cannot
+        // be checked, so nothing is sent.
+        std::string interfaces_error;
+        const auto local = net::ipv4_interfaces(interfaces_error);
+        if (!interfaces_error.empty())
+            return action_response(false, "Nothing was sent. T5000 " + interfaces_error +
+                                              ", so it cannot check that the address is not a broadcast one.");
+
+        device::DeviceRecord d;
+        bacnet::Endpoint at;
+        if (!app::plan_find(g_registry, request, local, d, at, message))
+            return action_response(false, message);
+
+        bacnet::UdpReadTransport transport(at);
+        std::string error;
+        if (!transport.open(error))
+            return action_response(false, "Nothing was sent. " + error);
+
+        const bool found = app::find_device(g_registry, g_db, d, at, transport, bacnet::ReadSettings(),
+                                            g_next_invoke_id, (int64_t)time(nullptr), g_summary, message);
+        return action_response(found, message);
+    });
+
     // Adds a device by hand: one T5000 has not found, entered so it can be
     // named and placed before anyone can reach it. Kept in the saved list.
     // Nothing is sent to any device, and nothing is sent to this one until a
-    // scan finds a device with its serial (app/device_list.h).
+    // scan finds a device with its serial, or the operator clicks Find
+    // (app/device_list.h).
     server.route("/api/devices/add", [](const http::Request& req) {
         if (req.method != "POST")
             return bad_request("A device is added with POST.");

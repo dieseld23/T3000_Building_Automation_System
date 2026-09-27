@@ -417,7 +417,15 @@ readable.
 3. Read it at the address given, under `Identity::MustConfirm`, without a
    scan.
 
-**Decided: 2,** find it at an address.
+**Decided: 2,** find it at an address. **Changed on 2026-09-26, before it
+was built:** Find reads the panel's settings at the address instead of
+sending it the discovery query. T3000 sends that query only to broadcast
+addresses, so a controller's answer to one sent to its own address was
+unproven, and T3000's own way of adding a device on another subnet (Add
+Remote Device, `BacnetAddRemoteDevice.cpp:146-300`) talks BACnet to 47808,
+not the query to 1234. The settings read is the one every points page starts
+with, on the read-only transport, and gives the serial the device is matched
+by. *Built;* see below.
 
 *E. Virtual devices.*
 
@@ -436,7 +444,7 @@ The order:
 2. A's storage, with editing Inputs offline. *Built for Full Label, Label,
    Auto/Manual and Filter;* the other columns are next.
 3. Import and export.
-4. D.
+4. D. *Built.*
 5. E.
 6. C, the apply, once Stage 2's write transport and the first hardware check
    exist.
@@ -498,8 +506,38 @@ Signal type. Two things in T3000 to settle first:
   `BacnetInput.cpp:1657`): inputs 14-18 of a T3-OEM, for one.
 - A negative calibration typed in sets the sign, but a positive one never
   clears it (`:631-660`). Typing 2 after -2 leaves -2; only a click on the
-  Sign column (`:1553`) makes it positive again. Whether to copy that is the
-  owner's call.
+  Sign column (`:1553`) makes it positive again. **Decided on 2026-09-26: not
+  copied.** The sign follows what is typed (-2 minus, 2 plus), and a click on
+  Sign still flips it. Range stays locked on the rows where T3000 locks it.
+
+*Built: finding a device at an address (D).* A device in the list that has
+not answered a scan since T5000 started - added by hand, from the saved list,
+or found before - and whose settings T5000 reads by private transfer has a
+Find button on the Devices page. The operator gives an IPv4 address and a
+port, 47808 unless changed. When Find is clicked, and only then, T5000 sends
+that address one request, for the panel's settings (sent once more if nothing
+answers), and nothing else. It is found when the settings give the device's
+serial:
+
+- The entry becomes the device (`Provenance::BacnetUnicast`, shown as
+  "found"), at that address, with the panel type, Modbus id, instance and
+  name its settings give. The product stays the entry's, since the settings
+  do not give one, and the firmware is left for a scan. The name, the
+  location and any inputs changed offline are kept, and the Inputs page lists
+  those as not written.
+- It is saved, and comes back next time from the saved list like any other
+  device.
+- Every read of it is held to the stricter rule (`Identity::FoundAtAddress`):
+  unless its settings give its serial again, nothing more is read, and the
+  page says to find it again. A scan that finds it vouches for it from then
+  on.
+
+Another serial, none, a refusal or silence is not found, and the list and the
+file are left as they were. The address must be four numbers; a name is not
+looked up, and 0.0.0.0, the broadcast address, multicast and the reserved
+range from 240.0.0.0 are refused before anything is sent. Find is not offered
+for a device a scan found this session (its address is the scan's), one on
+another controller's bus, or a product whose settings T5000 does not read.
 
 What T3000's virtual devices are, from `BacnetAddVirtualDevice.cpp` and
 `global_function.cpp`:
