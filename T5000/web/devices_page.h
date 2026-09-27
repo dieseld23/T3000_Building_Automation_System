@@ -311,8 +311,6 @@ namespace t5000::web
 <footer>
   <span id="readonly-note">Scanning is read-only. No register is written.</span>
   <span id="saved-note"></span>
-  <span class="spacer"></span>
-  <span><a href="/inputs">Inputs</a> &middot; <a href="/outputs">Outputs</a> &middot; <a href="/variables">Variables</a></span>
 </footer>
 )PAGE"
         R"PAGE(

@@ -48,6 +48,7 @@
 #include "store/device_db.h"
 #include "web/devices_page.h"
 #include "web/inputs_page.h"
+#include "web/nav.h"
 #include "web/outputs_page.h"
 #include "web/variables_page.h"
 
@@ -314,20 +315,27 @@ int main(int argc, char** argv)
     // The device list is the front door. Every other screen needs a selected
     // device before it can mean anything, and landing on a grid of fixture
     // points invites the reader to believe it came from somewhere.
+    //
+    // Each page is served with the bar of pages across its top (web/nav.h),
+    // put together once.
     server.route("/", [](const http::Request&) {
-        return http::Response::html(web::kDevicesPage);
+        static const std::string page = web::with_nav(web::kDevicesPage, "/");
+        return http::Response::html(page);
     });
 
     server.route("/inputs", [](const http::Request&) {
-        return http::Response::html(web::kInputsPage);
+        static const std::string page = web::with_nav(web::kInputsPage, "/inputs");
+        return http::Response::html(page);
     });
 
     server.route("/outputs", [](const http::Request&) {
-        return http::Response::html(web::kOutputsPage);
+        static const std::string page = web::with_nav(web::kOutputsPage, "/outputs");
+        return http::Response::html(page);
     });
 
     server.route("/variables", [](const http::Request&) {
-        return http::Response::html(web::kVariablesPage);
+        static const std::string page = web::with_nav(web::kVariablesPage, "/variables");
+        return http::Response::html(page);
     });
 
     // Loaded once at startup and held in memory. A tool driven by one person at
