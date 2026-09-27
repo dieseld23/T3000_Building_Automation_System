@@ -742,6 +742,24 @@ int main(int argc, char** argv)
         return action_response(ok, message);
     });
 
+    // A virtual device: a configuration with no device behind it, made from
+    // a model, with a serial T5000 hands out. Kept in the saved list, and
+    // nothing is ever sent for it: the reads and Find refuse it
+    // (app/device_list.h).
+    server.route("/api/devices/add-virtual", [](const http::Request& req) {
+        if (req.method != "POST")
+            return bad_request("A virtual device is made with POST.");
+
+        app::VirtualAdded added;
+        std::string message;
+        if (!app::read_add_virtual_request(req.body, added, message))
+            return bad_request(message);
+
+        device::Handle handle = device::kNoHandle;
+        const bool ok = app::add_virtual_device(g_registry, g_db, added, g_store, handle, message);
+        return action_response(ok, message);
+    });
+
     // What the tool knows about products. Served so the capability table is
     // inspectable rather than implicit - "this device is not supported" is a
     // much more useful message when the reason is one request away.
@@ -762,7 +780,8 @@ int main(int argc, char** argv)
         if (const device::DeviceRecord* d = g_registry.selected())
             return http::Response::json(
                 app::build_product_json((int)static_cast<uint8_t>(d->product), d->mini_type,
-                                        d->provenance == device::Provenance::ManuallyAdded));
+                                        d->provenance == device::Provenance::ManuallyAdded ||
+                                            d->is_virtual()));
 
         const app::DeviceInfo d = fixture_device();
         return http::Response::json(app::build_product_json(d.product_id, /*mini_type*/ 0));

@@ -299,15 +299,15 @@ namespace
         std::string error;
         check(db.save_scanned({ scanned(8001), scanned(8002), scanned(8003) }, error), "three saved");
 
-        check(db.forget(8002, error), "one is forgotten");
+        check(db.forget(scanned_key(8002), error), "one is forgotten");
         auto list = load(db);
         check_eq((long)list.size(), 2, "two remain");
         for (const auto& d : list)
             check(d.serial_number != 8002, "and the forgotten one is not among them");
 
-        check(db.forget(9999, error), "forgetting a device that was never saved is not an error");
+        check(db.forget(scanned_key(9999), error), "forgetting a device that was never saved is not an error");
 
-        check(db.forget_all_scanned(error), "the rest are forgotten");
+        check(db.forget_all(error), "the rest are forgotten");
         check_eq((long)load(db).size(), 0, "and the list is empty");
     }
 
@@ -700,7 +700,7 @@ namespace
     {
         std::vector<OfflinePoint> out;
         std::string error;
-        check(db.load_offline_inputs(serial, out, error), "the offline changes load");
+        check(db.load_offline_inputs(scanned_key(serial), out, error), "the offline changes load");
         return out;
     }
 
@@ -754,7 +754,7 @@ namespace
 
         check(changes(db, 8301).empty(), "it starts with no changes");
 
-        check(db.save_offline_input(8301, a_change(3, 'a', 'b'), error), "input 4 is changed");
+        check(db.save_offline_input(scanned_key(8301), a_change(3, 'a', 'b'), error), "input 4 is changed");
         auto saved = changes(db, 8301);
         if (require(saved.size() == 1, "  and saved"))
         {
@@ -762,30 +762,30 @@ namespace
             check(saved[0].base == an_input('a') && saved[0].edited == an_input('b'), "  with both sets of bytes");
         }
 
-        check(db.save_offline_input(8301, a_change(3, 'x', 'c'), error), "it is changed again");
+        check(db.save_offline_input(scanned_key(8301), a_change(3, 'x', 'c'), error), "it is changed again");
         saved = changes(db, 8301);
         check(saved.size() == 1 && saved[0].base == an_input('a') && saved[0].edited == an_input('c'),
               "  and keeps the base the first change started from, not the one given now");
 
-        check(db.save_offline_input(8301, a_change(3, 'x', 'a'), error), "it is changed back to its base");
+        check(db.save_offline_input(scanned_key(8301), a_change(3, 'x', 'a'), error), "it is changed back to its base");
         check(changes(db, 8301).empty(), "  and its row is gone: nothing is left to write");
 
-        check(db.save_offline_input(8301, a_change(5, 'x', 'x'), error), "an input 'changed' to what it was");
+        check(db.save_offline_input(scanned_key(8301), a_change(5, 'x', 'x'), error), "an input 'changed' to what it was");
         check(changes(db, 8301).empty(), "  saves nothing");
 
-        check(db.save_offline_input(8301, a_change(9, 'a', 'b'), error) &&
-                  db.save_offline_input(8301, a_change(2, 'a', 'b'), error),
+        check(db.save_offline_input(scanned_key(8301), a_change(9, 'a', 'b'), error) &&
+                  db.save_offline_input(scanned_key(8301), a_change(2, 'a', 'b'), error),
               "inputs 10 and 3 are changed");
         saved = changes(db, 8301);
         check(saved.size() == 2 && saved[0].index == 2 && saved[1].index == 9, "  and come back in index order");
 
-        check(db.revert_offline_input(8301, 9, error), "input 10 is put back");
+        check(db.revert_offline_input(scanned_key(8301), 9, error), "input 10 is put back");
         saved = changes(db, 8301);
         check(saved.size() == 1 && saved[0].index == 2, "  and only input 3's change is left");
-        check(db.revert_offline_input(8301, 40, error), "putting back an input with no changes is not an error");
+        check(db.revert_offline_input(scanned_key(8301), 40, error), "putting back an input with no changes is not an error");
 
         check(db.add_by_hand(typed_in(8302), error), "a second device is added");
-        check(db.save_offline_input(8302, a_change(2, 'q', 'r'), error), "  and its input 3 changed");
+        check(db.save_offline_input(scanned_key(8302), a_change(2, 'q', 'r'), error), "  and its input 3 changed");
         check(changes(db, 8301).size() == 1 && changes(db, 8301)[0].edited == an_input('b'),
               "each device's changes are its own");
     }
@@ -801,22 +801,22 @@ namespace
 
         check(db.references_held(), "the list holds each change to its device");
 
-        check(!db.save_offline_input(8399, a_change(0, 'a', 'b'), error), "a serial not in the list is refused");
+        check(!db.save_offline_input(scanned_key(8399), a_change(0, 'a', 'b'), error), "a serial not in the list is refused");
         check(error.find("not in the saved list") != std::string::npos, "  saying so");
 
         OfflinePoint short_one = a_change(0, 'a', 'b');
         short_one.edited.pop_back();
-        check(!db.save_offline_input(8351, short_one, error), "45 bytes are refused");
+        check(!db.save_offline_input(scanned_key(8351), short_one, error), "45 bytes are refused");
         check(error.find("46 bytes") != std::string::npos, "  saying an input is 46");
 
         OfflinePoint long_base = a_change(0, 'a', 'b');
         long_base.base.push_back(0);
-        check(!db.save_offline_input(8351, long_base, error), "a 47-byte base is refused");
+        check(!db.save_offline_input(scanned_key(8351), long_base, error), "a 47-byte base is refused");
 
-        check(!db.save_offline_input(8351, a_change(255, 'a', 'b'), error), "index 255 is refused");
+        check(!db.save_offline_input(scanned_key(8351), a_change(255, 'a', 'b'), error), "index 255 is refused");
         check(error.find("not one a panel can have") != std::string::npos, "  saying so, before the table does");
-        check(!db.save_offline_input(8351, a_change(-1, 'a', 'b'), error), "  and -1");
-        check(db.save_offline_input(8351, a_change(254, 'a', 'b'), error), "index 254, the last a panel can have, is not");
+        check(!db.save_offline_input(scanned_key(8351), a_change(-1, 'a', 'b'), error), "  and -1");
+        check(db.save_offline_input(scanned_key(8351), a_change(254, 'a', 'b'), error), "index 254, the last a panel can have, is not");
         check(changes(db, 8351).size() == 1, "only that one was saved");
     }
 
@@ -875,7 +875,7 @@ namespace
         std::string error;
         if (!open_memory(db) || !require(db.add_by_hand(typed_in(8501), error), "a device is added by hand"))
             return;
-        check(db.save_offline_input(8501, a_change(1, 'a', 'b'), error), "input 2 is changed offline");
+        check(db.save_offline_input(scanned_key(8501), a_change(1, 'a', 'b'), error), "input 2 is changed offline");
 
         check(db.save_scanned({ scanned(8501, 3000) }, error), "a scan finds it");
         check(changes(db, 8501).size() == 1, "  and the change is still there");
@@ -895,18 +895,18 @@ namespace
         if (!open_memory(db) || !require(db.add_by_hand(typed_in(8601), error), "a device is added by hand") ||
             !require(db.add_by_hand(typed_in(8602), error), "and another"))
             return;
-        check(db.save_offline_input(8601, a_change(0, 'a', 'b'), error) &&
-                  db.save_offline_input(8602, a_change(0, 'a', 'c'), error),
+        check(db.save_offline_input(scanned_key(8601), a_change(0, 'a', 'b'), error) &&
+                  db.save_offline_input(scanned_key(8602), a_change(0, 'a', 'c'), error),
               "each has an input changed");
 
-        check(db.forget(8601, error), "the first is forgotten, its change pointing at it and all");
+        check(db.forget(scanned_key(8601), error), "the first is forgotten, its change pointing at it and all");
         check(changes(db, 8601).empty(), "  and its change is gone");
         check(changes(db, 8602).size() == 1, "  and the other's is not");
 
         check(db.add_by_hand(typed_in(8603), error), "a device added now");
         check(changes(db, 8603).empty(), "  has none of the forgotten one's");
 
-        check(db.forget_all_scanned(error), "every device is forgotten");
+        check(db.forget_all(error), "every device is forgotten");
         check(changes(db, 8602).empty(), "  with every change");
         check(db.add_by_hand(typed_in(8602), error) && changes(db, 8602).empty(),
               "and a serial added again starts with none");
@@ -971,7 +971,7 @@ namespace
                 check_eq(list[0].mini_type, 11, "  with the model chosen for it");
                 check(list[0].placement.name == "Lobby", "  and its name");
             }
-            check(db.save_offline_input(8201, a_change(0, 'a', 'b'), error), "and its inputs can now be changed offline");
+            check(db.save_offline_input(scanned_key(8201), a_change(0, 'a', 'b'), error), "and its inputs can now be changed offline");
         }
 
         Database raw;
@@ -1198,6 +1198,157 @@ namespace
     }
 }
 
+namespace
+{
+    DeviceRecord a_virtual(uint32_t serial)
+    {
+        DeviceRecord d;
+        d.serial_number  = serial;
+        d.product        = ProductClassId::MiniPanelArm;
+        d.mini_type      = 5;   // a T3-BB
+        d.provenance     = Provenance::Virtual;
+        d.placement.name = "Spare";
+        return d;
+    }
+
+    std::vector<OfflinePoint> changes_of(DeviceDb& db, const DeviceKey& key)
+    {
+        std::vector<OfflinePoint> out;
+        std::string error;
+        check(db.load_offline_inputs(key, out, error), "the offline changes load");
+        return out;
+    }
+
+    void test_a_virtual_device_comes_back_as_virtual()
+    {
+        section("a virtual device is saved as kind 'virtual', and comes back as one");
+
+        TempFile file(L"virtual");
+        DeviceDb db;
+        std::string error;
+        if (!require(db.open(file.utf8(), error), "a new list is made"))
+            return;
+
+        const uint32_t v = kFirstVirtualSerial;
+        check(db.add_virtual(a_virtual(v), error), "a virtual device is saved");
+
+        std::vector<DeviceRecord> out;
+        check(db.load(out, error), "the list loads");
+        if (require(out.size() == 1, "  with it in it"))
+        {
+            check(out[0].is_virtual(), "  as a virtual device");
+            check(!out[0].reached, "  never reached");
+            check_eq(out[0].mini_type, 5, "  with its model");
+            check(out[0].placement.name == "Spare", "  and its name");
+            check(out[0].connection.host.empty() && out[0].address_note.empty(), "  and no address");
+        }
+
+        {
+            Database raw;
+            if (require(raw.open(file.utf8(), error), "the file opens directly"))
+            {
+                Statement kind(raw, "SELECT kind FROM devices WHERE serial = ?1");
+                kind.bind(1, (int64_t)v);
+                check(kind.step() == Statement::Step::Row && kind.column_text(0) == "virtual",
+                      "  in a row of kind 'virtual'");
+            }
+        }
+
+        check(!db.add_virtual(a_virtual(v), error), "a second virtual device with that serial is refused");
+        check(!db.add_virtual(scanned(kFirstVirtualSerial + 1), error), "a record that is not virtual is refused");
+        check(!db.add_virtual(a_virtual(12345), error), "a serial outside the range is refused");
+        check(error.find("12345") != std::string::npos, "  naming it");
+        check(!db.add_virtual(a_virtual(0xFFFFFFFFu), error), "0xFFFFFFFF, no serial, is refused");
+    }
+
+    void test_a_virtual_and_a_real_device_with_one_serial_are_two_rows()
+    {
+        section("a real device answering with a virtual device's serial is another row, with its own changes");
+
+        DeviceDb db;
+        if (!open_memory(db))
+            return;
+
+        std::string error;
+        const uint32_t s = kFirstVirtualSerial;
+        check(db.add_virtual(a_virtual(s), error), "a virtual device is saved");
+        check(db.save_offline_input(virtual_key(s), a_change(1, 'a', 'v'), error), "  and its input 2 changed");
+
+        check(db.save_scanned({ scanned(s) }, error), "a scan saves a real device with the same serial");
+        check(db.save_offline_input(scanned_key(s), a_change(3, 'a', 'r'), error), "  and its input 4 changed");
+
+        std::vector<DeviceRecord> out;
+        check(db.load(out, error) && out.size() == 2, "the list holds both");
+        if (out.size() == 2)
+        {
+            check(out[0].is_virtual() && out[0].placement.name == "Spare", "  the virtual one as it was");
+            check(out[1].provenance == Provenance::Restored && out[1].connection.host == "127.0.0.2",
+                  "  and the real one as the scan saw it");
+        }
+
+        auto v = changes_of(db, virtual_key(s));
+        auto r = changes_of(db, scanned_key(s));
+        check(v.size() == 1 && v[0].index == 1, "each keeps its own change: the virtual device its input 2");
+        check(r.size() == 1 && r[0].index == 3, "  and the real one its input 4");
+
+        check(db.revert_offline_input(virtual_key(s), 1, error), "the virtual device's change is undone");
+        check(changes_of(db, virtual_key(s)).empty() && changes_of(db, scanned_key(s)).size() == 1,
+              "  leaving the real one's");
+
+        std::vector<OfflinePoint> one = { a_change(7, 'a', 'z') };
+        check(db.replace_offline_inputs(virtual_key(s), one, error), "an import replaces the virtual device's");
+        check(changes_of(db, scanned_key(s)).size() == 1 && changes_of(db, scanned_key(s))[0].index == 3,
+              "  and not the real one's");
+
+        DeviceRecord renamed = a_virtual(s);
+        renamed.placement.name = "Renamed";
+        renamed.mini_type = 6;
+        check(db.save_placement(renamed, error), "the virtual device is renamed and its model changed");
+        check(db.load(out, error) && out.size() == 2, "  which adds no row");
+        if (out.size() == 2)
+        {
+            check(out[0].placement.name == "Renamed" && out[0].mini_type == 6, "  and changes the virtual row");
+            check(out[1].placement.name.empty() && out[1].mini_type == 7, "  and not the real one");
+        }
+
+        check(db.forget(scanned_key(s), error), "the real one is forgotten");
+        check(db.load(out, error) && out.size() == 1 && out[0].is_virtual(), "  leaving the virtual one");
+        check(changes_of(db, virtual_key(s)).size() == 1, "  with its change");
+        check(changes_of(db, scanned_key(s)).empty(), "  and the real one's change gone with it");
+
+        check(db.forget(virtual_key(s), error), "the virtual one is forgotten");
+        check(db.load(out, error) && out.empty(), "  leaving nothing");
+        check(changes_of(db, virtual_key(s)).empty(), "  and no change");
+    }
+
+    void test_forgetting_all_takes_virtual_devices()
+    {
+        section("forgetting every device takes the virtual ones and their changes too");
+
+        TempFile file(L"forgetall");
+        DeviceDb db;
+        std::string error;
+        if (!require(db.open(file.utf8(), error), "a new list is made"))
+            return;
+
+        check(db.add_virtual(a_virtual(kFirstVirtualSerial), error) && db.save_scanned({ scanned(8801) }, error),
+              "a virtual device and a real one are saved");
+        check(db.save_offline_input(virtual_key(kFirstVirtualSerial), a_change(0, 'a', 'b'), error),
+              "  and the virtual one's input 1 changed");
+
+        check(db.forget_all(error), "every device is forgotten");
+        std::vector<DeviceRecord> out;
+        check(db.load(out, error) && out.empty(), "  none is left");
+
+        Database raw;
+        if (require(raw.open(file.utf8(), error), "the file opens directly"))
+        {
+            Statement points(raw, "SELECT count(*) FROM offline_points");
+            check(points.step() == Statement::Step::Row && points.column_int(0) == 0, "  and no change is left");
+        }
+    }
+}
+
 int run_device_db_tests()
 {
     test_text_is_bound_not_spliced();
@@ -1231,5 +1382,8 @@ int run_device_db_tests()
     test_a_version_3_list_is_brought_up_to_date();
     test_the_table_refuses_a_transport_it_does_not_know();
     test_the_default_path_is_beside_the_exe();
+    test_a_virtual_device_comes_back_as_virtual();
+    test_a_virtual_and_a_real_device_with_one_serial_are_two_rows();
+    test_forgetting_all_takes_virtual_devices();
     return 0;
 }

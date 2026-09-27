@@ -40,6 +40,15 @@ namespace t5000::app
         // address (app/find_device.h), changes its provenance
         // (Registry::add_or_merge), and it is read from then on.
         //
+        // A virtual device has nothing behind it, ever: no address to look
+        // for, and no device a read could reach.
+        if (d.is_virtual())
+        {
+            plan.reason = "There is no device to read. Serial " + std::to_string(d.serial_number) +
+                          " is a virtual device: a configuration with no device behind it. Nothing was sent.";
+            return plan;
+        }
+
         // ManuallyAdded is also what a record gets when whoever built it set
         // no provenance at all. Refusing that too is the safe way round.
         if (d.provenance == device::Provenance::ManuallyAdded)

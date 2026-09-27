@@ -35,7 +35,8 @@ namespace t5000::device
         {
             for (size_t i = 0; i < m_devices.size(); i++)
             {
-                if (m_devices[i].serial_number != device.serial_number)
+                if (m_devices[i].serial_number != device.serial_number ||
+                    m_devices[i].is_virtual() != device.is_virtual())
                     continue;
 
                 DeviceRecord& existing = m_devices[i];
@@ -346,7 +347,7 @@ namespace t5000::device
         // A device known only from the saved list is left out on both sides;
         // see the header.
         const auto takes_part = [](const DeviceRecord& d) {
-            return d.modbus_id_reported != 0 && d.provenance != Provenance::Restored;
+            return d.modbus_id_reported != 0 && d.provenance != Provenance::Restored && !d.is_virtual();
         };
 
         // An id is an address on one bus. A device a serial scan found shares
@@ -405,6 +406,7 @@ namespace t5000::device
         case Provenance::BacnetUnicast:   return "found at an address given";
         case Provenance::SerialScan:      return "found by serial scan";
         case Provenance::Restored:        return "restored from the saved list";
+        case Provenance::Virtual:         return "virtual";
         }
         return "unknown";
     }

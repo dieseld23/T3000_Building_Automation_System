@@ -209,6 +209,7 @@ namespace t5000::web
     </select>
   </label>
   <button id="add" type="button">Add device&hellip;</button>
+  <button id="add-virtual" type="button">Add virtual device&hellip;</button>
   <button id="clear" type="button">Forget all&hellip;</button>
   <button id="scan" type="button" class="primary">Scan</button>
 </header>
@@ -290,6 +291,26 @@ namespace t5000::web
   </form>
 </dialog>
 
+<dialog id="virtual-dialog">
+  <form id="virtual-form">
+    <h2>Add a virtual device</h2>
+    <p class="lead">A configuration with no device behind it: a model whose inputs can be set up
+      here before there is a device to put them on. T5000 gives it a serial of its own.</p>
+    <label>Model <select id="v-product"></select></label>
+    <label>Name <input type="text" id="v-name" maxlength="60" autocomplete="off"></label>
+    <label>Building <input type="text" id="v-building" maxlength="60" list="dl-building" autocomplete="off"></label>
+    <label>Floor <input type="text" id="v-floor" maxlength="60" list="dl-floor" autocomplete="off"></label>
+    <label>Room <input type="text" id="v-room" maxlength="60" list="dl-room" autocomplete="off"></label>
+    <p class="note">Nothing is ever sent for it. A scan or Find never takes it for a device, even
+      one that answers with its serial.</p>
+    <p class="err" id="virtual-error" hidden></p>
+    <div class="buttons">
+      <button type="button" id="virtual-cancel">Cancel</button>
+      <button type="submit" id="virtual-save" class="primary">Add</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="find-dialog">
   <form id="find-form">
     <h2>Find at an address</h2>
@@ -348,6 +369,12 @@ namespace t5000::web
   // changes.
   var BY_HAND = "added by hand";
   function byHand(d) { return d.provenance === BY_HAND; }
+
+  // A configuration with no device behind it, made on this page. Never
+  // found, never read, and nothing is sent for it.
+  var VIRTUAL = "virtual";
+  function isVirtual(d) { return d.provenance === VIRTUAL; }
+  function chosen(d) { return byHand(d) || isVirtual(d); }
 
   // Found by Find this session, at an address the operator gave, and not by
   // a scan. Restored from the saved list next time, like any other device.
@@ -632,6 +659,10 @@ namespace t5000::web
       td.appendChild(el("span", "pill pill-info", BY_HAND));
       td.title = "Added by hand, and not found yet, so nothing has been read from it. Nothing is " +
                  "sent to it until a scan finds it, or you click Find and give its address.";
+    } else if (isVirtual(d)) {
+      td.appendChild(el("span", "pill pill-info", VIRTUAL));
+      td.title = "A virtual device: a configuration with no device behind it. Nothing is ever " +
+                 "sent for it, and no scan or Find takes it for a device.";
     } else if (d.answeredLastScan) {
       td.appendChild(el("span", "pill pill-ok", "answered"));
       td.title = "Answered the last scan (" + d.provenance + ").";
@@ -667,7 +698,7 @@ namespace t5000::web
     } else if (!state.store.saving) {
       edit.disabled = true;
       edit.title = "The list is not being saved, so a name would be lost when T5000 closes.";
-    } else if (byHand(d)) {
+    } else if (chosen(d)) {
       edit.title = "Name this device, say where it is, and choose its model. Kept in this list only.";
     } else {
       edit.title = "Name this device and say where it is. Kept in this list only.";
@@ -729,11 +760,12 @@ namespace t5000::web
     // The panel type is read from the device. An entry added by hand shows
     // the model chosen for it instead, dimmed, and "—" when none was. A CM5
     // is resolved with panel type 0, which on a CM5 is the model.
-    var panel = el("td", d.panel.resolved && !byHand(d) ? "opt" : "dim opt");
-    panel.textContent = byHand(d) ? (d.panel.resolved ? d.panel.name : "—")
+    var panel = el("td", d.panel.resolved && !chosen(d) ? "opt" : "dim opt");
+    panel.textContent = chosen(d) ? (d.panel.resolved ? d.panel.name : "—")
                                   : d.panel.resolved ? d.panel.name : "unknown";
     panel.title = byHand(d) ? "Chosen when it was added by hand, and dropped once the device is found: Find " +
                               "reads the device's own, and a scan does not report one."
+                : isVirtual(d) ? "Chosen when this virtual device was made."
                             : d.panel.reason;
     tr.appendChild(panel);
 
@@ -748,6 +780,7 @@ namespace t5000::web
       addr.className = "dim opt";
       addr.textContent = "—";
       if (byHand(d)) addr.title = "Not known until a scan finds it, or Find finds it at an address you give.";
+      if (isVirtual(d)) addr.title = "A virtual device has no address: there is no device behind it.";
     }
     if (d.addressMismatch) {
       addr.appendChild(document.createTextNode(" "));
@@ -828,11 +861,13 @@ namespace t5000::web
       // they are counted apart from the ones a scan found last time.
       var typed = devices.filter(byHand).length;
       var located = devices.filter(foundByFind).length;
-      var found = devices.length - typed - located;
+      var made = devices.filter(isVirtual).length;
+      var found = devices.length - typed - located - made;
       var more = [
         typed ? "<b>" + typed + "</b> " + (typed === 1 ? "device was" : "devices were") +
                 " added by hand, and not found yet." : "",
-        located ? "<b>" + located + "</b> found by Find at an address given." : ""
+        located ? "<b>" + located + "</b> found by Find at an address given." : "",
+        made ? "<b>" + made + "</b> virtual " + (made === 1 ? "device." : "devices.") : ""
       ].filter(function (x) { return x; }).join(" ");
       if (found) {
         setBanner("info",
@@ -1074,6 +1109,10 @@ namespace t5000::web
       ? "Forget " + describe(d) + "?\n\nIt was added by hand and has not been found, so it " +
         "is taken off the list and out of the saved file for good, with its name, its " +
         "location and any inputs configured for it. Nothing is sent to any device."
+      : isVirtual(d)
+      ? "Forget the virtual device " + describe(d) + "?\n\nIt is taken off the list and out of " +
+        "the saved file for good, with its name, its location and the inputs configured for " +
+        "it. Nothing is sent to any device."
       : saved
       ? "Forget " + describe(d) + "?\n\nIt is taken off the list and out of the saved file, " +
         "with any name and location given to it, and any inputs configured for it before it " +
@@ -1092,12 +1131,15 @@ namespace t5000::web
     if (!n) return;
 
     var typed = state.devices.filter(byHand).length;
+    var made = state.devices.filter(isVirtual).length;
     var question = state.store.saving
       ? "Forget all " + plural(n, "device", "devices") + "?\n\nThey are taken off the list and " +
         "out of the saved file, with every name and location given to them and every input " +
         "configured offline. Nothing is sent to any device. Devices that answer a later scan " +
         "are listed again" +
-        (typed ? "; the " + plural(typed, "device", "devices") + " added by hand are not." : ".")
+        (typed ? "; the " + plural(typed, "device", "devices") + " added by hand are not" : "") +
+        (made ? (typed ? ", and " : "; ") + "the " + plural(made, "virtual device", "virtual devices") +
+                " are gone for good." : ".")
       : "Clear all " + plural(n, "device", "devices") + " from the list?\n\nThe list is not " +
         "being saved, so nothing on disk changes. Nothing is sent to any device.";
     if (!confirm(question)) return;
@@ -1132,7 +1174,7 @@ namespace t5000::web
     $("f-model-row").hidden = true;
     $("f-model-note").hidden = true;
     $("edit-title").textContent = "Name and location";
-    if (!byHand(d) || !(await loadModels())) return;
+    if (!chosen(d) || !(await loadModels())) return;
 
     var group = models.filter(function (g) { return g.productId === d.productId; })[0];
     if (!group) return;
@@ -1140,6 +1182,8 @@ namespace t5000::web
     var sel = $("f-model");
     sel.innerHTML = "";
     group.models.forEach(function (m) {
+      // A virtual device is nothing but its model, so it keeps one.
+      if (isVirtual(d) && !m.miniType) return;
       var o = el("option", null, m.name);
       o.value = String(m.miniType);
       sel.appendChild(o);
@@ -1287,6 +1331,74 @@ namespace t5000::web
 
   $("add-cancel").addEventListener("click", function () { $("add-dialog").close(); });
   $("add").addEventListener("click", openAdd);
+
+  // A virtual device is one of the models T3000 offers as one: a product's
+  // models, not "Model not known" or a product with none, which the server
+  // refuses too.
+  async function openVirtual() {
+    if (!state.store.saving) {
+      setBanner("bad", "<b>Not added.</b> The list is not being saved, so a virtual device made now " +
+        "would be lost when T5000 closes.");
+      return;
+    }
+    if (!(await loadModels())) {
+      setBanner("bad", "<b>Not added.</b> The list of models could not be loaded from T5000.");
+      return;
+    }
+    ["v-name", "v-building", "v-floor", "v-room"].forEach(function (id) { $(id).value = ""; });
+    $("virtual-error").hidden = true;
+    $("virtual-save").disabled = false;
+
+    var sel = $("v-product");
+    sel.innerHTML = "";
+    var pick = el("option", null, "Choose a model");
+    pick.value = "";
+    sel.appendChild(pick);
+    models.forEach(function (g) {
+      if (g.productId === null) return;
+      var group = document.createElement("optgroup");
+      group.label = g.label + " (product " + g.productId + ")";
+      g.models.forEach(function (m) {
+        if (!m.miniType) return;
+        var o = el("option", null, m.name);
+        o.value = m.productId + ":" + m.miniType;
+        group.appendChild(o);
+      });
+      if (group.children.length) sel.appendChild(group);
+    });
+
+    fillSuggestions();
+    $("virtual-dialog").showModal();
+    sel.focus();
+  }
+
+  $("virtual-form").addEventListener("submit", async function (ev) {
+    ev.preventDefault();
+    $("virtual-save").disabled = true;
+    try {
+      var model = $("v-product").value.split(":");
+      var data = await post("/api/devices/add-virtual", {
+        productId: model[0],
+        miniType: model.length > 1 ? model[1] : "",
+        name: $("v-name").value,
+        building: $("v-building").value,
+        floor: $("v-floor").value,
+        room: $("v-room").value
+      });
+      if (data.state) applyState(data.state);
+      if (data.ok) {
+        $("virtual-dialog").close();
+        return;
+      }
+      $("virtual-error").textContent = data.message || "The request failed.";
+      $("virtual-error").hidden = false;
+    } finally {
+      $("virtual-save").disabled = false;
+    }
+  });
+
+  $("virtual-cancel").addEventListener("click", function () { $("virtual-dialog").close(); });
+  $("add-virtual").addEventListener("click", openVirtual);
 )PAGE"
         R"PAGE(
   // Find: one request, for the panel's settings, to the address typed, sent

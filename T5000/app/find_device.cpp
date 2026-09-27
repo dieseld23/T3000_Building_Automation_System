@@ -188,6 +188,11 @@ namespace t5000::app
 
     std::string why_not_findable(const DeviceRecord& d)
     {
+        // First: whatever else is true of it, there is no device to find.
+        if (d.is_virtual())
+            return "It is a virtual device: a configuration with no device behind it, so there is none to find. "
+                   "Its serial is one T5000 gave it, not a device's.";
+
         if (!d.has_stable_identity())
             return "It has no serial number, so there is nothing to match a device at an address against.";
 

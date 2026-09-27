@@ -70,11 +70,11 @@ namespace t5000::app
     //
     // `mini_type`, when it is not kKeepModel, is the model chosen for an
     // entry added by hand that has not been found: a panel type of one of
-    // the product's models, or 0 for a model not known. Saved with the
-    // placement, in one transaction. Refused for any other device, whose
-    // panel type is the one it reports; and when inputs configured offline
-    // would be left past the new model's, which the configuration would then
-    // not show.
+    // the product's models, or 0 for a model not known. Or for a virtual
+    // device, which keeps a model, so not 0. Saved with the placement, in
+    // one transaction. Refused for any other device, whose panel type is
+    // the one it reports; and when inputs configured offline would be left
+    // past the new model's, which the configuration would then not show.
     constexpr int kKeepModel = -1;
 
     bool place_device(device::Registry& registry, store::DeviceDb& db, device::Handle handle,
@@ -120,6 +120,36 @@ namespace t5000::app
     // placement. The numbers may come as JSON numbers or as strings of
     // digits. miniType left out, or empty, is 0: model not known.
     bool read_add_request(const std::string& body, HandAdded& device, std::string& message);
+
+    // What the operator gives for a virtual device: its model, and a name and
+    // location as for any device. No serial: T5000 hands one out.
+    struct VirtualAdded
+    {
+        device::ProductClassId product   = device::ProductClassId::Unknown;
+        int                    mini_type = 0;
+        device::Placement      placement;
+    };
+
+    // Makes a virtual device: a configuration with no device behind it (the
+    // owner's decision E, 2026-09-26). It is listed and saved as kind
+    // 'virtual', its inputs are configured offline as a device added by
+    // hand's are, and nothing is ever sent for it: the reads and Find refuse
+    // it before they would look for an address. A scan or Find never matches
+    // it, even to a device that answers with its serial
+    // (Registry::add_or_merge).
+    //
+    // Its serial is the lowest from device::kFirstVirtualSerial that no
+    // device in the list has. Refused for a model T3000 does not offer as a
+    // virtual device (its Add virtual device list, device::known_models()),
+    // when the list is not being saved, since it would be gone when T5000
+    // closes, and when every serial in the range is taken. `handle` is the
+    // new device's.
+    bool add_virtual_device(device::Registry& registry, store::DeviceDb& db, const VirtualAdded& device,
+                            const StoreStatus& status, device::Handle& handle, std::string& message);
+
+    // {"productId":74,"miniType":5} with name, building, floor and room as for
+    // a placement. The model is required.
+    bool read_add_virtual_request(const std::string& body, VirtualAdded& device, std::string& message);
 
     // The longest name or location kept, in characters.
     constexpr int kMaxPlacementChars = 60;

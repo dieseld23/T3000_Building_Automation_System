@@ -105,7 +105,7 @@ namespace t5000::app
 
     bool is_configured_offline(const DeviceRecord& d)
     {
-        return d.provenance == Provenance::ManuallyAdded;
+        return d.provenance == Provenance::ManuallyAdded || d.is_virtual();
     }
 
     OfflineInputsPlan plan_offline_inputs(const DeviceRecord& d)
@@ -190,7 +190,7 @@ namespace t5000::app
             return true;
 
         std::vector<store::OfflinePoint> saved;
-        if (!db.load_offline_inputs(d.serial_number, saved, error))
+        if (!db.load_offline_inputs(store::key_of(d), saved, error))
             return false;
 
         for (const auto& p : saved)
@@ -216,9 +216,12 @@ namespace t5000::app
 
     std::string offline_inputs_payload(store::DeviceDb& db, const StoreStatus& status, const DeviceRecord& d)
     {
-        const std::string nothing_sent = "There is no device to read: this entry was added by hand, and no scan has "
-                                         "found a device with serial " +
-                                         std::to_string(d.serial_number) + ". Nothing was sent.";
+        const std::string nothing_sent =
+            d.is_virtual() ? std::string("There is no device to read: this is a virtual device, a configuration "
+                                         "with no device behind it. Nothing was sent.")
+                           : "There is no device to read: this entry was added by hand, and no scan has found a "
+                             "device with serial " +
+                                 std::to_string(d.serial_number) + ". Nothing was sent.";
 
         const OfflineInputsPlan plan = plan_offline_inputs(d);
         if (!plan.can_edit)
@@ -229,7 +232,7 @@ namespace t5000::app
             // dropped, and the page says so.
             std::vector<int> saved;
             std::string ignored;
-            if (db.is_open() && offline_input_indexes(db, d.serial_number, saved, ignored) && !saved.empty())
+            if (db.is_open() && offline_input_indexes(db, store::key_of(d), saved, ignored) && !saved.empty())
             {
                 reason += " Changes to " + input_list(saved) + " made earlier are kept in T5000's list.";
             }
@@ -291,10 +294,21 @@ namespace t5000::app
                           ". It offers PT 1K only on a panel whose settings say it has a PT 1K input, and custom "
                           "ranges only once their names are read, so neither is listed here.";
 
-        view.note = "Serial " + std::to_string(d.serial_number) +
-                    " was added by hand and has not been found. These are the inputs T5000 keeps for it: "
-                    "each as T3000 starts a new panel's, with the changes made here. They are saved in T5000's "
-                    "device list, and nothing writes them to the device yet.";
+        if (d.is_virtual())
+        {
+            view.note = "Serial " + std::to_string(d.serial_number) +
+                        " is a virtual device: a configuration with no device behind it. These are the inputs "
+                        "T5000 keeps for it: each as T3000 starts a new panel's, with the changes made here. They "
+                        "are saved in T5000's device list, and reach a device only once copied to one, which "
+                        "T5000 cannot do yet.";
+        }
+        else
+        {
+            view.note = "Serial " + std::to_string(d.serial_number) +
+                        " was added by hand and has not been found. These are the inputs T5000 keeps for it: "
+                        "each as T3000 starts a new panel's, with the changes made here. They are saved in T5000's "
+                        "device list, and nothing writes them to the device yet.";
+        }
         if (!view.saving)
             view.note += " " + not_saving(status);
 
@@ -405,7 +419,7 @@ namespace t5000::app
         point.index = request.index;
         point.base.assign(config.bases[(size_t)request.index].begin(), config.bases[(size_t)request.index].end());
         point.edited.assign(config.inputs[(size_t)request.index].begin(), config.inputs[(size_t)request.index].end());
-        if (!db.save_offline_input(d->serial_number, point, error))
+        if (!db.save_offline_input(store::key_of(*d), point, error))
         {
             message = "The change could not be saved: " + error + ".";
             return false;
@@ -439,7 +453,7 @@ namespace t5000::app
         }
 
         std::string error;
-        if (!db.revert_offline_input(d->serial_number, index, error))
+        if (!db.revert_offline_input(store::key_of(*d), index, error))
         {
             message = "The input could not be put back: " + error + ".";
             return false;
@@ -508,20 +522,25 @@ namespace t5000::app
 
         // Matched by the serial in its settings (the owner's decision A,
         // 2026-09-26), and then by the model, which decides what each
-        // input's bytes mean.
+        // input's bytes mean. A virtual device's serial is one T5000 handed
+        // out, and in no file, so it takes a file by the model alone (the
+        // owner's decision, 2026-09-27).
         const uint32_t serial = file.settings.serial_number;
-        if (serial == 0)
+        if (!d->is_virtual())
         {
-            message = "This .prog file does not say which device it was saved from: the serial in its settings "
-                      "is 0. A file's inputs are imported only into the device it was saved from.";
-            return false;
-        }
-        if (serial != d->serial_number)
-        {
-            message = "This .prog file was saved from serial " + std::to_string(serial) + ", and this device is " +
-                      "serial " + std::to_string(d->serial_number) + ". A file's inputs are imported only into the "
-                      "device it was saved from.";
-            return false;
+            if (serial == 0)
+            {
+                message = "This .prog file does not say which device it was saved from: the serial in its "
+                          "settings is 0. A file's inputs are imported only into the device it was saved from.";
+                return false;
+            }
+            if (serial != d->serial_number)
+            {
+                message = "This .prog file was saved from serial " + std::to_string(serial) +
+                          ", and this device is serial " + std::to_string(d->serial_number) +
+                          ". A file's inputs are imported only into the device it was saved from.";
+                return false;
+            }
         }
 
         const int type = file.settings.mini_type();
@@ -543,7 +562,7 @@ namespace t5000::app
 
         std::vector<int> earlier;
         std::string error;
-        if (!offline_input_indexes(db, d->serial_number, earlier, error))
+        if (!offline_input_indexes(db, store::key_of(*d), earlier, error))
         {
             message = "The inputs T5000 keeps for this device could not be read from its list: " + error + ".";
             return false;
@@ -585,17 +604,23 @@ namespace t5000::app
             " Of each input, what the operator sets is kept: the labels, Auto/Manual, range, filter, calibration "
             "and signal type, and the value of an input in Manual. Its status, its external module, and the value "
             "of an input in Auto are what the panel read, and are not. Nothing else in the file is kept: not its "
-            "outputs, variables, programs, schedules or settings. Nothing is sent to the device.";
+            "outputs, variables, programs, schedules or settings. Nothing is sent to any device.";
 
         if (request.check)
         {
-            message = "This .prog file (version " + std::to_string(file.version) + ") was saved from serial " +
-                      std::to_string(serial) + ", a " + plan.model + ". If it is imported, " + set + "." +
-                      replaced + beyond + kept_note;
+            const std::string from =
+                d->is_virtual()
+                    ? "was saved from a " + plan.model +
+                          (serial != 0 ? ", serial " + std::to_string(serial) : std::string(", with no serial")) +
+                          ". A virtual device takes a file saved from any " + plan.model +
+                          ", so the file's serial is not compared."
+                    : "was saved from serial " + std::to_string(serial) + ", a " + plan.model + ".";
+            message = "This .prog file (version " + std::to_string(file.version) + ") " + from +
+                      " If it is imported, " + set + "." + replaced + beyond + kept_note;
             return true;
         }
 
-        if (!db.replace_offline_inputs(d->serial_number, points, error))
+        if (!db.replace_offline_inputs(store::key_of(*d), points, error))
         {
             message = "The file's inputs could not be saved: " + error + ".";
             return false;
@@ -610,7 +635,7 @@ namespace t5000::app
     {
         std::vector<int> saved;
         std::string error;
-        if (!db.is_open() || !d.has_stable_identity() || !offline_input_indexes(db, d.serial_number, saved, error))
+        if (!db.is_open() || !d.has_stable_identity() || !offline_input_indexes(db, store::key_of(d), saved, error))
             return std::string();
         if (saved.empty())
             return std::string();
@@ -620,11 +645,12 @@ namespace t5000::app
                "and not written: T5000 cannot write to a device yet.";
     }
 
-    bool offline_input_indexes(store::DeviceDb& db, uint32_t serial, std::vector<int>& indexes, std::string& error)
+    bool offline_input_indexes(store::DeviceDb& db, const store::DeviceKey& key, std::vector<int>& indexes,
+                               std::string& error)
     {
         indexes.clear();
         std::vector<store::OfflinePoint> saved;
-        if (!db.load_offline_inputs(serial, saved, error))
+        if (!db.load_offline_inputs(key, saved, error))
             return false;
         for (const auto& p : saved)
             indexes.push_back(p.index);

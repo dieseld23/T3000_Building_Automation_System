@@ -59,6 +59,35 @@ namespace t5000::store
     // only the fields that differ are candidates, and each is compared with
     // what the device holds by then: a field the device has changed since is
     // shown to the operator rather than overwritten.
+    // Which saved row a call is about. A real device's row is kind
+    // 'scanned', whether a scan found it or it was added by hand; a virtual
+    // device's is kind 'virtual'. The serial alone is not enough: a real
+    // device can answer with a serial T5000 gave a virtual device
+    // (device::kFirstVirtualSerial), and the two are two rows.
+    enum class DeviceKind
+    {
+        Scanned,
+        Virtual,
+    };
+
+    struct DeviceKey
+    {
+        DeviceKind kind   = DeviceKind::Scanned;
+        uint32_t   serial = 0;
+    };
+
+    inline DeviceKey scanned_key(uint32_t serial) { return DeviceKey{ DeviceKind::Scanned, serial }; }
+    inline DeviceKey virtual_key(uint32_t serial) { return DeviceKey{ DeviceKind::Virtual, serial }; }
+
+    // The row a device in the registry is saved as.
+    inline DeviceKey key_of(const device::DeviceRecord& d)
+    {
+        return d.is_virtual() ? virtual_key(d.serial_number) : scanned_key(d.serial_number);
+    }
+
+    // The kind column's value: "scanned" or "virtual".
+    const char* kind_name(DeviceKind kind);
+
     struct OfflinePoint
     {
         int                  index = 0;   // 0-based, as T3000 numbers points
@@ -88,10 +117,12 @@ namespace t5000::store
         bool is_open() const { return m_db.is_open(); }
         const std::string& path() const { return m_path; }
 
-        // Every saved device, in the order each was first saved, with
-        // answered_scan 0. A device added by hand that has not been found yet
-        // comes back as Provenance::ManuallyAdded and not reached; every other
-        // one - found by a scan or by Find - as Provenance::Restored.
+        // Every saved device, of either kind, in the order each was first
+        // saved, with answered_scan 0. A virtual device comes back as
+        // Provenance::Virtual and a device added by hand that has not been
+        // found yet as Provenance::ManuallyAdded, neither of them reached;
+        // every other one - found by a scan or by Find - as
+        // Provenance::Restored.
         bool load(std::vector<device::DeviceRecord>& out, std::string& error);
 
         // Saves what a scan, or Find, found about these devices, in one
@@ -114,17 +145,24 @@ namespace t5000::store
         // that is not a usable key.
         bool add_by_hand(const device::DeviceRecord& device, std::string& error);
 
+        // Saves a virtual device the operator has made (app/device_list.h),
+        // as kind 'virtual'. Only ever adds: refused when a virtual device
+        // with that serial is saved, and for a record that is not a virtual
+        // device's or whose serial is not one T5000 hands out.
+        bool add_virtual(const device::DeviceRecord& device, std::string& error);
+
         // Deletes one saved device, name, location and offline changes
         // included, in one transaction. Not an error when it was not saved.
-        bool forget(uint32_t serial, std::string& error);
+        bool forget(const DeviceKey& key, std::string& error);
 
-        // Deletes every device: those found by a scan and those added by
-        // hand, with every offline change, in one transaction.
-        bool forget_all_scanned(std::string& error);
+        // Deletes every device: those found by a scan, those added by hand
+        // and the virtual ones, with every offline change, in one
+        // transaction.
+        bool forget_all(std::string& error);
 
         // The inputs changed offline on the saved device with this serial, in
         // index order. None for a device with no changes, or not saved.
-        bool load_offline_inputs(uint32_t serial, std::vector<OfflinePoint>& out, std::string& error);
+        bool load_offline_inputs(const DeviceKey& key, std::vector<OfflinePoint>& out, std::string& error);
 
         // Saves one input's change, in one transaction.
         //
@@ -133,18 +171,19 @@ namespace t5000::store
         // when the input is made what its base is again, so a change undone
         // by hand leaves nothing to write. Refused for a device that is not
         // saved, and for bytes that are not one input.
-        bool save_offline_input(uint32_t serial, const OfflinePoint& point, std::string& error);
+        bool save_offline_input(const DeviceKey& key, const OfflinePoint& point, std::string& error);
 
         // Undoes every change to one input: it goes back to its base. Not an
         // error when it had none.
-        bool revert_offline_input(uint32_t serial, int index, std::string& error);
+        bool revert_offline_input(const DeviceKey& key, int index, std::string& error);
 
         // Puts these changes in place of every input change saved for the
         // device, in one transaction: an import of a .prog file's inputs.
         // A point whose edited bytes are its base is not saved, as for one
         // change. Refused, with nothing changed, for a device that is not
         // saved and for any point that save_offline_input would refuse.
-        bool replace_offline_inputs(uint32_t serial, const std::vector<OfflinePoint>& points, std::string& error);
+        bool replace_offline_inputs(const DeviceKey& key, const std::vector<OfflinePoint>& points,
+                                    std::string& error);
 
         // Whether this connection holds offline_points to their device, as
         // open() sets it to. Without it a change could outlive its device
