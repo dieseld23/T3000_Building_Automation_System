@@ -247,9 +247,9 @@ running the hardware checks. In this order:
    list](#the-device-list-and-virtual-devices). The owner settled
    decisions A to E there on 2026-09-26. Adding a device by hand is built,
    and so are configuring its inputs offline, every column T3000's grid lets
-   be changed, D, and importing its inputs from a `.prog` file saved from
-   it, and E, virtual devices. Next come export (decided 2026-09-27: with
-   T3000's defaults, behind a warning) and C, in the order given there.
+   be changed, D, importing its inputs from a `.prog` file saved from it,
+   E, virtual devices, and exporting a device configured offline as a
+   `.prog` file for T3000. Next comes C, in the order given there.
 3. **Serial ports.** Scanning is built: a port picked on the Devices page is
    opened and scanned at each of the six rates, and the devices found are
    listed and saved with their port, rate and id. It is tested on com0com's
@@ -280,7 +280,8 @@ running the hardware checks. In this order:
    guard on the Tstat registers described under Risks, and then a Modbus
    write path for Tstats and the scan's repairs.
 8. **Files and firmware:** loading and saving `.prog` files (item 2's import
-   and export), and updating firmware through T3000's ISP. The firmware
+   and export, built for inputs), and updating firmware through T3000's
+   ISP. The firmware
    steps, and what waits for the owner, are in [the firmware
    plan](t5000-firmware-plan.md).
 
@@ -473,8 +474,7 @@ The order:
 1. B's panel type. *Built.*
 2. A's storage, with editing Inputs offline. *Built,* for every column
    T3000's grid lets be changed.
-3. Import and export. *Import built,* for inputs. Export decided (2,
-   below), and next, since it covers virtual devices too.
+3. Import and export. *Built,* for inputs; see *Built: exporting* below.
 4. D. *Built.*
 5. E. *Built,* for inputs; see *Built: virtual devices* below.
 6. C, the apply, once Stage 2's write transport and the first hardware check
@@ -689,6 +689,55 @@ T3000's Load File, from the values it actually holds. Export is offered only
 where T5000 holds the configuration: a device added by hand and not yet
 found, and a virtual device.
 
+*Built: exporting a device configured offline as a `.prog` file.* On the
+Inputs page of a device configured offline, while the list is saved, Export
+.prog makes a version 8 file of 67184 bytes. It holds the device's inputs as
+configured here, and for every other table what T3000's Add virtual device
+saves for a new panel (`BacnetAddVirtualDevice.cpp:201-225`):
+
+- outputs OUT1 to OUT64 with the hand switch at Auto, variables VAR1 to
+  VAR128, and programs PRG1 to PRG16 with no code (`Initial_All_Point`);
+- the schedules' time flags all 0xFF, and every other table 0
+  (`Initial_All_Point`, `ClearBacnetData`);
+- the settings 0 but for the serial, the panel type, and
+  `Initial_Virtual_Device_Setting`'s: ports 0 and 2 at 115200 baud, IP
+  192.168.0.3, Modbus TCP port 502. Not the Modbus id, object instance or
+  name T3000's dialog gives a virtual device: T5000 has none of them, and
+  Load File keeps a panel's own.
+
+Before the file is saved, the server says what T3000's Load File would do
+with it, read back from the file's bytes rather than restated: the tables it
+puts in place of the panel's and the ones it empties; what Load File keeps
+of the settings (the serial, name, panel number, Modbus id, object instance,
+IP address, subnet, gateway and MAC); and what it sets from the file, which
+is the panel type, the IP address's mode, each serial port's mode and rate,
+the Modbus TCP port, the MS/TP network and max master, the product field,
+and whether any other setting is not 0. The page shows that and saves the
+file only if the operator agrees. The file comes back in base64 and the
+browser saves it; T5000 writes nothing to disk, and nothing is sent to any
+device.
+
+Loaded onto a panel, such a file sets serial ports 0 and 2 to not used at
+115200 baud and port 1 to not used at 1200, the MS/TP network and max master
+to 0, the product field to 0, and the IP address's mode to Use The
+Following IP Address, so a panel that obtained its address automatically
+keeps that address, fixed. The warning says each of these.
+
+The IP address's mode: T3000's Settings shows a `tcp_type` of 1 as Obtain
+IP Address Automatically and 0 or 2 as Use The Following IP Address, and
+writes 0 for the second (`BacnetSetting.cpp:361-371`,
+`BacnetSettingTcpip.cpp:153-156` and `:204-207`). `ud_str.h`'s comment on
+the field, and T3000's webview export (`BacnetWebView_Exports.cpp:380`),
+say 0 is DHCP. The warning follows the dialog, in its captions, and the
+conformance checks pin the dialog. What a panel does with 0 is for a
+hardware check.
+
+Export is offered for every device configured offline: a controller T5000
+reads by BACnet private transfer, added by hand and not yet found or
+virtual, with its model chosen. The file's panel type is that model's. An
+export imports back into the same device unchanged, but for the value of an
+input in Auto, which an import does not keep.
+
 *Built: finding a device at an address (D).* A device in the list that has
 not answered a scan since T5000 started - added by hand, from the saved list,
 or found before - and whose settings T5000 reads by private transfer has a
@@ -772,9 +821,10 @@ to another model only.
 This build raises `T5000.db` to schema 5, with no table changes. Schema 4
 lists and forgets only kind `'scanned'`, so an older T5000 would hide a
 virtual device, and leave it behind when told to forget every device; it
-refuses a schema 5 file instead, as one written by a newer T5000. Not built:
-exporting it (next), its outputs and variables, and copying its configuration
-to a real device's entry, which goes through C.
+refuses a schema 5 file instead, as one written by a newer T5000. It is
+exported as a device added by hand is (*Built: exporting* above), in a file
+named for its serial. Not built: its outputs and variables, and copying its
+configuration to a real device's entry, which goes through C.
 
 **3. Importing T3000's building database.** Read-only: T5000 reads the
 `ALL_NODE` rows into its own list and never writes T3000's file. `ALL_NODE`
