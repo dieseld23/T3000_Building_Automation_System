@@ -82,6 +82,8 @@ namespace t5000::web
   td.edit input{font:inherit;color:var(--text);background:var(--bg);width:100%;min-width:64px;
     border:1px solid var(--accent);border-radius:4px;padding:1px 5px}
   button.undo{padding:1px 8px;font-size:11px}
+  /* A calibration's sign, switched on its own as T3000's Sign column is. */
+  td button.sign{padding:0 6px;margin-right:3px;font:inherit;line-height:1.3}
 
   /* The Range dialog: T3000's ranges for one input, numbered as T3000's own
      Range dialog numbers them. */
@@ -100,8 +102,10 @@ namespace t5000::web
     padding:3px 8px;font-variant-numeric:tabular-nums}
   dialog.ranges .choice.current{border-color:var(--accent);color:var(--accent);font-weight:600}
   dialog.ranges .note{margin:0;font-size:11px;color:var(--dim)}
-  dialog.ranges footer{display:flex;justify-content:flex-end;padding:10px 18px;
+  dialog.ranges footer{display:flex;justify-content:flex-end;gap:8px;padding:10px 18px;
     border-top:1px solid var(--border);background:var(--surface)}
+  dialog.ask{width:min(440px,calc(100vw - 32px))}
+  dialog.ask p{margin:0}
 
   .empty{display:flex;align-items:center;justify-content:center;height:100%;
          color:var(--dim);text-align:center;padding:32px}
@@ -225,6 +229,21 @@ namespace t5000::web
     <p class="note" id="range-note"></p>
   </div>
   <footer><button type="button" id="range-cancel">Cancel</button></footer>
+</dialog>
+
+<dialog class="ranges ask" id="signal-dlg" aria-labelledby="signal-title">
+  <h2 id="signal-title">Signal type</h2>
+  <div class="body"><div id="signal-list"></div></div>
+  <footer><button type="button" id="signal-cancel">Cancel</button></footer>
+</dialog>
+
+<dialog class="ranges ask" id="sign-dlg" aria-labelledby="sign-title">
+  <h2 id="sign-title">Calibration sign</h2>
+  <div class="body"><p id="sign-text"></p></div>
+  <footer>
+    <button type="button" id="sign-cancel">Cancel</button>
+    <button type="button" class="primary" id="sign-ok">Change it</button>
+  </footer>
 </dialog>
 
 <footer id="status">Read-only. Editing arrives once the write path is verified against hardware.</footer>
@@ -352,6 +371,16 @@ namespace t5000::web
     return (c.trim() ? ' class="' + c.trim() + '"' : "") + ' data-f="' + field + '"';
   }
 
+  // A calibration and its sign share a cell. Where the sign can be changed
+  // it is a button of its own, as T3000's Sign column is a column of its own.
+  function calibrationCell(r) {
+    if (!r.calibration) return "";
+    const sign = offline && offline.saving && r.editable && r.editable.includes("sign")
+      ? '<button class="sign" data-sign title="Change the sign">' + esc(r.sign) + "</button>"
+      : esc(r.sign);
+    return sign + esc(r.calibration);
+  }
+
   function undoCell(r) {
     if (!offline) return "";
     return '<td class="opt">' + (offline.saving && r.changed && r.changed.length
@@ -390,7 +419,7 @@ namespace t5000::web
               : '<span class="dim">' + esc(r.status) + '</span>'}</td>
 )PAGE"
         R"PAGE(        <td${cell(r, "range", "dim opt")}>${esc(r.range)}</td>
-        <td${cell(r, "calibration", "num opt")}>${r.calibration ? esc(r.sign + r.calibration) : ''}</td>
+        <td${cell(r, "calibration", "num opt")}>${calibrationCell(r)}</td>
         <td${cell(r, "filter", "num dim opt")}>${esc(r.filter)}</td>
         <td${cell(r, "signalType", "dim opt")}>${esc(r.signalType)}</td>
         <td${cell(r, "label", "dim opt")}>${esc(r.label)}</td>
@@ -467,10 +496,12 @@ namespace t5000::web
   // Text is typed in place, as in T3000's grid: Enter or leaving the cell
   // saves it, Escape does not. The server holds it to T3000's rules.
   function openEditor(td, row, field) {
-    const was = String(row[field] == null ? "" : row[field]);
+    // A calibration is typed with its sign, which follows what is typed.
+    const was = field === "calibration" ? String(row.sign || "") + row.calibration
+      : String(row[field] == null ? "" : row[field]);
     const input = document.createElement("input");
     input.value = was;
-    input.maxLength = field === "fullLabel" ? 20 : field === "label" ? 8 : 3;
+    input.maxLength = { fullLabel: 20, label: 8, filter: 3 }[field] || 16;
     input.setAttribute("aria-label", "Input " + row.input + " " + field);
     td.textContent = "";
     td.appendChild(input);
@@ -505,11 +536,28 @@ namespace t5000::web
       return;
     }
 
+    const sign = ev.target.closest("button[data-sign]");
+    if (sign) {
+      const signed = allRows.find(r => String(r.index) === sign.closest("tr").dataset.i);
+      if (signed) askSign(signed);
+      return;
+    }
+
     const td = ev.target.closest("td.edit");
     if (!td || td.querySelector("input")) return;
     const index = td.parentElement.dataset.i;
     const row = allRows.find(r => String(r.index) === index);
     if (!row) return;
+
+    // A digital input's state changes on a click, as in T3000.
+    if (td.dataset.f === "value" && row.valueToggle) {
+      send("/api/inputs/edit", { handle: offline.handle, index: index, field: "value", value: row.valueToggle });
+      return;
+    }
+    if (td.dataset.f === "signalType") {
+      openSignal(row);
+      return;
+    }
 
     // Auto/Manual changes on a click, as in T3000.
     if (td.dataset.f === "autoManual") {
@@ -565,6 +613,61 @@ namespace t5000::web
   });
   $("range-cancel").onclick = () => $("range-dlg").close();
   $("range-dlg").addEventListener("close", () => { rangeRow = null; });
+
+  // Signal Type is chosen from T3000's list for it. Choosing the one shown
+  // sends nothing: T3000 would store Thermistor Dry Contact as 4 where it
+  // was 0, which looks the same.
+  let signalRow = null;
+
+  function openSignal(row) {
+    $("signal-title").textContent = "Signal type of input " + row.input
+      + (row.fullLabel ? " (" + row.fullLabel + ")" : "");
+    $("signal-list").innerHTML = (offline.signalTypes || []).map((n, k) =>
+      '<button type="button" class="choice' + (n === row.signalType ? ' current" aria-current="true' : '')
+      + '" data-k="' + k + '">' + esc(n) + "</button>").join("");
+    signalRow = row;
+    $("signal-dlg").showModal();
+    const focus = $("signal-dlg").querySelector(".choice.current") || $("signal-dlg").querySelector(".choice");
+    if (focus) focus.focus();
+  }
+
+  $("signal-dlg").addEventListener("click", ev => {
+    if (ev.target === $("signal-dlg")) { $("signal-dlg").close(); return; }
+    const b = ev.target.closest("button[data-k]");
+    if (!b || !signalRow) return;
+    const name = (offline.signalTypes || [])[Number(b.dataset.k)];
+    const row = signalRow;
+    $("signal-dlg").close();
+    if (name && name !== row.signalType) {
+      send("/api/inputs/edit", { handle: offline.handle, index: String(row.index), field: "signalType", value: name });
+    }
+  });
+  $("signal-cancel").onclick = () => $("signal-dlg").close();
+  $("signal-dlg").addEventListener("close", () => { signalRow = null; });
+
+  // The sign changes only once confirmed, as T3000 asks before it changes it.
+  let signRow = null;
+
+  function askSign(row) {
+    const to = row.sign === "-" ? "+" : "-";
+    $("sign-text").textContent = "This will change the calibration of input " + row.input + " from "
+      + row.sign + row.calibration + " to " + to + row.calibration + ".";
+    signRow = row;
+    $("sign-dlg").showModal();
+    $("sign-cancel").focus();
+  }
+
+  $("sign-ok").onclick = () => {
+    const row = signRow;
+    $("sign-dlg").close();
+    if (row) {
+      send("/api/inputs/edit", { handle: offline.handle, index: String(row.index), field: "sign",
+                                 value: row.sign === "-" ? "+" : "-" });
+    }
+  };
+  $("sign-cancel").onclick = () => $("sign-dlg").close();
+  $("sign-dlg").addEventListener("click", ev => { if (ev.target === $("sign-dlg")) $("sign-dlg").close(); });
+  $("sign-dlg").addEventListener("close", () => { signRow = null; });
 
 
   // ------------------------------------------------------------- connection

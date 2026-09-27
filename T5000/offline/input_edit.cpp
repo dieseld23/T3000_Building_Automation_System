@@ -7,6 +7,7 @@
 
 #include <windows.h>
 
+#include "input_cells.h"
 #include "input_ranges.h"
 
 namespace t5000::offline
@@ -389,6 +390,117 @@ namespace t5000::offline
             p[input_at::range]          = b.range;
             return true;
         }
+
+        std::string input_name(int index)
+        {
+            return "Input " + std::to_string(index + 1);
+        }
+
+        void set_value(InputBytes& p, int32_t value)
+        {
+            const uint32_t v = (uint32_t)value;
+            p[input_at::value + 0] = (uint8_t)(v & 0xff);
+            p[input_at::value + 1] = (uint8_t)((v >> 8) & 0xff);
+            p[input_at::value + 2] = (uint8_t)((v >> 16) & 0xff);
+            p[input_at::value + 3] = (uint8_t)((v >> 24) & 0xff);
+        }
+
+        bool edit_value(const std::string& text, InputBytes& p, std::string& message)
+        {
+            // A digital input on ranges 1-22: T3000's click switches its
+            // state, the control byte, and leaves its value (:1537-1550).
+            // Its edit box then opens on the new state's name as well, and
+            // what is typed there would go to the value, which the grid does
+            // not show for a digital input; here the click is all there is.
+            std::string off, on;
+            if (p[input_at::digital_analog] == 0 && digital_states(p[input_at::range], off, on))
+            {
+                if (same_ignoring_case(text, off))
+                    p[input_at::control] = 0;
+                else if (same_ignoring_case(text, on))
+                    p[input_at::control] = 1;
+                else
+                {
+                    message = "This input's value is \"" + off + "\" or \"" + on + "\".";
+                    return false;
+                }
+                return true;
+            }
+
+            // An analog input, or a digital one on range 0: the number
+            // typed, in thousandths (:597-603).
+            double typed = 0;
+            if (!typed_number(text, typed))
+            {
+                message = "The value must be a number, such as 21.5.";
+                return false;
+            }
+            int32_t value = 0;
+            if (!value_thousandths(typed, value))
+            {
+                message = "The value is kept in thousandths, in 32 bits, so it must be above -2147483.649 and "
+                          "below 2147483.648. T3000 would store -2147483.648 for a number past either.";
+                return false;
+            }
+            set_value(p, value);
+            return true;
+        }
+
+        bool edit_calibration(const std::string& text, InputBytes& p, std::string& message)
+        {
+            double typed = 0;
+            if (!typed_number(text, typed))
+            {
+                message = "The calibration must be a number, such as -1.5.";
+                return false;
+            }
+            CalibrationBytes b;
+            if (!calibration_bytes(typed, b))
+            {
+                message = "The calibration is kept in tenths, in 16 bits, so it must be from -6553.5 to 6553.5.";
+                return false;
+            }
+            p[input_at::calibration_sign] = b.sign;
+            p[input_at::calibration_h]    = b.high;
+            p[input_at::calibration_l]    = b.low;
+            return true;
+        }
+
+        bool edit_sign(const std::string& text, InputBytes& p, std::string& message)
+        {
+            // The page sends the sign the operator chose, which is where
+            // T3000's click, once confirmed, would take it: minus from 0,
+            // plus from anything else (:1602-1613).
+            if (text == "+")
+                p[input_at::calibration_sign] = 0;
+            else if (text == "-")
+                p[input_at::calibration_sign] = 1;
+            else
+            {
+                message = "The sign must be \"+\" or \"-\".";
+                return false;
+            }
+            return true;
+        }
+
+        bool edit_signal_type(const std::string& text, InputBytes& p, std::string& message)
+        {
+            const int z = signal_type_from_name(text);
+            if (z < 0)
+            {
+                message = "The signal type must be one of";
+                const std::vector<std::string> names = signal_type_choices();
+                for (size_t i = 0; i < names.size(); i++)
+                    message += (i == 0 ? " \"" : i + 1 == names.size() ? " or \"" : ", \"") + names[i] + "\"";
+                message += ".";
+                return false;
+            }
+
+            // The high nibble of decom; its low nibble, the status, is left
+            // as it was (:686-689).
+            p[input_at::decom] = (uint8_t)((p[input_at::decom] & 0x0f) | (z << 4));
+            return true;
+        }
     }
 
     InputBytes default_input(int index)
@@ -407,11 +519,15 @@ namespace t5000::offline
     {
         switch (field)
         {
-        case InputField::FullLabel:  return "fullLabel";
-        case InputField::Label:      return "label";
-        case InputField::AutoManual: return "autoManual";
-        case InputField::Range:      return "range";
-        case InputField::Filter:     return "filter";
+        case InputField::FullLabel:   return "fullLabel";
+        case InputField::Label:       return "label";
+        case InputField::AutoManual:  return "autoManual";
+        case InputField::Range:       return "range";
+        case InputField::Filter:      return "filter";
+        case InputField::Value:       return "value";
+        case InputField::Calibration: return "calibration";
+        case InputField::Sign:        return "sign";
+        case InputField::SignalType:  return "signalType";
         }
         return "";
     }
@@ -431,7 +547,8 @@ namespace t5000::offline
 
     std::vector<InputField> input_fields()
     {
-        return { InputField::FullLabel, InputField::AutoManual, InputField::Range, InputField::Filter,
+        return { InputField::FullLabel,   InputField::Value, InputField::AutoManual, InputField::Range,
+                 InputField::Calibration, InputField::Sign,  InputField::Filter,     InputField::SignalType,
                  InputField::Label };
     }
 
@@ -439,11 +556,78 @@ namespace t5000::offline
                              std::string* why)
     {
         std::string reason;
+        const uint8_t digital_analog = input[input_at::digital_analog];
+        const uint8_t range          = input[input_at::range];
         switch (field)
         {
         case InputField::FullLabel:
         case InputField::Label:
         case InputField::AutoManual:
+            return true;
+
+        case InputField::Value:
+            // OnNMClickList1 (:1507-1536). BAC_AUTO is 0.
+            if (input[input_at::auto_manual] == 0)
+            {
+                reason = input_name(index) + " is in Auto, and T3000 lets an input's value be changed only in "
+                         "Manual.";
+                break;
+            }
+            // An analog input's value, and a digital one's on range 0, are
+            // typed. Of the other digital ranges, 1-22 switch the state.
+            if (digital_analog == 1 || (digital_analog == 0 && range <= 22))
+                return true;
+            if (digital_analog == 0 && range <= 30)
+            {
+                // receive_custom_unit is false until the panel's custom
+                // range names are read, and nothing is read from a panel
+                // configured offline.
+                reason = input_name(index) + " is on the device's custom digital range " +
+                         std::to_string(range - 22) + ". Its state names are stored on the device, and "
+                         "T3000 does not let the value be changed until they have been read.";
+                break;
+            }
+            // T3000 opens the edit box on these, and stores what is typed as
+            // the value, which it then does not show (:1145-1170). Refused
+            // here instead.
+            if (digital_analog == 0)
+                reason = input_name(index) + " is digital, on range " + std::to_string(range) +
+                         ", for which T3000 shows no value.";
+            else
+                reason = input_name(index) + " is neither analog nor digital (digital_analog is " +
+                         std::to_string(digital_analog) + ").";
+            break;
+
+        case InputField::Calibration:
+        case InputField::Sign:
+            // BAC_UNITS_ANALOG, as for Filter. There is no Auto/Manual rule:
+            // a calibration can be changed in Auto.
+            if (digital_analog == 1)
+                return true;
+            reason = input_name(index) + " is digital, and T3000 lets only an analog input's calibration and "
+                     "its sign be changed. Give it an analog range first.";
+            break;
+
+        case InputField::SignalType:
+            if (digital_analog != 1)
+            {
+                reason = input_name(index) + " is digital, and T3000 lets only an analog input's signal type be "
+                         "changed.";
+                break;
+            }
+            if (range < 20 || range > 24)
+            {
+                reason = "T3000 lets an input's signal type be changed only while its range is one of the "
+                         "custom tables, Table 1 to Table 5.";
+                break;
+            }
+            // bacnet_device_type == PM_T3PT12: the panel's type, which the
+            // grid has made bacnet_device_type (:1305).
+            if (panel.type == device::MiniType::T3PT12)
+            {
+                reason = "T3000 does not let a T3-PT12's signal type be changed.";
+                break;
+            }
             return true;
 
         case InputField::Range:
@@ -506,11 +690,15 @@ namespace t5000::offline
         bool ok = false;
         switch (field)
         {
-        case InputField::FullLabel:  ok = edit_full_label(inputs, index, text, code_page, p, message); break;
-        case InputField::Label:      ok = edit_label(inputs, index, text, code_page, p, message); break;
-        case InputField::AutoManual: ok = edit_auto_manual(text, p, message); break;
-        case InputField::Range:      ok = edit_range(panel, index, text, p, message); break;
-        case InputField::Filter:     ok = edit_filter(text, p, message); break;
+        case InputField::FullLabel:   ok = edit_full_label(inputs, index, text, code_page, p, message); break;
+        case InputField::Label:       ok = edit_label(inputs, index, text, code_page, p, message); break;
+        case InputField::AutoManual:  ok = edit_auto_manual(text, p, message); break;
+        case InputField::Range:       ok = edit_range(panel, index, text, p, message); break;
+        case InputField::Filter:      ok = edit_filter(text, p, message); break;
+        case InputField::Value:       ok = edit_value(text, p, message); break;
+        case InputField::Calibration: ok = edit_calibration(text, p, message); break;
+        case InputField::Sign:        ok = edit_sign(text, p, message); break;
+        case InputField::SignalType:  ok = edit_signal_type(text, p, message); break;
         }
         if (!ok)
             return false;
@@ -518,6 +706,16 @@ namespace t5000::offline
         // memcmp, as T3000 decides whether to write (:694).
         changed = p != inputs[(size_t)index];
         inputs[(size_t)index] = p;
+        return true;
+    }
+
+    bool input_value_toggle(const InputBytes& input, std::string& next)
+    {
+        std::string off, on;
+        if (input[input_at::digital_analog] != 0 || !digital_states(input[input_at::range], off, on))
+            return false;
+        // control == 0 becomes 1, anything else 0 (:1539-1550).
+        next = input[input_at::control] == 0 ? on : off;
         return true;
     }
 

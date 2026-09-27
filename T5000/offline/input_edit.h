@@ -67,8 +67,9 @@ namespace t5000::offline
     // every product and model.
     InputBytes default_input(int index);
 
-    // The columns that can be changed offline so far. Value, Calibration,
-    // Sign and Signal Type, which depend on the range, come next.
+    // The columns that can be changed offline: every one T3000's grid lets
+    // the operator change on a panel configured by hand. Status and the
+    // external module's columns are the device's to set.
     enum class InputField
     {
         FullLabel,
@@ -76,10 +77,14 @@ namespace t5000::offline
         AutoManual,
         Range,
         Filter,
+        Value,
+        Calibration,
+        Sign,
+        SignalType,
     };
 
     // The payload's names for them: "fullLabel", "label", "autoManual",
-    // "range", "filter".
+    // "range", "filter", "value", "calibration", "sign", "signalType".
     const char* input_field_name(InputField field);
     bool input_field_from_name(const std::string& name, InputField& field);
 
@@ -102,9 +107,12 @@ namespace t5000::offline
     // it, be changed. When it does not, `why` says so, for the page.
     //
     // The grid enables a cell by what the input is (BacnetInput.cpp:1010-
-    // 1022, :1113-1120): an analog input's filter can be changed, and a
-    // digital one's cannot. Its click handler ignores the Range cell of the
-    // rows some models fix (:1657-1722).
+    // 1022, :1113-1120): an analog input's filter, calibration and sign can
+    // be changed, and a digital one's cannot; its signal type only while its
+    // range is one of the custom tables, 20-24. Its click handler ignores
+    // the Range cell of the rows some models fix (:1657-1722), the Value
+    // cell of an input in Auto (:1509), and the Signal Type cell of a
+    // T3-PT12 (:1897).
     bool input_field_enabled(const InputPanel& panel, int index, const InputBytes& input, InputField field,
                              std::string* why = nullptr);
 
@@ -113,20 +121,27 @@ namespace t5000::offline
     std::vector<InputField> editable_input_fields(const InputPanel& panel, int index, const InputBytes& input);
 
     // Changes one input as T3000's grid does (Fresh_Input_Item,
-    // BacnetInput.cpp:451-706, the Auto/Manual click at :1615-1654, and the
-    // Range dialog's answer at :1778-1895).
+    // BacnetInput.cpp:451-706, the clicks on Value, Sign and Auto/Manual at
+    // :1507-1654, and the Range dialog's answer at :1778-1895).
     //
     // `inputs` is every input the panel has, as configured. `text` is what
-    // the operator typed, as UTF-8; for Auto/Manual the state they chose,
-    // "Auto" or "Manual"; for Range the number of the range chosen, as the
-    // Range dialog numbers them (input_ranges.h).
+    // the operator typed, as UTF-8, or chose:
+    //   - Auto/Manual: "Auto" or "Manual";
+    //   - Range: the range's number, as the Range dialog numbers them
+    //     (input_ranges.h);
+    //   - Value: a number, or for a digital input on ranges 1-22 the state
+    //     it is to be in ("On"), where T3000's click switches the state;
+    //   - Calibration: a number, with a sign (input_cells.h);
+    //   - Sign: "+" or "-", where T3000's click switches it;
+    //   - Signal Type: one of signal_type_choices().
     //
     // Refused, with `message` saying why and `inputs` as it was, for text
     // that is too long or already names another point, a filter outside
-    // 0-255, a field the input does not let be changed as it stands, a
-    // range the dialog does not offer for the row, and anything that is not
-    // one of these fields' values. `changed` is false when the input already
-    // is what was asked: T3000 writes nothing then either (:694-701).
+    // 0-255, a value or calibration T3000 cannot store, a field the input
+    // does not let be changed as it stands, a range the dialog does not
+    // offer for the row, and anything that is not one of these fields'
+    // values. `changed` is false when the input already is what was asked:
+    // T3000 writes nothing then either (:694-701).
     //
     // Text is stored in `code_page`: this computer's ANSI code page (CP_ACP,
     // 0) unless a test names another, as T3000 stores it and as the page
@@ -134,6 +149,11 @@ namespace t5000::offline
     bool apply_input_edit(std::vector<InputBytes>& inputs, const InputPanel& panel, int index, InputField field,
                           const std::string& text, bool& changed, std::string& message,
                           unsigned code_page = 0);
+
+    // For a digital input on ranges 1-22, whose Value cell T3000 switches
+    // with a click, the state a click would switch it to: "On" for one that
+    // is Off. False for any other input.
+    bool input_value_toggle(const InputBytes& input, std::string& next);
 
     // The payload's names for the columns whose bytes differ between the two,
     // in the grid's order: what the page marks as changed. Columns share

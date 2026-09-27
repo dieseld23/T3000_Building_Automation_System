@@ -164,11 +164,12 @@ namespace
         check(contains(p, "\"rangeNote\":\"These are the ranges T3000's Range dialog offers this input of a T3-OEM."),
               "  and a note on which are listed, and why some are not");
         check(contains(p, "\"changed\":[],\"editable\":[\"fullLabel\",\"autoManual\",\"range\",\"label\"],"
-                          "\"rangeNumber\":0,\"ranges\":[0,1,2,"),
+                          "\"rangeNumber\":0,\"valueToggle\":\"\",\"ranges\":[0,1,2,"),
               "input 1 lets its names, Auto/Manual and range be changed, not its filter: it is digital");
         check(contains(p, "\"ranges\":[55,59]}"), "a T3-OEM's input 9 is offered the fast pulse count and RPM alone");
         check(contains(p, "\"fullLabel\":\"IN14\"") &&
-                  contains(p, "\"editable\":[\"fullLabel\",\"autoManual\",\"label\"],\"rangeNumber\":0,\"ranges\":[]}"),
+                  contains(p, "\"editable\":[\"fullLabel\",\"autoManual\",\"label\"],\"rangeNumber\":0,"
+                              "\"valueToggle\":\"\",\"ranges\":[]}"),
               "and its input 14, whose range is fixed, no range");
         check(contains(p, "\"isFixture\":false,\"readFromWire\":false"), "  and never that it was read");
         check(contains(p, "\"readPath\":{\"path\":\"none\",\"summary\":\"configured offline\""),
@@ -244,14 +245,68 @@ namespace
 
         const std::string p = b.payload();
         check(contains(p, "\"range\":\"0.0 to 5.0\""), "the grid shows its range as T3000's Range column does");
-        check(contains(p, "\"changed\":[\"range\"],\"editable\":[\"fullLabel\",\"autoManual\",\"range\",\"filter\","
-                          "\"label\"],\"rangeNumber\":41,"),
-              "  marks it changed, numbers it 41, and now lets its filter be changed");
+        check(contains(p, "\"changed\":[\"range\"],\"editable\":[\"fullLabel\",\"autoManual\",\"range\",\"calibration\","
+                          "\"sign\",\"filter\",\"label\"],\"rangeNumber\":41,"),
+              "  marks it changed, numbers it 41, and now lets its calibration, sign and filter be changed");
 
         check(b.edit(0, offline::InputField::Filter, "9"), "its filter is changed");
         check(!b.edit(0, offline::InputField::Range, "55", &message), "the fast pulse count on input 1 of a T3-BB is refused");
         check(contains(message, "input 1 of a T3-BB"), "  naming the input and the model");
         check(b.edit(26, offline::InputField::Range, "55"), "  and taken on input 27, which counts fast pulses");
+    }
+
+    void test_the_value_calibration_and_signal_type_are_saved_and_shown()
+    {
+        section("a value, a calibration and a signal type are saved and shown");
+
+        Bench b;
+        if (!b.open() || !b.add(9252, ProductClassId::MiniPanelArm, 5))
+            return;
+
+        std::string p = b.payload();
+        check(contains(p, "\"signalTypes\":[\"Thermistor Dry Contact\",\"4-20 ma\",\"0-5 V\",\"0-10 V\",\"PT 1K\"]"),
+              "the Signal Type list is the grid's five");
+        check(contains(p, "\"editable\":[\"fullLabel\",\"autoManual\",\"range\",\"label\"],\"rangeNumber\":0,"
+                          "\"valueToggle\":\"\""),
+              "a new input's value cannot be changed: it is in Auto");
+
+        check(b.edit(1, offline::InputField::Range, "1"), "input 2 is given Off/On");
+        check(contains(b.payload(), "\"rangeNumber\":1,\"valueToggle\":\"\""),
+              "  in Auto, its value cannot be switched");
+        check(b.edit(1, offline::InputField::AutoManual, "Manual"), "  and put in Manual");
+        p = b.payload();
+        check(contains(p, "\"editable\":[\"fullLabel\",\"value\",\"autoManual\",\"range\",\"label\"],"
+                          "\"rangeNumber\":1,\"valueToggle\":\"On\""),
+              "  its value can now be switched, to On");
+        check(b.edit(1, offline::InputField::Value, "On"), "  it is switched On");
+        p = b.payload();
+        check(contains(p, "\"value\":\"On\""), "  shown On");
+        check(contains(p, "\"valueToggle\":\"Off\""), "  and would be switched Off next");
+
+        check(b.edit(2, offline::InputField::Range, "50"), "input 3 is given Table 1");
+        check(b.edit(2, offline::InputField::Calibration, "-1.5"), "  a calibration of -1.5");
+        check(b.edit(2, offline::InputField::SignalType, "0-10 V"), "  and signal type 0-10 V");
+        std::string message;
+        check(!b.edit(2, offline::InputField::Value, "3", &message), "  its value is refused: it is in Auto");
+        check(contains(message, "Auto"), "  saying so");
+
+        const auto saved = b.saved(9252);
+        const store::OfflinePoint* third = nullptr;
+        for (const auto& s : saved)
+            if (s.index == 2)
+                third = &s;
+        if (require(third != nullptr && third->edited.size() == offline::InputBytes().size(), "  which is saved"))
+        {
+            check_eq(third->edited[offline::input_at::calibration_sign], 1, "  minus");
+            check_eq(third->edited[offline::input_at::calibration_l], 15, "  15 tenths");
+            check_eq(third->edited[offline::input_at::decom] >> 4, 3, "  signal type 3");
+        }
+
+        p = b.payload();
+        check(contains(p, "\"calibration\":\"1.5\""), "the grid shows its calibration");
+        check(contains(p, "\"sign\":\"-\""), "  and its sign");
+        check(contains(p, "\"signalType\":\"0-10 V\""), "  and its signal type");
+        check(contains(p, "\"changed\":[\"range\",\"calibration\",\"signalType\"]"), "  each marked changed");
     }
 
     void test_a_refused_change_saves_nothing()
@@ -587,9 +642,10 @@ namespace
         check(read_input_edit_request("{\"handle\":\"12\",\"index\":\"1\",\"field\":\"range\",\"value\":\"41\"}", r, message) &&
                   r.field == offline::InputField::Range && r.value == "41",
               "a range, by its number, is read");
-        check(!read_input_edit_request("{\"handle\":\"12\",\"index\":\"1\",\"field\":\"value\",\"value\":\"A\"}", r, message),
+        check(!read_input_edit_request("{\"handle\":\"12\",\"index\":\"1\",\"field\":\"status\",\"value\":\"A\"}", r, message),
               "a field that cannot be changed is refused");
-        check(contains(message, "fullLabel, autoManual, range, filter, label"), "  naming the ones that can");
+        check(contains(message, "fullLabel, value, autoManual, range, calibration, sign, filter, signalType, label"),
+              "  naming the ones that can");
         check(!read_input_edit_request("{\"handle\":\"12\",\"index\":\"1\",\"field\":\"label\"}", r, message),
               "a change with no value is refused");
         check(!read_input_edit_request("{\"handle\":\"12\",\"index\":\"1\",\"field\":\"filter\",\"value\":5}", r, message),
@@ -613,6 +669,7 @@ int run_offline_inputs_tests()
     test_a_new_configuration_is_t3000s();
     test_a_change_is_saved_with_what_it_started_from();
     test_a_range_is_saved_and_shown();
+    test_the_value_calibration_and_signal_type_are_saved_and_shown();
     test_a_refused_change_saves_nothing();
     test_changes_are_refused_where_they_would_not_be_kept_or_shown();
     test_undo_puts_an_input_back();

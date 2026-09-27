@@ -95,6 +95,7 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="command_guard.cpp" />
+    <ClCompile Include="input_cells_guard.cpp" />
     <ClCompile Include="input_range_guard.cpp" />
     <ClCompile Include="models_guard.cpp" />
     <ClCompile Include="offline_guard.cpp" />
@@ -126,6 +127,7 @@
     <ClCompile Include="..\bacnet\private_write.cpp" />
     <ClCompile Include="..\bacnet\write_command.cpp" />
     <ClCompile Include="..\device\product.cpp" />
+    <ClCompile Include="..\offline\input_cells.cpp" />
     <ClCompile Include="..\offline\input_ranges.cpp" />
     <ClCompile Include="..\serial\rtu.cpp" />
   </ItemGroup>

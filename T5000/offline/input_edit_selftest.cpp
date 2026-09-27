@@ -53,6 +53,18 @@ namespace
     std::string full_label(const InputBytes& p) { return text_at(p, input_at::description, 21); }
     std::string label(const InputBytes& p) { return text_at(p, input_at::label, 9); }
 
+    long value_of(const InputBytes& p)
+    {
+        const uint32_t v = (uint32_t)p[input_at::value] | ((uint32_t)p[input_at::value + 1] << 8) |
+                           ((uint32_t)p[input_at::value + 2] << 16) | ((uint32_t)p[input_at::value + 3] << 24);
+        return (long)(int32_t)v;
+    }
+
+    bool has(const std::string& text, const char* part)
+    {
+        return text.find(part) != std::string::npos;
+    }
+
     // One edit on input `index`, returning whether it was taken.
     bool edit(std::vector<InputBytes>& inputs, int index, InputField field, const std::string& text,
               unsigned code_page = kWestern, bool* changed_out = nullptr, std::string* message_out = nullptr)
@@ -91,7 +103,8 @@ namespace
     {
         section("the fields are named as the payload names its columns");
 
-        const char* const names[] = { "fullLabel", "label", "autoManual", "range", "filter" };
+        const char* const names[] = { "fullLabel", "label", "autoManual", "range", "filter",
+                                      "value", "calibration", "sign", "signalType" };
         for (const char* name : names)
         {
             InputField f;
@@ -99,10 +112,10 @@ namespace
         }
 
         InputField f;
-        check(!input_field_from_name("value", f), "Value cannot be changed yet");
-        check(!input_field_from_name("calibration", f), "  nor Calibration");
+        check(!input_field_from_name("status", f), "Status cannot be changed: the device sets it");
+        check(!input_field_from_name("external", f), "  nor the external module's columns");
         check(!input_field_from_name("FullLabel", f), "  and a name is matched exactly");
-        check_eq((long)input_fields().size(), 5, "five fields can be changed");
+        check_eq((long)input_fields().size(), 9, "nine fields can be changed");
     }
 
     void test_a_label_is_changed_as_t3000_changes_one()
@@ -462,11 +475,24 @@ namespace
 
         InputBytes analog = digital;
         analog[input_at::digital_analog] = 1;
-        check(names(editable_input_fields(bb(64), 0, analog)) == "fullLabel autoManual range filter label",
-              "an analog one: and its filter");
+        check(names(editable_input_fields(bb(64), 0, analog)) ==
+                  "fullLabel autoManual range calibration sign filter label",
+              "an analog one: and its calibration, sign and filter");
+
+        InputBytes table = analog;
+        table[input_at::range]       = 20;
+        table[input_at::auto_manual] = 1;
+        check(names(editable_input_fields(bb(64), 0, table)) ==
+                  "fullLabel value autoManual range calibration sign filter signalType label",
+              "an analog one in Manual on a custom table: every column");
+
+        InputBytes manual = digital;
+        manual[input_at::auto_manual] = 1;
+        check(names(editable_input_fields(bb(64), 0, manual)) == "fullLabel value autoManual range label",
+              "a digital one in Manual: and its value");
 
         const InputPanel oem = panel_of(ProductClassId::Tstat10, MiniType::Oem, 64);
-        check(names(editable_input_fields(oem, 13, analog)) == "fullLabel autoManual filter label",
+        check(names(editable_input_fields(oem, 13, analog)) == "fullLabel autoManual calibration sign filter label",
               "a T3-OEM's input 14: not its range");
 
         InputBytes odd = digital;
@@ -474,6 +500,182 @@ namespace
         std::string why;
         check(!input_field_enabled(bb(64), 0, odd, InputField::Filter, &why) && !why.empty(),
               "an input neither analog nor digital: not its filter, saying why");
+    }
+
+    void test_a_value_is_typed_in_manual()
+    {
+        section("a value: only in Manual, typed and kept in thousandths");
+
+        auto inputs = fresh_panel();
+        std::string message;
+        check(!edit(inputs, 0, InputField::Value, "1.5", kWestern, nullptr, &message),
+              "a new input's value is refused: it is in Auto");
+        check(has(message, "Auto"), "  saying so");
+
+        check(edit(inputs, 0, InputField::AutoManual, "Manual"), "put in Manual");
+        check(edit(inputs, 0, InputField::Value, "1.5"), "  a digital input on range 0 takes a number, as T3000's does");
+        check_eq(value_of(inputs[0]), 1500, "  kept as 1500 thousandths");
+
+        check(edit(inputs, 0, InputField::Range, "43"), "given an analog range");
+        check(edit(inputs, 0, InputField::Value, "-2.5"), "  its value is typed");
+        check(inputs[0][input_at::value] == 0x3C && inputs[0][input_at::value + 1] == 0xF6 &&
+                  inputs[0][input_at::value + 2] == 0xFF && inputs[0][input_at::value + 3] == 0xFF,
+              "  -2500 thousandths, in four bytes, little-endian");
+        check(edit(inputs, 0, InputField::Value, " 1.001 ") && value_of(inputs[0]) == 1000,
+              "  1.001 is 1000 thousandths: T3000 truncates");
+        check(edit(inputs, 0, InputField::Value, "-2147483.648") && value_of(inputs[0]) == -2147483647L - 1,
+              "  -2147483.648 is the least there is");
+
+        const InputBytes before = inputs[0];
+        check(!edit(inputs, 0, InputField::Value, "2147483.648", kWestern, nullptr, &message),
+              "  2147483.648 is refused: past a 32-bit int");
+        check(has(message, "thousandths"), "  saying how it is kept");
+        check(!edit(inputs, 0, InputField::Value, "12abc"), "  \"12abc\" is refused");
+        check(!edit(inputs, 0, InputField::Value, ""), "  and so is nothing");
+        check(inputs[0] == before, "  and a refused value changes nothing");
+
+        bool changed = true;
+        check(edit(inputs, 0, InputField::Value, "-2147483.648", kWestern, &changed) && !changed,
+              "the value it has, typed again, changes nothing");
+
+        check(edit(inputs, 0, InputField::AutoManual, "Auto"), "put back in Auto");
+        check(!edit(inputs, 0, InputField::Value, "3"), "  its value is refused again");
+    }
+
+    void test_a_digital_inputs_state_is_switched()
+    {
+        section("a digital input's value: its state, switched as T3000's click switches it");
+
+        auto inputs = fresh_panel();
+        check(edit(inputs, 1, InputField::Range, "1"), "input 2 is given Off/On");
+        check(edit(inputs, 1, InputField::AutoManual, "Manual"), "  and put in Manual");
+        inputs[1][input_at::value] = 0x77;
+
+        std::string next;
+        check(input_value_toggle(inputs[1], next) && next == "On", "a click would switch it On");
+        check(edit(inputs, 1, InputField::Value, "On"), "it is switched On");
+        check_eq(inputs[1][input_at::control], 1, "  its control byte 1");
+        check_eq(inputs[1][input_at::value], 0x77, "  and its value left as it was");
+        check(input_value_toggle(inputs[1], next) && next == "Off", "a click would now switch it Off");
+        check(edit(inputs, 1, InputField::Value, "off") && inputs[1][input_at::control] == 0,
+              "\"off\" switches it Off: the case of its letters does not matter");
+
+        std::string message;
+        check(!edit(inputs, 1, InputField::Value, "1", kWestern, nullptr, &message), "a number is refused");
+        check(has(message, "\"Off\" or \"On\""), "  naming its two states");
+        bool changed = true;
+        check(edit(inputs, 1, InputField::Value, "Off", kWestern, &changed) && !changed,
+              "switching it to the state it is in changes nothing");
+
+        inputs[1][input_at::control] = 5;
+        check(input_value_toggle(inputs[1], next) && next == "Off", "a control byte of 5 switches Off, as T3000's does");
+
+        check(edit(inputs, 1, InputField::Range, "22"), "given High/Low");
+        check(edit(inputs, 1, InputField::Value, "Low") && inputs[1][input_at::control] == 1, "  Low is its control byte 1");
+
+        std::string why;
+        InputBytes custom = default_input(2);
+        custom[input_at::auto_manual] = 1;
+        custom[input_at::range]       = 23;
+        check(!input_field_enabled(bb(64), 2, custom, InputField::Value, &why) && has(why, "custom digital range 1"),
+              "a digital input on the device's custom range 23: not its value, whose states are not known");
+        check(!input_value_toggle(custom, next), "  and no click switches it");
+        custom[input_at::range] = 31;
+        check(!input_field_enabled(bb(64), 2, custom, InputField::Value, &why) && has(why, "range 31"),
+              "a digital input on range 31, for which T3000 shows no value: not its value");
+        custom[input_at::digital_analog] = 2;
+        check(!input_field_enabled(bb(64), 2, custom, InputField::Value, &why) && !why.empty(),
+              "an input neither analog nor digital: not its value");
+
+        InputBytes analog = default_input(3);
+        analog[input_at::digital_analog] = 1;
+        analog[input_at::range]          = 1;
+        check(!input_value_toggle(analog, next), "an analog input on range 1 is not switched: its value is typed");
+    }
+
+    void test_a_calibration_and_its_sign()
+    {
+        section("a calibration: an analog input's, in Auto too, with the sign following what is typed");
+
+        auto inputs = fresh_panel();
+        std::string message;
+        check(!edit(inputs, 0, InputField::Calibration, "1.5", kWestern, nullptr, &message),
+              "a digital input's calibration is refused");
+        check(has(message, "digital"), "  saying why");
+        check(!edit(inputs, 0, InputField::Sign, "-"), "  and so is its sign");
+
+        check(edit(inputs, 0, InputField::Range, "43"), "given an analog range");
+        check(edit(inputs, 0, InputField::Calibration, "-2.5"), "  its calibration is taken, though it is in Auto");
+        check(inputs[0][input_at::calibration_sign] == 1 && inputs[0][input_at::calibration_h] == 0 &&
+                  inputs[0][input_at::calibration_l] == 25,
+              "  minus, 25 tenths");
+        check(edit(inputs, 0, InputField::Calibration, "2"), "2 is typed after it");
+        check(inputs[0][input_at::calibration_sign] == 0 && inputs[0][input_at::calibration_l] == 20,
+              "  plus, 20 tenths: the sign follows what is typed, where T3000 keeps minus");
+        check(edit(inputs, 0, InputField::Calibration, "0.7") && inputs[0][input_at::calibration_l] == 7,
+              "0.7 is 7 tenths, rounded as a float as T3000 rounds it");
+        check(edit(inputs, 0, InputField::Calibration, "6553.5") && inputs[0][input_at::calibration_h] == 255 &&
+                  inputs[0][input_at::calibration_l] == 255,
+              "6553.5 is 65535 tenths, high byte then low");
+
+        const InputBytes before = inputs[0];
+        check(!edit(inputs, 0, InputField::Calibration, "-6553.6", kWestern, nullptr, &message),
+              "-6553.6 is refused");
+        check(has(message, "6553.5"), "  saying what is taken");
+        check(!edit(inputs, 0, InputField::Calibration, "1.5x"), "\"1.5x\" is refused");
+        check(inputs[0] == before, "  and nothing changes, the sign included, which T3000 sets before it refuses");
+
+        check(edit(inputs, 0, InputField::Sign, "-"), "its sign is set minus");
+        check(inputs[0][input_at::calibration_sign] == 1 && inputs[0][input_at::calibration_h] == 255 &&
+                  inputs[0][input_at::calibration_l] == 255,
+              "  and its size left as it was");
+        check(edit(inputs, 0, InputField::Sign, "+") && inputs[0][input_at::calibration_sign] == 0, "  and plus again");
+        check(!edit(inputs, 0, InputField::Sign, "minus"), "\"minus\" is not a sign");
+        check(!edit(inputs, 0, InputField::Sign, ""), "  nor is nothing");
+        bool changed = true;
+        check(edit(inputs, 0, InputField::Sign, "+", kWestern, &changed) && !changed,
+              "the sign it has changes nothing");
+    }
+
+    void test_a_signal_type_on_a_custom_table()
+    {
+        section("a signal type: only on a custom table, keeping the status");
+
+        auto inputs = fresh_panel();
+        std::string message;
+        check(!edit(inputs, 0, InputField::SignalType, "0-5 V"), "a digital input's is refused");
+        check(edit(inputs, 0, InputField::Range, "43"), "given an analog range, 13");
+        check(!edit(inputs, 0, InputField::SignalType, "0-5 V", kWestern, nullptr, &message), "  it is refused still");
+        check(has(message, "Table 1 to Table 5"), "  saying on which ranges it is not");
+
+        check(edit(inputs, 0, InputField::Range, "50"), "given Table 1, range 20");
+        inputs[0][input_at::decom] = 0x02;
+        check(edit(inputs, 0, InputField::SignalType, "4-20 ma"), "  4-20 ma is taken");
+        check_eq(inputs[0][input_at::decom], 0x12, "  signal type 1 in the high nibble, and the status, 2, kept");
+        check(edit(inputs, 0, InputField::SignalType, "Thermistor Dry Contact"), "  Thermistor Dry Contact is taken");
+        check_eq(inputs[0][input_at::decom], 0x42, "  as signal type 4, as T3000's grid stores it");
+        check(edit(inputs, 0, InputField::SignalType, "pt 1k"), "  pt 1k is taken");
+        check_eq(inputs[0][input_at::decom], 0x52, "  as 5");
+
+        const InputBytes before = inputs[0];
+        check(!edit(inputs, 0, InputField::SignalType, "0-24 V", kWestern, nullptr, &message), "0-24 V is refused");
+        check(has(message, "\"0-10 V\" or \"PT 1K\""), "  naming the ones there are");
+        check(inputs[0] == before, "  and nothing changes");
+
+        check(edit(inputs, 0, InputField::Range, "54"), "given Table 5, range 24");
+        check(edit(inputs, 0, InputField::SignalType, "0-5 V") && inputs[0][input_at::decom] == 0x22, "  it is taken");
+
+        std::string why;
+        InputBytes a = default_input(0);
+        a[input_at::digital_analog] = 1;
+        a[input_at::range]          = 19;
+        check(!input_field_enabled(bb(64), 0, a, InputField::SignalType), "range 19: not the signal type");
+        a[input_at::range] = 25;
+        check(!input_field_enabled(bb(64), 0, a, InputField::SignalType), "  nor range 25");
+        a[input_at::range] = 20;
+        const InputPanel pt12 = panel_of(ProductClassId::MiniPanelArm, MiniType::T3PT12, 64);
+        check(!input_field_enabled(pt12, 0, a, InputField::SignalType, &why) && has(why, "T3-PT12"),
+              "a panel of type T3-PT12: never the signal type");
     }
 
     void test_a_refused_edit_changes_nothing()
@@ -561,6 +763,10 @@ int run_input_edit_tests()
     test_a_fixed_range_is_refused();
     test_the_filter_of_a_digital_input_is_refused();
     test_the_columns_each_input_lets_be_changed();
+    test_a_value_is_typed_in_manual();
+    test_a_digital_inputs_state_is_switched();
+    test_a_calibration_and_its_sign();
+    test_a_signal_type_on_a_custom_table();
     test_a_refused_edit_changes_nothing();
     test_changed_fields_name_the_columns();
     test_the_code_page_conversion();
