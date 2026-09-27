@@ -98,11 +98,25 @@ namespace t5000::app
         int edited = 0;         // inputs with changes
         size_t rows = 0;        // how many T3000 shows for the model
 
-        // The columns that can be changed, by their payload names.
-        std::vector<std::string> editable;
+        // For each input, the columns it lets be changed as it stands, by
+        // their payload names.
+        std::vector<std::vector<std::string>> editable;
 
         // For each input, the columns changed from what it started as.
         std::vector<std::vector<std::string>> changed;
+
+        // Every range that can be chosen, by its number in T3000's Range
+        // dialog, and for each input the number it has and the numbers it
+        // can be given.
+        struct RangeChoice
+        {
+            int         number;
+            std::string name;
+        };
+        std::vector<RangeChoice>      range_choices;
+        std::vector<int>              range_numbers;
+        std::vector<std::vector<int>> ranges;
+        std::string                   range_note;   // why some are not listed
 
         std::string note;        // for the page's banner
         std::string detail;      // readPath.detail: that nothing is read or sent
@@ -111,7 +125,9 @@ namespace t5000::app
 
     // The Inputs page's payload for a device configured offline: shaped as
     // build_inputs_json's, so the page shows it with the same grid, with an
-    // "offline" object first and each row's "changed" columns.
+    // "offline" object first, holding the ranges that can be chosen, and on
+    // each row its "changed" and "editable" columns, its "rangeNumber" and
+    // the "ranges" it can be given.
     //
     // readFromWire is false and readPath says nothing was read: these inputs
     // are T5000's, not a device's. They are shown as T3000 would show them

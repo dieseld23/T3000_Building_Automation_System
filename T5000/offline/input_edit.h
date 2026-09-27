@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "../device/product.h"
 #include "../wire/decode.h"
 
 namespace t5000::offline
@@ -66,43 +67,71 @@ namespace t5000::offline
     // every product and model.
     InputBytes default_input(int index);
 
-    // The columns that can be changed offline so far. Range, and the columns
-    // that depend on it - Value, Calibration, Sign, Signal Type - come with
-    // the range dialog.
+    // The columns that can be changed offline so far. Value, Calibration,
+    // Sign and Signal Type, which depend on the range, come next.
     enum class InputField
     {
         FullLabel,
         Label,
         AutoManual,
+        Range,
         Filter,
     };
 
     // The payload's names for them: "fullLabel", "label", "autoManual",
-    // "filter".
+    // "range", "filter".
     const char* input_field_name(InputField field);
     bool input_field_from_name(const std::string& name, InputField& field);
 
-    // Every field that can be changed, in the grid's order.
-    std::vector<InputField> editable_input_fields();
+    // Every field that can be changed on some input, in the grid's order.
+    std::vector<InputField> input_fields();
+
+    // The panel whose inputs are changed, as the rules need it. Its product
+    // and type decide which rows' ranges are fixed, and which ranges each
+    // row can have (input_ranges.h). `rows` is how many inputs T3000 shows
+    // for it (INPUT_LIMITE_ITEM_COUNT); only those can be changed
+    // (BacnetInput.cpp:458).
+    struct InputPanel
+    {
+        device::ProductClassId product = device::ProductClassId::Unknown;
+        device::MiniType       type    = device::MiniType::NotSet;
+        int                    rows    = 0;
+    };
+
+    // Whether T3000's grid lets `field` of input `index`, as `input` holds
+    // it, be changed. When it does not, `why` says so, for the page.
+    //
+    // The grid enables a cell by what the input is (BacnetInput.cpp:1010-
+    // 1022, :1113-1120): an analog input's filter can be changed, and a
+    // digital one's cannot. Its click handler ignores the Range cell of the
+    // rows some models fix (:1657-1722).
+    bool input_field_enabled(const InputPanel& panel, int index, const InputBytes& input, InputField field,
+                             std::string* why = nullptr);
+
+    // The fields input `index` lets be changed as it stands, in the grid's
+    // order.
+    std::vector<InputField> editable_input_fields(const InputPanel& panel, int index, const InputBytes& input);
 
     // Changes one input as T3000's grid does (Fresh_Input_Item,
-    // BacnetInput.cpp:451-706, and the Auto/Manual click at :1615-1654).
+    // BacnetInput.cpp:451-706, the Auto/Manual click at :1615-1654, and the
+    // Range dialog's answer at :1778-1895).
     //
-    // `inputs` is every input the panel has, as configured; `rows` is how
-    // many T3000 shows (INPUT_LIMITE_ITEM_COUNT), and only those can be
-    // changed (:458). `text` is what the operator typed, as UTF-8, or for
-    // Auto/Manual the state they chose: "Auto" or "Manual".
+    // `inputs` is every input the panel has, as configured. `text` is what
+    // the operator typed, as UTF-8; for Auto/Manual the state they chose,
+    // "Auto" or "Manual"; for Range the number of the range chosen, as the
+    // Range dialog numbers them (input_ranges.h).
     //
     // Refused, with `message` saying why and `inputs` as it was, for text
     // that is too long or already names another point, a filter outside
-    // 0-255, and anything that is not one of these fields' values.
-    // `changed` is false when the input already is what was asked: T3000
-    // writes nothing then either (:694-701).
+    // 0-255, a field the input does not let be changed as it stands, a
+    // range the dialog does not offer for the row, and anything that is not
+    // one of these fields' values. `changed` is false when the input already
+    // is what was asked: T3000 writes nothing then either (:694-701).
     //
     // Text is stored in `code_page`: this computer's ANSI code page (CP_ACP,
     // 0) unless a test names another, as T3000 stores it and as the page
     // shows device text.
-    bool apply_input_edit(std::vector<InputBytes>& inputs, int rows, int index, InputField field,
+    bool apply_input_edit(std::vector<InputBytes>& inputs, const InputPanel& panel, int index, InputField field,
                           const std::string& text, bool& changed, std::string& message,
                           unsigned code_page = 0);
 

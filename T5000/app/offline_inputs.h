@@ -30,14 +30,18 @@ namespace t5000::app
         bool        can_edit = false;
         std::string reason;   // when !can_edit, a sentence for the page
 
-        device::MiniType type = device::MiniType::NotSet;
-        std::string      model;   // the model's name, "T3-OEM"
+        device::ProductClassId product = device::ProductClassId::Unknown;
+        device::MiniType       type    = device::MiniType::NotSet;
+        std::string            model;   // the model's name, "T3-OEM"
 
         // How many inputs T3000 holds for the model, and how many of them its
         // grid shows (INPUT_LIMITE_ITEM_COUNT). Nothing is read, so there are
         // no settings to size them from: 64, as for a panel T3000 has not read.
         int inputs = 0;
         int rows   = 0;
+
+        // The panel as the rules for a change need it.
+        offline::InputPanel panel() const;
     };
 
     // An entry added by hand that has not been found, by a scan or by Find.
@@ -74,7 +78,8 @@ namespace t5000::app
 
     // A change as the page sends it:
     // {"handle":"12","index":"3","field":"label","value":"AHU"}. index is
-    // 0-based. value is text as typed, or "Auto"/"Manual".
+    // 0-based. value is text as typed, "Auto"/"Manual", or for a range its
+    // number in T3000's Range dialog, "41".
     struct InputEditRequest
     {
         device::Handle      handle = device::kNoHandle;

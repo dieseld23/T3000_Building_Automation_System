@@ -15,9 +15,27 @@ namespace
 {
     using namespace t5000::offline;
     using namespace t5000::testing;
+    using t5000::device::MiniType;
+    using t5000::device::ProductClassId;
 
     constexpr unsigned kWestern = 1252;
     constexpr unsigned kChinese = 936;
+
+    InputPanel panel_of(ProductClassId product, MiniType type, int rows)
+    {
+        InputPanel p;
+        p.product = product;
+        p.type    = type;
+        p.rows    = rows;
+        return p;
+    }
+
+    // A T3-BB, which fixes no row's range: every input the tests make can
+    // be changed.
+    InputPanel bb(int rows)
+    {
+        return panel_of(ProductClassId::MiniPanelArm, MiniType::MiniPanelArm, rows);
+    }
 
     std::vector<InputBytes> fresh_panel(int count = 64)
     {
@@ -41,7 +59,7 @@ namespace
     {
         bool changed = false;
         std::string message;
-        const bool ok = apply_input_edit(inputs, (int)inputs.size(), index, field, text, changed, message, code_page);
+        const bool ok = apply_input_edit(inputs, bb((int)inputs.size()), index, field, text, changed, message, code_page);
         if (changed_out)
             *changed_out = changed;
         if (message_out)
@@ -73,7 +91,7 @@ namespace
     {
         section("the fields are named as the payload names its columns");
 
-        const char* const names[] = { "fullLabel", "label", "autoManual", "filter" };
+        const char* const names[] = { "fullLabel", "label", "autoManual", "range", "filter" };
         for (const char* name : names)
         {
             InputField f;
@@ -81,10 +99,10 @@ namespace
         }
 
         InputField f;
-        check(!input_field_from_name("range", f), "Range cannot be changed yet");
-        check(!input_field_from_name("value", f), "  nor Value");
+        check(!input_field_from_name("value", f), "Value cannot be changed yet");
+        check(!input_field_from_name("calibration", f), "  nor Calibration");
         check(!input_field_from_name("FullLabel", f), "  and a name is matched exactly");
-        check_eq((long)editable_input_fields().size(), 4, "four fields can be changed");
+        check_eq((long)input_fields().size(), 5, "five fields can be changed");
     }
 
     void test_a_label_is_changed_as_t3000_changes_one()
@@ -295,6 +313,7 @@ namespace
         section("the filter: a whole number from 0 to 255");
 
         auto inputs = fresh_panel();
+        check(edit(inputs, 0, InputField::Range, "41"), "input 1 is made analog");
         check(edit(inputs, 0, InputField::Filter, "0"), "0 is taken");
         check_eq(inputs[0][input_at::filter], 0, "  as 0");
         check(edit(inputs, 0, InputField::Filter, "255"), "255 is taken");
@@ -318,13 +337,143 @@ namespace
         auto inputs = fresh_panel();
         bool changed = false;
         std::string message;
-        check(!apply_input_edit(inputs, 8, 8, InputField::Filter, "1", changed, message, kWestern),
+        check(!apply_input_edit(inputs, bb(8), 8, InputField::AutoManual, "Manual", changed, message, kWestern),
               "input 9 on a model T3000 shows 8 of is refused");
-        check(apply_input_edit(inputs, 8, 7, InputField::Filter, "1", changed, message, kWestern), "input 8 is not");
-        check(!apply_input_edit(inputs, 64, 64, InputField::Filter, "1", changed, message, kWestern),
+        check(apply_input_edit(inputs, bb(8), 7, InputField::AutoManual, "Manual", changed, message, kWestern),
+              "input 8 is not");
+        check(!apply_input_edit(inputs, bb(64), 64, InputField::AutoManual, "Manual", changed, message, kWestern),
               "an input past the panel's is refused");
-        check(!apply_input_edit(inputs, 64, -1, InputField::Filter, "1", changed, message, kWestern),
+        check(!apply_input_edit(inputs, bb(64), -1, InputField::AutoManual, "Manual", changed, message, kWestern),
               "  and a negative one");
+    }
+
+    void test_a_range_is_chosen_by_its_number()
+    {
+        section("a range is chosen by its number in T3000's Range dialog");
+
+        auto inputs = fresh_panel();
+
+        // Bytes the range leaves alone: a value, a state, a calibration and a
+        // signal type.
+        inputs[0][input_at::value]            = 0x34;
+        inputs[0][input_at::control]          = 1;
+        inputs[0][input_at::calibration_l]    = 7;
+        inputs[0][input_at::calibration_sign] = 1;
+        inputs[0][input_at::decom]            = 0x21;
+        const InputBytes before = inputs[0];
+
+        bool changed = false;
+        check(edit(inputs, 0, InputField::Range, "41", kWestern, &changed) && changed, "41 is taken");
+        check_eq(inputs[0][input_at::digital_analog], 1, "  as analog");
+        check_eq(inputs[0][input_at::range], 11, "  range 11");
+        InputBytes rest = inputs[0];
+        rest[input_at::digital_analog] = before[input_at::digital_analog];
+        rest[input_at::range]          = before[input_at::range];
+        check(rest == before, "  and every other byte as it was: value, state, calibration and signal type");
+
+        check(edit(inputs, 0, InputField::Range, " 1 "), "1, with spaces around it, is taken");
+        check(inputs[0][input_at::digital_analog] == 0 && inputs[0][input_at::range] == 1, "  as digital range 1");
+
+        check(edit(inputs, 0, InputField::Range, "0"), "0 is taken");
+        check(inputs[0][input_at::digital_analog] == 1 && inputs[0][input_at::range] == 0,
+              "  as analog range 0, as T3000's OK makes Unused");
+
+        check(edit(inputs, 0, InputField::Range, "66"), "66 is taken");
+        check_eq(inputs[0][input_at::range], 36, "  as analog range 36");
+
+        check(edit(inputs, 0, InputField::Range, "66", kWestern, &changed), "the same range again is taken");
+        check(!changed, "  and changes nothing");
+
+        std::string message;
+        const InputBytes kept = inputs[0];
+        check(!edit(inputs, 0, InputField::Range, "23", kWestern, nullptr, &message), "23, a custom range, is refused");
+        check(message.find("Range dialog") != std::string::npos, "  saying ranges are the Range dialog's numbers");
+        check(!edit(inputs, 0, InputField::Range, "65"), "65, a button with no name, is refused");
+        check(!edit(inputs, 0, InputField::Range, "101"), "101, a multi-state range, is refused");
+        check(!edit(inputs, 0, InputField::Range, "311"), "311, which T3000 would store as range 25, 281 cut to a byte, is refused");
+        check(!edit(inputs, 0, InputField::Range, "41.0"), "41.0 is refused");
+        check(!edit(inputs, 0, InputField::Range, "-1"), "-1 is refused");
+        check(!edit(inputs, 0, InputField::Range, "Off/On"), "a name is refused");
+        check(!edit(inputs, 0, InputField::Range, ""), "nothing is refused");
+
+        check(!edit(inputs, 0, InputField::Range, "39", kWestern, nullptr, &message), "39, PT 1K, is refused");
+        check(message.find("settings say") != std::string::npos, "  saying T3000 offers it only when the panel says it can");
+        check(!edit(inputs, 0, InputField::Range, "55", kWestern, nullptr, &message),
+              "55, the fast pulse count, is refused on a T3-BB's input 1");
+        check(message.find("input 1 of a T3-BB") != std::string::npos, "  naming the input and the model");
+        check(inputs[0] == kept, "and nothing refused changed the input");
+
+        check(edit(inputs, 26, InputField::Range, "55"), "55 is taken on its input 27, which counts fast pulses");
+    }
+
+    void test_a_fixed_range_is_refused()
+    {
+        section("the range of a row the model fixes is refused");
+
+        auto inputs = fresh_panel();
+        const InputPanel oem = panel_of(ProductClassId::Tstat10, MiniType::Oem, 64);
+        bool changed = false;
+        std::string message;
+        check(!apply_input_edit(inputs, oem, 13, InputField::Range, "41", changed, message, kWestern),
+              "a T3-OEM's input 14 is refused");
+        check(message.find("fixed") != std::string::npos && message.find("input 14 of a T3-OEM") != std::string::npos,
+              "  saying its range is fixed");
+        check(apply_input_edit(inputs, oem, 12, InputField::Range, "33", changed, message, kWestern),
+              "its input 13 takes a 10K Type2 sensor");
+        check(!apply_input_edit(inputs, oem, 12, InputField::Range, "41", changed, message, kWestern),
+              "  and nothing else");
+        check(apply_input_edit(inputs, oem, 13, InputField::Label, "t14", changed, message, kWestern),
+              "input 14's label can still be changed");
+    }
+
+    void test_the_filter_of_a_digital_input_is_refused()
+    {
+        section("only an analog input's filter can be changed, as T3000's grid enables the cell");
+
+        auto inputs = fresh_panel();
+        std::string message;
+        check(!edit(inputs, 0, InputField::Filter, "7", kWestern, nullptr, &message),
+              "a new input's filter is refused: it starts digital");
+        check(message.find("digital") != std::string::npos && message.find("analog range first") != std::string::npos,
+              "  saying it is digital, and to give it an analog range");
+        check_eq(inputs[0][input_at::filter], 5, "  and the filter stays 5");
+
+        check(edit(inputs, 0, InputField::Range, "43"), "given an analog range");
+        check(edit(inputs, 0, InputField::Filter, "7"), "  its filter is taken");
+        check(edit(inputs, 0, InputField::Range, "2"), "given a digital one again");
+        check(!edit(inputs, 0, InputField::Filter, "8"), "  it is refused again");
+        check_eq(inputs[0][input_at::filter], 7, "  and the filter set while it was analog stays");
+    }
+
+    void test_the_columns_each_input_lets_be_changed()
+    {
+        section("the columns each input lets be changed, in the grid's order");
+
+        auto names = [](const std::vector<InputField>& fields) {
+            std::string out;
+            for (const InputField f : fields)
+                out += std::string(out.empty() ? "" : " ") + input_field_name(f);
+            return out;
+        };
+
+        InputBytes digital = default_input(0);
+        check(names(editable_input_fields(bb(64), 0, digital)) == "fullLabel autoManual range label",
+              "a digital input: its names, Auto/Manual and range");
+
+        InputBytes analog = digital;
+        analog[input_at::digital_analog] = 1;
+        check(names(editable_input_fields(bb(64), 0, analog)) == "fullLabel autoManual range filter label",
+              "an analog one: and its filter");
+
+        const InputPanel oem = panel_of(ProductClassId::Tstat10, MiniType::Oem, 64);
+        check(names(editable_input_fields(oem, 13, analog)) == "fullLabel autoManual filter label",
+              "a T3-OEM's input 14: not its range");
+
+        InputBytes odd = digital;
+        odd[input_at::digital_analog] = 2;
+        std::string why;
+        check(!input_field_enabled(bb(64), 0, odd, InputField::Filter, &why) && !why.empty(),
+              "an input neither analog nor digital: not its filter, saying why");
     }
 
     void test_a_refused_edit_changes_nothing()
@@ -333,10 +482,13 @@ namespace
 
         auto inputs = fresh_panel();
         edit(inputs, 0, InputField::Label, "A");
+        edit(inputs, 1, InputField::Range, "41");
         const auto before = inputs;
         check(!edit(inputs, 1, InputField::Label, "a"), "a duplicate label is refused");
         check(!edit(inputs, 1, InputField::Filter, "300"), "a filter out of range is refused");
         check(!edit(inputs, 1, InputField::FullLabel, "IN1"), "a duplicate full label is refused");
+        check(!edit(inputs, 1, InputField::Range, "39"), "a range not offered is refused");
+        check(!edit(inputs, 2, InputField::Filter, "6"), "a digital input's filter is refused");
         check(inputs == before, "  and the panel is byte for byte as it was");
     }
 
@@ -405,6 +557,10 @@ int run_input_edit_tests()
     test_auto_manual();
     test_the_filter();
     test_only_the_rows_t3000_shows_can_be_changed();
+    test_a_range_is_chosen_by_its_number();
+    test_a_fixed_range_is_refused();
+    test_the_filter_of_a_digital_input_is_refused();
+    test_the_columns_each_input_lets_be_changed();
     test_a_refused_edit_changes_nothing();
     test_changed_fields_name_the_columns();
     test_the_code_page_conversion();

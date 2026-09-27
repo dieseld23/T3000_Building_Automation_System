@@ -5,6 +5,7 @@
 
 #include "../device/input_rows.h"
 #include "../json/read.h"
+#include "../offline/input_ranges.h"
 #include "../wire/decode.h"
 #include "points_json.h"
 
@@ -153,8 +154,9 @@ namespace t5000::app
         wire::PanelSettings settings;
         settings.mini_type_byte = (uint8_t)static_cast<uint8_t>(panel.type);
 
-        plan.type   = panel.type;
-        plan.model  = panel_name(d.product, panel.type);
+        plan.product = d.product;
+        plan.type    = panel.type;
+        plan.model   = panel_name(d.product, panel.type);
         plan.inputs = inputs_to_read(d.product, settings);
 
         const InputRows rows = input_rows(d.product, settings);
@@ -162,6 +164,15 @@ namespace t5000::app
 
         plan.can_edit = true;
         return plan;
+    }
+
+    offline::InputPanel OfflineInputsPlan::panel() const
+    {
+        offline::InputPanel p;
+        p.product = product;
+        p.type    = type;
+        p.rows    = rows;
+        return p;
     }
 
     bool load_offline_inputs(store::DeviceDb& db, const DeviceRecord& d, const OfflineInputsPlan& plan,
@@ -246,14 +257,29 @@ namespace t5000::app
         view.type   = plan.type;
         view.saving = status.saving && db.is_open();
         view.rows   = (size_t)plan.rows;
-        for (const auto f : offline::editable_input_fields())
-            view.editable.push_back(offline::input_field_name(f));
+        for (const auto& c : offline::input_range_choices())
+            view.range_choices.push_back({ c.number, offline::input_range_name(c) });
+
+        const offline::InputPanel panel = plan.panel();
         for (size_t i = 0; i < config.inputs.size(); i++)
         {
-            view.changed.push_back(offline::changed_fields(config.bases[i], config.inputs[i]));
+            const offline::InputBytes& p = config.inputs[i];
+            view.changed.push_back(offline::changed_fields(config.bases[i], p));
             if (!view.changed.back().empty())
                 view.edited++;
+
+            std::vector<std::string> editable;
+            for (const auto f : offline::editable_input_fields(panel, (int)i, p))
+                editable.push_back(offline::input_field_name(f));
+            view.editable.push_back(editable);
+
+            view.range_numbers.push_back(
+                offline::input_range_number(p[offline::input_at::digital_analog], p[offline::input_at::range]));
+            view.ranges.push_back(offline::input_ranges_offered(plan.product, plan.type, (int)i));
         }
+        view.range_note = "These are the ranges T3000's Range dialog offers this input of a " + plan.model +
+                          ". It offers PT 1K only on a panel whose settings say it has a PT 1K input, and custom "
+                          "ranges only once their names are read, so neither is listed here.";
 
         view.note = "Serial " + std::to_string(d.serial_number) +
                     " was added by hand and has not been found. These are the inputs T5000 keeps for it: "
@@ -291,7 +317,7 @@ namespace t5000::app
             !offline::input_field_from_name(field->second.text, r.field))
         {
             std::string names;
-            for (const auto f : offline::editable_input_fields())
+            for (const auto f : offline::input_fields())
                 names += std::string(names.empty() ? "" : ", ") + offline::input_field_name(f);
             message = "field must be one of " + names + ".";
             return false;
@@ -357,8 +383,8 @@ namespace t5000::app
         }
 
         bool changed = false;
-        if (!offline::apply_input_edit(config.inputs, plan.rows, request.index, request.field, request.value, changed,
-                                       message))
+        if (!offline::apply_input_edit(config.inputs, plan.panel(), request.index, request.field, request.value,
+                                       changed, message))
             return false;
 
         // Already so: nothing to save, as T3000 writes nothing.
