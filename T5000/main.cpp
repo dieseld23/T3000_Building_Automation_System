@@ -666,6 +666,24 @@ int main(int argc, char** argv)
         return inputs_action_response(ok, message, handle);
     });
 
+    // A device's inputs from a .prog file T3000 saved from it, in place of
+    // the changes made here, for a device added by hand. The page sends the
+    // file itself, in base64; nothing is read from disk here, and nothing is
+    // sent to any device. With "check":true it is only told what the import
+    // would do, to ask the operator first.
+    server.route("/api/inputs/import", [](const http::Request& req) {
+        if (req.method != "POST")
+            return bad_request("A .prog file is imported with POST.");
+
+        app::InputImportRequest request;
+        std::string message;
+        if (!app::read_input_import_request(req.body, request, message))
+            return bad_request(message);
+
+        const bool ok = app::import_offline_inputs(g_registry, g_db, g_store, request, message);
+        return inputs_action_response(ok, message, request.handle);
+    });
+
     // Looks for one device in the list at the address the operator gives:
     // one request, for the panel's settings, which cannot change anything,
     // sent only now, when Find is clicked. Found if the settings give the

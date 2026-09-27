@@ -11,7 +11,10 @@
 #include "device_list.h"
 #include "points_json.h"
 #include "../discovery/scanner.h"
+#include "../offline/prog_file.h"
 #include "../testing/check.h"
+
+#include <string.h>
 
 namespace
 {
@@ -88,6 +91,19 @@ namespace
             r.value  = value;
             std::string message;
             const bool ok = edit_offline_input(registry, db, status, r, message);
+            if (message_out)
+                *message_out = message;
+            return ok;
+        }
+
+        bool import(const std::vector<uint8_t>& file, bool check_only, std::string* message_out = nullptr)
+        {
+            InputImportRequest r;
+            r.handle = handle;
+            r.file   = file;
+            r.check  = check_only;
+            std::string message;
+            const bool ok = import_offline_inputs(registry, db, status, r, message);
             if (message_out)
                 *message_out = message;
             return ok;
@@ -663,6 +679,200 @@ namespace
     }
 }
 
+namespace
+{
+    void set_prog_input(std::vector<uint8_t>& f, int index, const offline::InputBytes& p)
+    {
+        memcpy(&f[offline::prog_at::inputs + (size_t)index * p.size()], p.data(), p.size());
+    }
+
+    // A .prog file as T3000 saves one, version 8, for a panel whose inputs
+    // are as it starts them, with this serial and panel type.
+    std::vector<uint8_t> prog_of(uint32_t serial, uint8_t mini_type)
+    {
+        std::vector<uint8_t> f(offline::prog_file_length(8), 0);
+        f[0] = 0x55;
+        f[1] = 0xFF;
+        f[2] = 8;
+        for (int i = 0; i < offline::kProgInputs; i++)
+            set_prog_input(f, i, offline::default_input(i));
+        uint8_t* settings = &f[offline::prog_at::settings];
+        settings[t5000::wire::settings_at::mini_type] = mini_type;
+        for (int k = 0; k < 4; k++)
+            settings[t5000::wire::settings_at::serial_number + k] = (uint8_t)(serial >> (8 * k));
+        return f;
+    }
+
+    void test_a_prog_file_is_imported()
+    {
+        section("a .prog file saved from the device is imported in place of the changes made here");
+
+        Bench b;
+        if (!b.open() || !b.add(9261, ProductClassId::MiniPanelArm, 5))
+            return;
+        check(b.edit(2, offline::InputField::Label, "OLD"), "input 3 is changed here first");
+
+        std::vector<uint8_t> f = prog_of(9261, 5);
+        offline::InputBytes p = offline::default_input(0);
+        memcpy(&p[offline::input_at::label], "SAT", 3);
+        p[offline::input_at::auto_manual]    = 1;
+        p[offline::input_at::value]          = 0xFC;   // 21500
+        p[offline::input_at::value + 1]      = 0x53;
+        p[offline::input_at::digital_analog] = 1;
+        p[offline::input_at::range]          = 11;
+        p[offline::input_at::decom]          = 0x02;   // a status, which is the panel's
+        set_prog_input(f, 0, p);
+
+        std::string message;
+        check(b.import(f, true, &message), "the file is checked");
+        check(contains(message, "saved from serial 9261, a T3-BB") &&
+                  contains(message, "1 of this device's 64 inputs is set as the file has it") &&
+                  contains(message, "replaces the changes made here to input 3"),
+              "  saying where it is from, what it sets, and what it replaces");
+        check(contains(message, "not its outputs, variables, programs, schedules or settings"),
+              "  and that nothing else in the file is kept");
+        auto saved = b.saved(9261);
+        check(saved.size() == 1 && saved[0].index == 2, "  and nothing is saved by a check");
+
+        check(b.import(f, false, &message), "the file is imported");
+        check(contains(message, "Imported: 1 of this device's 64 inputs is set"), "  saying so");
+        saved = b.saved(9261);
+        if (require(saved.size() == 1, "  in place of the change made here"))
+        {
+            const offline::InputBytes base = offline::default_input(0);
+            const offline::InputBytes kept = offline::imported_input(0, p);
+            check(saved[0].index == 0, "  input 1");
+            check(std::equal(saved[0].base.begin(), saved[0].base.end(), base.begin()), "  from how T3000 starts it");
+            check(std::equal(saved[0].edited.begin(), saved[0].edited.end(), kept.begin()), "  to what the import keeps");
+            check_eq(saved[0].edited[offline::input_at::decom], 0, "  which is not the panel's status");
+        }
+
+        const std::string payload = b.payload();
+        check(contains(payload, "\"label\":\"SAT\""), "the grid shows the imported label");
+        check(contains(payload, "\"changed\":[\"value\",\"autoManual\",\"range\",\"label\"]"),
+              "  and marks what changed, with no status or external module");
+
+        check(b.edit(0, offline::InputField::Label, "SAT2"), "an imported input can be changed like any other");
+        check(b.import(prog_of(9261, 5), false, &message), "a file of inputs as T3000 starts them is imported");
+        check(b.saved(9261).empty(), "  leaving no change");
+        check(contains(message, "none of this device's 64 inputs differ"), "  and saying so");
+    }
+
+    void test_an_import_is_refused_with_nothing_changed()
+    {
+        section("a .prog file from another device or model, or not one, is refused and nothing changes");
+
+        Bench b;
+        if (!b.open() || !b.add(9271, ProductClassId::MiniPanelArm, 5))
+            return;
+        check(b.edit(1, offline::InputField::Label, "KEEP"), "input 2 is changed here");
+
+        std::string message;
+        check(!b.import(prog_of(9272, 5), true, &message), "a file saved from serial 9272 is refused");
+        check(contains(message, "saved from serial 9272") && contains(message, "this device is serial 9271"),
+              "  naming both serials");
+        check(!b.import(prog_of(0, 5), false, &message), "a file whose serial is 0 is refused");
+        check(contains(message, "is 0"), "  saying so");
+        check(!b.import(prog_of(9271, 6), false, &message), "a file saved from a T3-LB is refused");
+        check(contains(message, "saved from a T3-LB, and this device is a T3-BB"), "  naming both models");
+        check(!b.import(prog_of(9271, 0), false, &message), "a file with no panel type is refused");
+        check(contains(message, "no panel type"), "  saying so");
+
+        std::vector<uint8_t> cut = prog_of(9271, 5);
+        cut.resize(1000);
+        check(!b.import(cut, false, &message), "a file cut short is refused");
+        check(contains(message, "1000 bytes"), "  saying how long it is");
+
+        const auto saved = b.saved(9271);
+        check(saved.size() == 1 && saved[0].index == 1, "the change made here is still there after each");
+
+        Bench cm5;
+        if (cm5.open() && cm5.add(9273, ProductClassId::Cm5, 0))
+            check(cm5.import(prog_of(9273, 0), true, &message), "a CM5's file, whose panel type is 0, is taken");
+
+        Bench none;
+        if (none.open() && none.add(9274, ProductClassId::Tstat10, 0))
+        {
+            check(!none.import(prog_of(9274, 11), false, &message), "a device with no model chosen is refused");
+            check(contains(message, "Choose its model"), "  saying to choose it");
+        }
+
+        Bench closed;
+        if (closed.open() && closed.add(9275, ProductClassId::MiniPanelArm, 5))
+        {
+            closed.db.close();
+            closed.status.saving = false;
+            check(!closed.import(prog_of(9275, 5), false, &message), "a list not being saved refuses it");
+            check(contains(message, "not being saved"), "  saying so");
+        }
+
+        InputImportRequest gone;
+        gone.handle = to_handle(424242);
+        gone.file   = prog_of(9271, 5);
+        check(!import_offline_inputs(b.registry, b.db, b.status, gone, message), "a device no longer in the list is refused");
+        check(contains(message, "no longer in the list"), "  saying so");
+    }
+
+    void test_the_store_replaces_all_or_nothing()
+    {
+        section("an import's changes replace the saved ones in one transaction, or none do");
+
+        Bench b;
+        if (!b.open() || !b.add(9281, ProductClassId::MiniPanelArm, 5))
+            return;
+        check(b.edit(4, offline::InputField::Label, "FIVE"), "input 5 is changed here");
+
+        const offline::InputBytes base = offline::default_input(0);
+        offline::InputBytes edited = base;
+        edited[offline::input_at::filter] = 9;
+
+        store::OfflinePoint good;
+        good.index = 0;
+        good.base.assign(base.begin(), base.end());
+        good.edited.assign(edited.begin(), edited.end());
+        store::OfflinePoint bad = good;
+        bad.index = 1;
+        bad.edited.pop_back();
+
+        std::string error;
+        check(!b.db.replace_offline_inputs(9281, { good, bad }, error), "a point that is not one input refuses them all");
+        auto saved = b.saved(9281);
+        check(saved.size() == 1 && saved[0].index == 4, "  and the change made here is kept");
+
+        check(!b.db.replace_offline_inputs(9999, { good }, error), "a serial not saved is refused");
+        check(contains(error, "9999"), "  naming it");
+
+        store::OfflinePoint same = good;
+        same.index = 3;
+        same.edited = same.base;
+        check(b.db.replace_offline_inputs(9281, { good, same }, error), "good points replace the saved ones");
+        saved = b.saved(9281);
+        check(saved.size() == 1 && saved[0].index == 0, "  and one whose bytes are its base is not saved");
+    }
+
+    void test_an_import_request_is_read_strictly()
+    {
+        section("an import request is read strictly");
+
+        InputImportRequest r;
+        std::string message;
+        check(read_input_import_request("{\"handle\":\"7\",\"file\":\"VQ+/\",\"check\":true}", r, message) &&
+                  r.handle == to_handle(7) && r.check && r.file == std::vector<uint8_t>{ 0x55, 0x0F, 0xBF },
+              "a check is read, with the file decoded");
+        check(read_input_import_request("{\"handle\":\"7\",\"file\":\"QQ==\"}", r, message) && !r.check,
+              "with no check, it is an import");
+        check(!read_input_import_request("{\"handle\":\"7\"}", r, message), "no file is refused");
+        check(contains(message, "base64"), "  saying what file must be");
+        check(!read_input_import_request("{\"handle\":\"7\",\"file\":\"QQ=\"}", r, message),
+              "a file that is not base64 is refused");
+        check(!read_input_import_request("{\"handle\":\"7\",\"file\":\"QQ==\",\"check\":\"true\"}", r, message),
+              "check as a string is refused");
+        check(!read_input_import_request("{\"handle\":\"7\",\"file\":\"QQ==\",\"check\":1}", r, message),
+              "check as a number is refused");
+        check(!read_input_import_request("{\"file\":\"QQ==\"}", r, message), "no handle is refused");
+    }
+}
+
 int run_offline_inputs_tests()
 {
     test_which_devices_are_configured_offline();
@@ -681,5 +891,9 @@ int run_offline_inputs_tests()
     test_a_device_without_a_model_says_what_is_kept();
     test_the_requests_are_read_strictly();
     test_a_serial_past_2147483647_is_shown_as_it_is();
+    test_a_prog_file_is_imported();
+    test_an_import_is_refused_with_nothing_changed();
+    test_the_store_replaces_all_or_nothing();
+    test_an_import_request_is_read_strictly();
     return 0;
 }
