@@ -177,7 +177,7 @@ Each ships on its own. Ordered by dependency, not by difficulty.
 |---|---|---|---|
 | **0** | Discovery, selection, firmware detection, **product-identity model** | **Larger** — two id axes, capability table | Done (#9, #12, #13, #15). The device list is saved between runs (#19), and takes devices added by hand, whose inputs can be configured offline |
 | **1** | Inputs + Outputs + Variables read | Unchanged — one shared layout | Inputs done (#14, #16, #17), except the Panel and Type columns. Outputs done (#27), except those and Product Name. Variables done |
-| **2** | Write support for points, then Arrays, PVar | Unchanged | Not started |
+| **2** | Write support for points, then Arrays, PVar | Unchanged | Started 2026-09-27: a write can be encoded and its reply classified, byte for byte as T3000's stack does, but nothing can send one yet. See [Writes](#writes) |
 | **3** | Device settings, user login | Slightly larger — per-product field ranges | Not started. The settings block is already read and guarded, for Inputs |
 | **4** | PID loops, then Tstat | **Larger** — Tstat is a second data model | Not started |
 | **5** | Weekly + annual schedules | Larger — Tstats encode schedules differently | Not started |
@@ -223,13 +223,17 @@ constant names.
 **Stage 2 is the cliff** — the first code that writes to live equipment.
 Writes get their own transport, separate from the read path, which cannot
 express one. Each write needs an explicit approval, and is done only when a
-read-back confirms it. The scan's repairs are the first things an approve
-button would act on. See also [what the write path must not
-reproduce](#what-the-write-path-must-not-reproduce).
+read-back confirms it. The scan's repairs are Modbus register writes, which a
+private-transfer write cannot send, so they wait for the register path. See
+[Writes](#writes) for how it is being built, and [what the write path must
+not reproduce](#what-the-write-path-must-not-reproduce).
 
 ## Next
 
-In order:
+On 2026-09-27 the owner asked for every T3000 function in T5000, and allowed
+writes: to loopback test panels first, and to real devices. Writes, item 5,
+now come first; [Writes](#writes) has their order. The rest follow in this
+order:
 
 1. **Devices added by hand and virtual devices,** then **importing T3000's
    building database.** Parts 2 and 3 of [the device
@@ -257,10 +261,10 @@ In order:
 
    Later, when there is a Modbus device on firmware below 525 to try, the
    firmware gate (see the end of Risks).
-5. **Stage 2, writes,** as above. Editing a device's points offline comes
-   first, and has started with inputs (item 1). It changes the saved
-   configuration, not a controller, so the edit screens can be built before
-   there is a write transport.
+5. **Stage 2, writes,** now first; see [Writes](#writes). Editing a
+   device's points offline came first, and has started with inputs (item 1).
+   It changes the saved configuration, not a controller, and reaches one
+   through the write path's review step (W6 there).
 6. **The register path** for Tstats and the Modbus modules, starting with the
    guard on the Tstat registers described under Risks.
 
@@ -702,6 +706,98 @@ another rate hears as noise.
 after opening a port, and is designed with the owner before it is built.
 
 ---
+
+## Writes
+
+The owner allowed writes on 2026-09-27, when asking for all of T3000's
+functions: against loopback test panels first, then real devices, with the
+owner running the checks that need one. COM ports are opened only on
+com0com's virtual pair, never on a real adapter.
+
+**What T3000 does.** A write is `WritePrivateData`
+(`T3000/global_function.cpp:1636`): a read's frame, with a write code
+(`WRITEINPUT_T3000` is 102), `total_length` = 7 + n x entity size, and each
+point's raw struct appended (`:1786-1871`). The Inputs grid writes the one row
+it changed (`BacnetInput.cpp:700`). The queue sends at most 5 points a request
+(`MainFrm.cpp:11641-11646`) and write-all 10 (`:5359-5364`); the 480-byte
+encode buffer (`global_function.cpp:1644`) caps a request at 476 bytes of
+payload. Four things about it are not to be copied:
+
+- **It cannot tell a failed write from a good one on BACnet/IP.** Its only
+  test is whether the invoke id was freed in time, and the stack frees it for
+  an Error, a Reject or an Abort as for an acknowledgement
+  (`BacNetDllforVc/Src/apdu.c:563-642`), so a refused write is reported as
+  written. A SimpleACK for a private transfer is never freed (`:500-535`), so
+  that would be a timeout. And the queued grid write reports success even on a
+  timeout: `if (ret_cusunits)` (`MainFrm.cpp:11659`) is true for the -1 that
+  means one (`global_function.cpp:1627`).
+- **It writes back its decoded copy.** `fill_in_input` folds '-' and '.' to
+  '_' in a label and blanks text that overflows (`global_function.cpp:3472-3498`),
+  so writing any field of an input rewrites the label too.
+- **Its dangerous actions are bytes in a payload.** Factory default (88),
+  clear (150), identify (77), reboot (111) and time sync (99) are values of
+  `reset_default` in the 400-byte settings block that `WRITE_SETTING_COMMAND`
+  (198) sends whole (`ud_str.h:859`; `BacnetSetting.cpp:1804-2081`), and the
+  cache is never cleared after, so the next settings edit can send the action
+  again. Writing to flash (122) goes through the read function
+  (`BacnetView.cpp:5835`).
+- **Some writes happen without being asked for:** time sync on reading the
+  panel's time, a rename sent on connect, and writes when a field loses focus.
+
+What a Temco panel sends back to a write is not in the repository: its
+firmware is not here, and T3000 treats every answer alike.
+
+**How T5000 does it.**
+
+- **A write is its own type.** `bacnet/write_command.h` admits writes one at a
+  time; every other write code in `ud_str.h` is held, or never written (clear
+  panel, flash, the Modbus tunnel, the health reset, the subnet database, the
+  trend-log erase). `conformance/write_command_guard.cpp` checks that the
+  lists name every write code in the header once, and each number against its
+  name. `conformance/write_separation_guard.cpp` fails the build if the read
+  path, or anything above `bacnet/`, includes the write code. The oracle checks
+  the encoder against the bytes T3000's stack sends.
+- **Reading back decides.** The panel's answer is recorded and shown, never
+  trusted: a write is done when reading the point back shows the new value.
+- **Only the field edited changes.** A write is built from the point as read a
+  moment before, with that field's bytes replaced. The panel's own bytes -
+  value, status - go back as it gave them.
+- **One approval, one change.** The page proposes; the operator approves that
+  change on that device; the proposal is spent before anything is sent, and
+  the serial is confirmed again just before the write.
+- **Loopback until told otherwise.** Only 127.x.x.x is written to unless
+  T5000 is started with `--allow-device-writes`.
+
+**Order,** one PR each:
+
+| | Delivers |
+|---|---|
+| W1a | Write encoding, reply classification and guards; nothing can send. Done |
+| W1b | One input's Filter, approved in the page and read back |
+| W2 | Evidence: a log of each write with the panel's raw answer, and a check of T3000's reply handling through its DLL; then the first hardware check |
+| W3 | Inputs' Auto/Manual |
+| W4, W5 | Outputs (101) and Variables (103), with their grids' rules |
+| W6 | Staging and review: changes collected, then read, compared and written as a batch. Applying offline changes to a found device (C, above) goes through it |
+| W7 | Full Label and Label, once it is decided what to do about names on kinds of point T5000 cannot read yet |
+| W8 | Range, Value, Calibration, Sign and Signal type, with the range dialog |
+| W9 | Custom tables (114, 134, 136, 142) |
+| W10 | Settings (198), through a typed write that copies the identity fields from a fresh read and forces `reset_default` to 0; then each panel action on its own, identify first |
+
+Later: PID, schedules, programs and their code, the clock, and a Modbus
+write path for Tstats and the scan's repairs. Held until the owner decides:
+passwords and keys (115, 143, 144) and writing to flash (122).
+
+**For the owner, when their PR comes:** whether to send only the edited field
+(the default) or T3000's decoded copy; whether device writes stay behind the
+start flag after the first hardware check; whether a matching serial is
+enough, or the model must match too; how to admit flash, which a panel never
+answers; whether a batch can be approved at once; and what a new label is
+checked against.
+
+**The first hardware check,** after W1b: set one unused input's Filter up by
+one and back, and note what the panel answers, which of its bytes change on
+their own, which port it answers from, and whether the change survives a power
+cycle without writing to flash.
 
 ## Carried over from the first plan
 

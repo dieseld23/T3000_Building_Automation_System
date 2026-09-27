@@ -102,6 +102,8 @@
     <ClCompile Include="tables_guard.cpp" />
     <ClCompile Include="variables_guard.cpp" />
     <ClCompile Include="wire_guard.cpp" />
+    <ClCompile Include="write_command_guard.cpp" />
+    <ClCompile Include="write_separation_guard.cpp" />
     <!--
       The one file that includes the BACnet stack's own headers, so every
       structure it hands the DLL has the layout the DLL was built with. The
@@ -120,6 +122,8 @@
     <ClCompile Include="crc_oracle.cpp" />
     <!-- The T5000 code the checks run, compiled here as T5000 compiles it. -->
     <ClCompile Include="..\bacnet\private_transfer.cpp" />
+    <ClCompile Include="..\bacnet\private_write.cpp" />
+    <ClCompile Include="..\bacnet\write_command.cpp" />
     <ClCompile Include="..\device\product.cpp" />
     <ClCompile Include="..\serial\rtu.cpp" />
   </ItemGroup>

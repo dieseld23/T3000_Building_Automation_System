@@ -9,6 +9,9 @@
 //     wire_guard.cpp     the point structs in wire/points.h vs CM5/ud_str.h
 //     panel_guard.cpp    the settings offsets in wire/panel.h vs CM5/ud_str.h
 //     command_guard.cpp  every command T5000 may send is a CM5 read, never a write
+//     write_command_guard.cpp  each write T5000 may encode is the CM5 write
+//                              it names, and every other write code is held
+//                              or never written
 //     product_guard.cpp  every product code in device/product.h vs ProductModel.h
 //
 //   run time
@@ -20,8 +23,13 @@
 //     offline_guard.cpp            the rules offline/input_edit.cpp takes a
 //                                  change to an input by, read against
 //                                  T3000's Inputs grid as text
-//     private_transfer_oracle.cpp  a read request, byte for byte, against the
-//                                  one T3000's BACnet stack DLL sends
+//     write_command_guard.cpp      the write lists name every write code in
+//                                  CM5/ud_str.h, once
+//     write_separation_guard.cpp   nothing that reads includes the write code,
+//                                  and the T3000 source it copies is unchanged
+//     private_transfer_oracle.cpp  read and write requests, byte for byte,
+//                                  against the ones T3000's BACnet stack DLL
+//                                  sends
 //     crc_oracle.cpp               the serial scan's CRC and frames, against
 //                                  T3000's CRC16 and its tables
 //
@@ -46,6 +54,8 @@ int run_private_transfer_oracle_tests();
 int run_crc_oracle_tests();
 int run_variables_guard_tests();
 int run_offline_guard_tests();
+int run_write_command_guard_tests();
+int run_write_separation_guard_tests();
 
 int main(int argc, char** argv)
 {
@@ -69,6 +79,10 @@ int main(int argc, char** argv)
     run_variables_guard_tests();
     printf("\n");
     run_offline_guard_tests();
+    printf("\n");
+    run_write_command_guard_tests();
+    printf("\n");
+    run_write_separation_guard_tests();
     printf("\n");
     run_private_transfer_oracle_tests();
     printf("\n");

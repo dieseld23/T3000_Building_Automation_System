@@ -38,7 +38,7 @@ synthetic devices on loopback.
 | Outputs | Done for the same five products over BACnet/IP. The grid matches T3000's column by column: the HOA Switch column and the rows it marks, each model's row count, the panel's custom digital range names, and outputs on T3 expansion modules. The Panel, Type and Product Name columns are not done. |
 | Variables | Done for the same five products over BACnet/IP. The grid matches T3000's column by column: every variable the panel has, three decimals, times, the fixed and the panel's own state pairs, the panel's own units, and names from its multi-state tables. |
 | Every other screen | Not started. See the migration plan's stages. |
-| Writes | Not started. They will come as a separate transport, with per-action approval and a read-back that confirms each one. |
+| Writes | Started. A write of inputs can be encoded, and a panel's answer classified, byte for byte as T3000's BACnet stack does it, but nothing can send one yet. Writing one input's Filter, approved in the page and confirmed by reading it back, is next. See the migration plan's Writes. |
 | Tstats and Modbus modules | Identified in the device list; not read. They need the register path, which does not exist yet. |
 | Devices behind a controller | Refused, with the controller named. T3000 reaches them through the controller over Modbus; T5000 does not yet. |
 
@@ -63,6 +63,13 @@ of its settings.
   (`bacnet/command.h`). A compile-time guard checks
   the whitelist against T3000's command codes and against a list of codes
   that must never be sent (`conformance/command_guard.cpp`).
+- **A write is another type, and nothing can send one yet.** Its command is a
+  `WriteCommand` (`bacnet/write_command.h`), which no read function takes, and
+  only the writes listed there can be encoded. Every other write code in
+  T3000's header is on a held list or a never-write list, and
+  `conformance/write_command_guard.cpp` checks the lists cover the header.
+  `conformance/write_separation_guard.cpp` fails if the read path, or anything
+  outside `bacnet/`, includes the write code.
 - **The device list is a file on this machine.** Saving it, naming a device,
   adding one by hand, configuring one offline and forgetting one change
   `T5000.db` and nothing else.
@@ -116,10 +123,13 @@ T5000's copies of T3000 to the originals:
 - what the ports copy that no constant names - the models, the Variables
   grid, and the rules an offline change to an input follows - against
   T3000's source, as text;
-- the oracle: T3000's BACnet DLL encodes a request, and T5000's bytes must
-  match it.
+- the write lists against every write code in `CM5/ud_str.h`, and the read
+  path kept apart from the write code;
+- the oracle: T3000's BACnet DLL encodes a read or a write, and T5000's bytes
+  must match it.
 
-A change to `wire/`, `bacnet/command.h`, `bacnet/private_transfer.cpp`,
+A change to `wire/`, `bacnet/command.h`, `bacnet/write_command.h`,
+`bacnet/private_transfer.cpp`, `bacnet/private_write.cpp`,
 `device/product.h`, `display/tables.h` or `offline/` is not checked against
 T3000 until those run. Build
 `-t:T5000Conformance` or run `scripts/ci-local.ps1` before pushing one.
@@ -130,7 +140,7 @@ T3000 until those run. Build
 | Folder | Holds |
 | --- | --- |
 | `app/` | What the routes serve: the Inputs, Outputs and Variables reads in page order, the device list kept in step with its saved copy, and the JSON the pages get |
-| `bacnet/` | Private-transfer requests and replies, and the command whitelist |
+| `bacnet/` | Private-transfer requests and replies, the read command whitelist, and the write lists and encoder |
 | `conformance/` | The checks against T3000: its headers, its tables and its BACnet stack. A separate project, `T5000Conformance.vcxproj`, built by `T3000 - VS2019.sln` |
 | `device/` | Product identity (`ProductClassId` and `MiniType`, kept as distinct types), the device registry, read-path choice, row limits, connection settings |
 | `discovery/` | The scan: the query, parsing the responses, the scanner |

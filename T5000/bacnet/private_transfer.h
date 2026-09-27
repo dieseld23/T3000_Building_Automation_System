@@ -126,6 +126,18 @@ namespace t5000::bacnet
         bool     abort_from_server = false;
     };
 
+    // Finds the APDU in one received UDP payload: checks the BVLC, whose
+    // length is authoritative, and steps over the NPDU, including a routed
+    // reply's source network and address. On success the APDU is
+    // datagram[apdu_at, apdu_end); it may be empty. False, with the reason in
+    // why_not, for anything that carries no application PDU - another
+    // protocol, a network-layer message, a frame cut short.
+    //
+    // The first half of decode_reply, shared with the write-reply decoder
+    // (private_write.h) so that both read the frame the same way.
+    bool locate_apdu(const uint8_t* datagram, size_t length, size_t& apdu_at, size_t& apdu_end,
+                     std::string& why_not);
+
     // Decodes one received UDP payload as a reply to a confirmed request.
     //
     // Returns false for anything that is not one - another device's broadcast,
