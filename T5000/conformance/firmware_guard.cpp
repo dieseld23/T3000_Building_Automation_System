@@ -894,7 +894,9 @@ namespace
         const size_t data_thread = begin.find("m_pWorkThread=AfxBeginThread(Flash_Modebus_Device, this);");
         const size_t linear = begin.find("} else if(m_nHexFileType == 2) {");
         const size_t linear_writers = begin.find("if (Is_Ram) { WirteExtendHexFileByCom_RAM(); } else { WirteExtendHexFileByCom(); } } return 1;");
-        check(data != std::string::npos && data < data_thread && data_thread < linear && linear < linear_writers,
+        const bool all_found = data != std::string::npos && data_thread != std::string::npos &&
+                               linear != std::string::npos && linear_writers != std::string::npos;
+        check(all_found && data < data_thread && data_thread < linear && linear < linear_writers,
               "BeginWirteByCom sends a data .hex to Flash_Modebus_Device, and the linear type to the extended writers");
         check_eq(occurrences(begin, "m_nHexFileType"), 2, "  and has no branch for a segment .hex, which it does not flash");
         pin(ext, "m_pWorkThread=AfxBeginThread(flashThread_ForExtendFormatHexfile, this);",
