@@ -247,8 +247,8 @@ running the hardware checks. In this order:
    decisions A to E there on 2026-09-26. Adding a device by hand is built,
    and so are configuring its inputs offline, every column T3000's grid lets
    be changed, D, and importing its inputs from a `.prog` file saved from
-   it. Export waits for the owner. Next come E and C, in the order given
-   there.
+   it. Next come E, export (decided 2026-09-27: with T3000's defaults,
+   behind a warning) and C, in the order given there.
 3. **Serial ports.** Scanning is built: a port picked on the Devices page is
    opened and scanned at each of the six rates, and the devices found are
    listed and saved with their port, rate and id. It is tested on com0com's
@@ -461,15 +461,19 @@ by. *Built;* see below.
    entry, which then goes through C.
 2. As T3000 does it: a random serial, matched like any other.
 
-**Decided: 1,** a configuration with no device behind it.
+**Decided: 1,** a configuration with no device behind it. **And on
+2026-09-27:** a `.prog` file imported into a virtual device is matched by
+its panel type only, not its serial, since a virtual device's serial is
+T5000's and no file carries it. A device added by hand, or found, is still
+matched by its serial (A).
 
 The order:
 
 1. B's panel type. *Built.*
 2. A's storage, with editing Inputs offline. *Built,* for every column
    T3000's grid lets be changed.
-3. Import and export. *Import built,* for inputs; export waits for the
-   owner. See below.
+3. Import and export. *Import built,* for inputs. Export decided (2,
+   below), and next after E, since it covers virtual devices too.
 4. D. *Built.*
 5. E.
 6. C, the apply, once Stage 2's write transport and the first hardware check
@@ -670,10 +674,19 @@ the file. Options:
    settings. Not possible until the other screens are read.
 2. Export what T5000 has, with the defaults, behind a warning that says what
    Load File would put back.
-3. **Recommended:** no export for now. A device configured offline reaches
-   a panel through C, which writes only what the operator changed, after
-   checking the device's serial. Export follows 1 when T5000 reads every
-   table.
+3. No export for now. A device configured offline reaches a panel through
+   C, which writes only what the operator changed, after checking the
+   device's serial. Export follows 1 when T5000 reads every table.
+   (Recommended before the owner decided.)
+
+**Decided: 2** (2026-09-27), export with T3000's defaults, behind a warning.
+The defaults are T3000's own for a panel it has not read
+(`Initial_All_Point`) and for a new virtual device's settings
+(`Initial_Virtual_Device_Setting`), with the device's serial and panel type.
+The warning says what this file would put back over a panel's if loaded with
+T3000's Load File, from the values it actually holds. Export is offered only
+where T5000 holds the configuration: a device added by hand and not yet
+found, and a virtual device.
 
 *Built: finding a device at an address (D).* A device in the list that has
 not answered a scan since T5000 started - added by hand, from the saved list,
