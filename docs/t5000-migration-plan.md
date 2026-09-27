@@ -504,7 +504,7 @@ only those:
   for, are offered all three pulse ranges; every other input the slow one
   only. The rows T3000 fixes cannot be
   changed at all (`OnNMClickList1`, `BacnetInput.cpp:1657`): a T3-OEM's
-  inputs 14-18, a T3-OEM-12I's 18-22, a TSTAT10's 10-13, and of the ESP32 T3
+  inputs 14-18, a T3-OEM-12I's 18-22, a TSTAT10's or TSTAT11's 10-13, and of the ESP32 T3
   panels a T3-RMC-1232's 9-12 and 33-48, a T3-BMS's 33-48, a T3-RMC's 17-18
   and a T3-NG2's 25-30. A range changes only whether the input is analog and
   its range; 0 makes it analog, as T3000's answer does (`:1778`).
