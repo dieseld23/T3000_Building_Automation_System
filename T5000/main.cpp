@@ -46,6 +46,7 @@
 #include "http/server.h"
 #include "json/read.h"
 #include "net/interfaces.h"
+#include "offline/prog_file.h"
 #include "serial/ports.h"
 #include "store/device_db.h"
 #include "web/devices_page.h"
@@ -682,6 +683,36 @@ int main(int argc, char** argv)
 
         const bool ok = app::import_offline_inputs(g_registry, g_db, g_store, request, message);
         return inputs_action_response(ok, message, request.handle);
+    });
+
+    // A .prog file of a device configured offline, for T3000's Load File:
+    // its inputs, and T3000's defaults for everything else. With
+    // "check":true, what Load File would do with it, for the page to ask
+    // first. The file comes back in base64 for the page to save; T5000
+    // writes nothing to disk, and nothing is sent to any device.
+    server.route("/api/inputs/export", [](const http::Request& req) {
+        if (req.method != "POST")
+            return bad_request("A .prog file is exported with POST.");
+
+        app::InputExportRequest request;
+        std::string message;
+        if (!app::read_input_export_request(req.body, request, message))
+            return bad_request(message);
+
+        std::vector<uint8_t> file;
+        std::string name;
+        const bool ok = app::export_offline_inputs(g_registry, g_db, g_store, request, message, file, name);
+
+        std::string body = "{\"ok\":";
+        body += ok ? "true" : "false";
+        body += ",\"message\":\"" + app::json_escape(message) + "\"";
+        if (!file.empty())
+        {
+            body += ",\"name\":\"" + app::json_escape(name) + "\"";
+            body += ",\"file\":\"" + offline::base64_encode(file) + "\"";
+        }
+        body += '}';
+        return http::Response::json(body);
     });
 
     // Looks for one device in the list at the address the operator gives:

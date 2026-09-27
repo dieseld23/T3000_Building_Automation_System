@@ -132,6 +132,28 @@ namespace t5000::app
     bool import_offline_inputs(const device::Registry& registry, store::DeviceDb& db, const StoreStatus& status,
                                const InputImportRequest& request, std::string& message);
 
+    // An export as the page asks for one: {"handle":"12"}, and with
+    // "check":true, only what the file would do.
+    struct InputExportRequest
+    {
+        device::Handle handle = device::kNoHandle;
+        bool           check  = false;
+    };
+
+    bool read_input_export_request(const std::string& body, InputExportRequest& request, std::string& message);
+
+    // A .prog file of a device configured offline: its inputs as configured
+    // here, and T3000's defaults for every other table
+    // (offline/prog_file.h, write_prog_file), for T3000's Load File or its
+    // Offline mode. Refused, with `message` saying why, where a change would
+    // be (a device a scan has found, no model, a list not being saved). With
+    // request.check, `message` is what T3000's Load File would do with the
+    // file on a panel, read back from it, and `file` is left empty; without,
+    // `file` is the file and `name` what to call it.
+    bool export_offline_inputs(const device::Registry& registry, store::DeviceDb& db, const StoreStatus& status,
+                               const InputExportRequest& request, std::string& message, std::vector<uint8_t>& file,
+                               std::string& name);
+
     // For a device read from the network: that inputs were changed offline
     // before it was found, and wait unwritten. Empty when none were.
     std::string pending_offline_note(store::DeviceDb& db, const device::DeviceRecord& d);
