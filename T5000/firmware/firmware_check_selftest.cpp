@@ -131,13 +131,6 @@ namespace
         Header gap = header_of("TEMCO", "TSTAT8", 1);
         gap.bytes[header_at::product_name + 8] = 'X';
         check_streq(data_file_name(gap).c_str(), "TSTAT8", "... up to the first 0");
-
-        check_streq(network_file_name(header_of("TEMCO", " co2all ", 1)).c_str(), "CO2ALL",
-                    "on the network, names are trimmed and raised");
-        check_streq(network_file_name(header_of("TEMCO", "mini_arm", 1)).c_str(), "MINI_ARM",
-                    "... and mini_arm is not made Minipanel");
-        check_streq(network_file_name(header_of("TEMCO", "ABCDEFGHIJ", 'K' + 'L' * 256)).c_str(), "ABCDEFGHIJK",
-                    "... and only the first 11 characters count");
     }
 
     void test_the_aliases()
@@ -167,18 +160,6 @@ namespace
         check(data_names_match("CO2", "CO2 NET"), "on the data route, a CO2 NET file for a CO2");
         check(!extended_names_match("CO2", "CO2 NET"), "... which the extended route does not take");
         check(!data_names_match("CO2 NET", "CO2"), "... nor the other way");
-
-        check(network_names_match("MINI", "MINIPANEL"), "on the network, a MINIPANEL file for a device saying MINI");
-        check(network_names_match("MINIPANEL", "MINI"), "... and a MINI file for one saying MINIPANEL");
-        check(network_names_match("CO2NET", "CO2ALL"), "CO2ALL for CO2NET");
-        check(network_names_match("UMNET", "CO2ALL"), "... and for UMNET, as ISP spells it");
-        check(!network_names_match("HUMNET", "CO2ALL"), "... not for HUMNET, which ISP does not name");
-        check(network_names_match("PSNET", "CO2ALL"), "... and for PSNET");
-        check(network_names_match("CO2", "CO2 NET"), "CO2 NET for CO2");
-        check(!network_names_match("TSTAT8", "HUMNET"), "a HUMNET file is not taken for any device");
-        check(!network_names_match("TSTAT8", "CO2NET"), "... nor a CO2NET one");
-        check(!network_names_match("TSTAT8", "PSNET"), "... nor a PSNET one");
-        check(!network_names_match("CM5", "CM5_ARM"), "the serial aliases are not the network's");
     }
 
     void test_the_files_that_need_a_new_bootloader()
@@ -390,8 +371,14 @@ namespace
         }
 
         check(!check_firmware(file_of("TSTAT7", 1, kLinear, Path::Network), device_of(9)).ok, "... on the network too");
-        check(!check_firmware(file_of("HUMNET", 1, kLinear, Path::Network), device_of(9)).ok,
-              "a HUMNET file for a TStat8 on the network, which ISP takes");
+        for (const char* any : { "HUMNET", "CO2NET", "PSNET" })
+            check(!check_firmware(file_of(any, 1, kLinear, Path::Network), device_of(9)).ok,
+                  "a HUMNET, CO2NET or PSNET file for a TStat8 on the network, which ISP takes");
+        for (const int any : { 212, 210, 33, 214 })
+            check(!check_firmware(file_of("TSTAT7", 1, kLinear, Path::Network), device_of(any)).ok,
+                  "a TSTAT7 file for a HUMNET, CO2NET, CO2 or PSNET on the network, which ISP takes on a broadcast");
+        check(check_firmware(file_of("CO2ALL", 1, kLinear, Path::Network), device_of(212)).ok,
+              "a CO2ALL file for a HUMNET on the network, by the extended route's names");
 
         Verdict v = check_firmware(file_of("TSTAT8", 1, kLinear, Path::Serial, "Acme"), device_of(9));
         check(!v.ok, "a file whose company is not Temco's");

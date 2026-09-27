@@ -8,10 +8,11 @@
 //   tables   GetFirmwareUpdateName and GetProductName are parsed case by
 //            case, their ids looked up in ProductModel.h, and compared with
 //            firmware_name and product_name for every product 0 to 1000
-//   chains   the alias chains of UpdataDeviceInformation,
-//            UpdataDeviceInformation_ex and MySocket::OnReceive's two checks
-//            are parsed branch by branch, and compared with the
-//            *_names_match functions for every pair of names either knows
+//   chains   the alias chains of UpdataDeviceInformation and
+//            UpdataDeviceInformation_ex are parsed branch by branch, and
+//            compared with the *_names_match functions for every pair of
+//            names either knows; the network's names ISP takes for any
+//            device, which T5000 does not, are parsed and pinned
 //   rules    the file's bootloader flags (FlashByEthernet, FlashByCom) and
 //            check_bootloader_and_frimware's thresholds are parsed and run,
 //            in ISP's float arithmetic where ISP uses it, and compared with
@@ -441,11 +442,6 @@ namespace
             "  the file by its first 10 bytes");
         absent(ex, "Trim", "  not trimmed");
         absent(ex, "mini_arm", "  mini_arm not made Minipanel");
-        check_eq(occurrences(sock, "DeviceProductName = DeviceProductName.Left(11);"), 2,
-                 "the network compares the first 11 characters of the device's name");
-        check_eq(occurrences(sock, "FileProductName = FileProductName.Left(11);"), 2, "  and of the file's");
-        check_eq(occurrences(sock, "FileProductName.Trim(); DeviceProductName.Trim();"), 2, "  trimmed");
-
         std::vector<Branch> upd_chain, ex_chain;
         std::string error;
         const std::string first = "if(hexproductname.CompareNoCase(prodcutname)==0)";
@@ -475,15 +471,8 @@ namespace
                 names.insert(b.devices.begin(), b.devices.end());
                 names.insert(b.files.begin(), b.files.end());
             }
-        for (const auto& p : net[0].pairs)
-        {
-            names.insert(p.first);
-            names.insert(p.second);
-        }
-        for (const std::string& n : net[0].any_device)
-            names.insert(n);
 
-        int upd_wrong = 0, ex_wrong = 0, net_wrong = 0;
+        int upd_wrong = 0, ex_wrong = 0;
         for (const std::string& d : names)
         {
             for (const std::string& f : names)
@@ -492,23 +481,37 @@ namespace
                     printf("        extended route, device %s, file %s\n", d.c_str(), f.c_str());
                 if (data_names_match(d, f) != chain_takes(ex_chain, d, f) && ex_wrong++ < 3)
                     printf("        data route, device %s, file %s\n", d.c_str(), f.c_str());
-                bool isp_pair = d == f;
-                for (const auto& p : net[0].pairs)
-                    isp_pair = isp_pair || (p.first == d && p.second == f);
-                if (network_names_match(d, f) != isp_pair && net_wrong++ < 3)
-                    printf("        network, device %s, file %s\n", d.c_str(), f.c_str());
             }
         }
         printf("        %zu names, every pair\n", names.size());
         check_eq(upd_wrong, 0, "  the extended route takes what UpdataDeviceInformation takes");
         check_eq(ex_wrong, 0, "  the data route takes what UpdataDeviceInformation_ex takes");
-        check_eq(net_wrong, 0, "  the network takes what OnReceive's pairs take");
 
-        // Stricter: the names ISP takes for any device on the network.
+        // Stricter: what ISP takes for any device on the network. T5000
+        // checks by product, with the extended route's names.
         check(net[0].any_device == std::vector<std::string>({ "HUMNET", "CO2NET", "PSNET" }),
               "ISP takes HUMNET, CO2NET and PSNET files for any device on the network");
-        for (const std::string& n : net[0].any_device)
-            check(!network_names_match("TSTAT8", n), "  which T5000 does not");
+        std::string start;
+        if (body_of(isp.tftp, "BOOL TFTPServer::StartServer()", start))
+            pin(start, "else if((m_StrProductName.CompareNoCase(_T(\"HUMNET\")) == 0) || "
+                       "(m_StrProductName.CompareNoCase(_T(\"CO2NET\")) == 0) || "
+                       "(m_StrProductName.CompareNoCase(_T(\"CO2\")) == 0) || "
+                       "(m_StrProductName.CompareNoCase(_T(\"PSNET\")) == 0)) { Sleep(1); }",
+                "  and any file for a device naming itself HUMNET, CO2NET, CO2 or PSNET, on a broadcast");
+        const auto network = [](const char* name, int product) {
+            FirmwareFile f;
+            f.path   = Path::Network;
+            f.format = HexFormat::LinearAddress;
+            memcpy(f.header.bytes, "TEMCO", 5);
+            memcpy(&f.header.bytes[header_at::product_name], name, strlen(name));
+            DeviceFacts d;
+            d.product = product;
+            return check_firmware(f, d).ok;
+        };
+        check(!network("HUMNET", 9) && !network("CO2NET", 9) && !network("PSNET", 9),
+              "  T5000 refuses such a file for a TStat8");
+        check(!network("TSTAT7", 212) && !network("TSTAT7", 210) && !network("TSTAT7", 33) && !network("TSTAT7", 214),
+              "  and a TSTAT7 file for a HUMNET, CO2NET, CO2 or PSNET");
     }
 
     // ---- rules ----

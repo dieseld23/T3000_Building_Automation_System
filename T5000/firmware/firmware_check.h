@@ -17,9 +17,13 @@
 //       trimmed, and check_bootloader_and_frimware
 //   serial, a .hex of segment address records   BeginWirteByCom starts no
 //       flash for it (ComWriter.cpp:96-244 has no branch for type 1)
-//   network   the device's bootloader names itself in the TFTP handshake
-//       (MySocket.cpp:136-185), and TFTPServer calls
-//       check_bootloader_and_frimware (TFTPServer.cpp:1385, 2117)
+//   network   the device's bootloader names itself in the TFTP handshake,
+//       and ISP compares that name with the file's in three places, each
+//       with aliases of its own (MySocket.cpp:130-185 and 213-270,
+//       TFTPServer.cpp:1249-1300); TFTPServer calls
+//       check_bootloader_and_frimware (TFTPServer.cpp:1385, 2117). T5000
+//       checks before the flash, by the device's product and the extended
+//       route's names; the handshake's own checks are F4's
 //   through a controller   not checked yet (F5)
 //
 // T5000 is stricter:
@@ -33,10 +37,11 @@
 //   - a device reporting product 0 or 255 is refused. ISP flashes it with
 //     no product or bootloader check (ComWriter.cpp:1871-1874, 2020-2023);
 //   - a header whose product name has no 0 in it is refused;
-//   - on the network, the file is held to the device's product before the
-//     flash asks the bootloader its name, by the extended-format route's
-//     names, and a file ISP takes for any device there (HUMNET, CO2NET,
-//     PSNET, MySocket.cpp:159-164) is not;
+//   - on the network, the file is held to the device's product, by the
+//     extended route's names. ISP takes a HUMNET, CO2NET or PSNET file for
+//     any device there (MySocket.cpp:159-161, 246-248), and any file for a
+//     device naming itself HUMNET, CO2NET, CO2 or PSNET
+//     (TFTPServer.cpp:1284-1287);
 //   - a file that needs a newer bootloader than the device has, or one T5000
 //     cannot tell, is refused on every route, the data route too, where ISP
 //     does not look: T5000 does not update bootloaders.
@@ -81,20 +86,11 @@ namespace t5000::firmware
     // the first 0, raised, not trimmed.
     std::string data_file_name(const Header& header);
 
-    // ... and as the network does (MySocket.cpp:136-144): the first 11
-    // characters of what strlen reads, trimmed and raised.
-    std::string network_file_name(const Header& header);
-
     // Whether a route takes a file named `file` for a device named `device`
     // by that route's function: the same name, or one of its aliases
     // (ComWriter.cpp:2073-2125; :1898-1953).
     bool extended_names_match(const std::string& device, const std::string& file);
     bool data_names_match(const std::string& device, const std::string& file);
-
-    // The same on the network (MySocket.cpp:146-172), where `device` is the
-    // name the device's bootloader reports. Without ISP's pass for any
-    // HUMNET, CO2NET or PSNET file.
-    bool network_names_match(const std::string& device, const std::string& file);
 
     // Whether ISP marks the file as needing the newer bootloader
     // (firmware_must_use_new_bootloader), from its name and version, on this

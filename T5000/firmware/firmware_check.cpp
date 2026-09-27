@@ -220,11 +220,6 @@ namespace t5000::firmware
         return upper(name);
     }
 
-    std::string network_file_name(const Header& header)
-    {
-        return upper(trimmed(run_on_name(header).substr(0, 11)));
-    }
-
     bool extended_names_match(const std::string& device, const std::string& file)
     {
         const std::string d = upper(device);
@@ -238,18 +233,6 @@ namespace t5000::firmware
         const std::string f = upper(file);
         // ComWriter.cpp:1935-1939, which the extended route does not have.
         return f == d || serial_aliases(d, f) || (d == "CO2" && f == "CO2 NET");
-    }
-
-    bool network_names_match(const std::string& device, const std::string& file)
-    {
-        const std::string d = upper(device);
-        const std::string f = upper(file);
-        if (f == d)
-            return true;
-        // MySocket.cpp:165-170. "UMNET" is as ISP spells it.
-        return (d == "MINI" && f == "MINIPANEL") || (d == "MINIPANEL" && f == "MINI") ||
-               (d == "CO2NET" && f == "CO2ALL") || (d == "UMNET" && f == "CO2ALL") ||
-               (d == "CO2" && f == "CO2 NET") || (d == "PSNET" && f == "CO2ALL");
     }
 
     bool file_needs_new_bootloader(Path path, const Header& header)
