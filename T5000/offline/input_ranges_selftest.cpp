@@ -181,16 +181,16 @@ namespace
         check(has(offered(arm, MiniType::MiniPanelArmLb, 10), 55) && has(offered(arm, MiniType::MiniPanelArmLb, 16), 55) &&
                   !has(offered(arm, MiniType::MiniPanelArmLb, 9), 55) && !has(offered(arm, MiniType::MiniPanelArmLb, 17), 55),
               "a T3-LB: inputs 11 to 17 count fast pulses");
-        check(!has(offered(arm, MiniType::MiniPanelArmTb, 0), 55) && has(offered(arm, MiniType::MiniPanelArmTb, 0), 45),
-              "a T3-TB's input 1: the slow pulse count only");
+        const std::vector<int> tb0 = offered(arm, MiniType::MiniPanelArmTb, 0);
+        check(has(tb0, 45) && !has(tb0, 55) && !has(tb0, 59), "a T3-TB's input 1: the slow pulse count, and neither the fast one nor RPM");
         check(has(offered(arm, MiniType::TinyMiniPanel, 5), 55) && !has(offered(arm, MiniType::TinyMiniPanel, 4), 55),
               "a Tiny MiniPanel: from input 6");
         check(has(offered(arm, MiniType::TinyExMiniPanel, 0), 55) && !has(offered(arm, MiniType::TinyExMiniPanel, 8), 55),
               "a Tiny EX MiniPanel: inputs 1 to 8");
         check(has(offered(arm, MiniType::BigMiniPanel, 26), 55) && has(offered(arm, MiniType::SmallMiniPanel, 10), 55),
               "the Big and Small MiniPanels as the T3-BB and T3-LB");
-        check(!has(offered(arm, MiniType::Tb11I, 10), 55) && has(offered(arm, MiniType::Tb11I, 10), 45),
-              "a T3-TB-11I's input 11: the slow pulse count only");
+        const std::vector<int> tb11 = offered(arm, MiniType::Tb11I, 10);
+        check(has(tb11, 45) && !has(tb11, 55) && !has(tb11, 59), "a T3-TB-11I's input 11: the slow pulse count only");
 
         const std::vector<int> fan4 = offered(arm, MiniType::FanModule, 4);
         check(has(fan4, 45) && has(fan4, 55) && has(fan4, 59), "a T3-FAN-MODULE's input 5: all three");
