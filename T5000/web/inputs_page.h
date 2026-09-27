@@ -102,6 +102,7 @@ namespace t5000::web
     padding:3px 8px;font-variant-numeric:tabular-nums}
   dialog.ranges .choice.current{border-color:var(--accent);color:var(--accent);font-weight:600}
   dialog.ranges .note{margin:0;font-size:11px;color:var(--dim)}
+  #export-text{white-space:pre-line}
   dialog.ranges footer{display:flex;justify-content:flex-end;gap:8px;padding:10px 18px;
     border-top:1px solid var(--border);background:var(--surface)}
   dialog.ask{width:min(440px,calc(100vw - 32px))}

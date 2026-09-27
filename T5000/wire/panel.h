@@ -52,7 +52,7 @@ namespace t5000::wire
         inline constexpr size_t subnet            = 4;     // 4 bytes
         inline constexpr size_t gate_addr         = 8;     // 4 bytes
         inline constexpr size_t mac_addr          = 12;    // 6 bytes
-        inline constexpr size_t tcp_type          = 18;    // 0 DHCP, 1 static
+        inline constexpr size_t tcp_type          = 18;    // 1 obtains an address; 0 and 2 use the one set
         inline constexpr size_t mini_type         = 19;
         inline constexpr size_t firmware_main     = 22;    // pro_info.firmware0_rev_main
         inline constexpr size_t firmware_sub      = 23;    // pro_info.firmware0_rev_sub

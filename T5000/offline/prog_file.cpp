@@ -378,7 +378,7 @@ namespace t5000::offline
             text += "; and no " + join(empty);
         if (!held.empty())
             text += "; and the " + join(held) + " the file holds";
-        text += ".";
+        text += ".\n\n";
 
         // The settings Load File takes from the file.
         const uint8_t* s = &f[prog_table_at(prog_table::settings)];
@@ -399,7 +399,7 @@ namespace t5000::offline
         std::vector<uint8_t> rest(s, s + wire::kSettingsWireSize);
         const auto named = [&](size_t from, size_t n) { memset(&rest[from], 0, n); };
         named(at::ip_addr, 18);                  // kept: IP, subnet, gateway, MAC
-        named(at::tcp_type, 2);                  // DHCP, panel type
+        named(at::tcp_type, 2);                  // the IP address's mode, panel type
         named(at::com0_config, 3);
         named(at::com_baudrate0, 3);
         named(at::panel_type, 1);
@@ -413,12 +413,21 @@ namespace t5000::offline
         named(at::max_master, 1);
         named(at::reset_default, 1);             // Load File sets it to 0
 
-        text += " Of the settings, Load File keeps the panel's serial, name, panel number, Modbus id, object "
+        // T3000's Settings shows a tcp_type of 1 as Obtain IP Address
+        // Automatically, and 0 or 2 as Use The Following IP Address, and
+        // writes 0 for the second (BacnetSetting.cpp:361-371,
+        // BacnetSettingTcpip.cpp:153-156, 204-207). ud_str.h's comment on
+        // the field says the reverse; its captions are what the page names.
+        const std::string ip =
+            s[at::tcp_type] == 1
+                ? std::string("the IP address set to Obtain IP Address Automatically, so a panel with an address set "
+                              "by hand takes one from DHCP")
+                : std::string("the IP address set to Use The Following IP Address, so a panel that obtains its "
+                              "address automatically keeps the one it has now, fixed");
+        text += "Of the settings, Load File keeps the panel's serial, name, panel number, Modbus id, object "
                 "instance, IP address, subnet, gateway and MAC, and sets the others as the file has them: panel "
-                "type " + model + ", so load it only onto a " + model + "; " +
-                (s[at::tcp_type] == 0 ? std::string("DHCP, so a panel with a static address takes one from DHCP")
-                                      : std::string("a static address")) +
-                "; " + ports + "; Modbus TCP port " + std::to_string(le(s + at::modbus_port, 2)) +
+                "type " + std::to_string(s[at::mini_type]) + " (" + model + "), so load it only onto a " + model +
+                "; " + ip + "; " + ports + "; Modbus TCP port " + std::to_string(le(s + at::modbus_port, 2)) +
                 "; MS/TP network " + std::to_string(le(s + at::mstp_network, 2)) + " and max master " +
                 std::to_string(s[at::max_master]) + "; its product field " + std::to_string(s[at::panel_type]) + "; and " +
                 (all_zero(rest.data(), rest.size()) ? "every other setting 0" : "every other setting as the file has it") +

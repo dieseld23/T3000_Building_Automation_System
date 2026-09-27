@@ -177,7 +177,9 @@ namespace t5000::offline
 
     // What T3000's Load File would do with `file` on a panel of `model`,
     // for the page to show before an export: read back from the file's
-    // bytes, not restated, so the page says what the file holds. Load File
+    // bytes, not restated, so the page says what the file holds; `model` is
+    // only the name the page gives the panel type the file has. Two
+    // paragraphs, the tables and then the settings. Load File
     // writes every table, and every setting but the ones it keeps
     // (global_function.cpp:11261-11272): the serial, the object instance,
     // the panel number, the Modbus id, the IP address, subnet, gateway and

@@ -17,6 +17,9 @@
 //     as Add virtual device and Initial_Virtual_Device_Setting set them, and
 //     the source those defaults, the UART_ codes, and what Load File keeps
 //     of the settings (which the export's warning names) are taken from
+//   - what the warning calls each tcp_type: as T3000's Settings shows and
+//     writes it, in its captions (BacnetSetting.cpp, BacnetSettingTcpip.cpp,
+//     T3000.rc), not as ud_str.h's comment on the field has it
 //
 // Save and Load's text is compared with its spaces taken out, as the two
 // space their loops differently. A failure says what was copied has
@@ -569,6 +572,50 @@ namespace
             check(no_spaces(structs).find("enum{NOUSE,BACNET_MSTP,") != std::string::npos,
                   "a port mode of 0 is NOUSE, which the warning calls not used");
     }
+
+    void test_the_ip_address_mode_is_as_t3000s_settings_show_it()
+    {
+        section("the warning names a tcp_type as T3000's Settings shows and writes it, in its captions");
+
+        // ud_str.h's comment on tcp_type says 0 is DHCP; the dialog that
+        // shows and writes it says 1 is. The warning takes the dialog's word
+        // and its captions.
+        std::string text, body;
+        if (read_or_fail("T3000\\BacnetSetting.cpp", text))
+        {
+            const std::string t = no_spaces(text);
+            size_t from = 0;
+            check(in_order(t,
+                           { "if(Device_Basic_Setting.reg.tcp_type==1){m_tcp_type=1;",
+                             "GetDlgItem(IDC_RADIO_BAC_IP_AUTO))->SetCheck(true);",
+                             "GetDlgItem(IDC_RADIO_BAC_IP_STATIC))->SetCheck(false);",
+                             "elseif((Device_Basic_Setting.reg.tcp_type==0)||(Device_Basic_Setting.reg.tcp_type==2)){m_tcp_type=0;",
+                             "GetDlgItem(IDC_RADIO_BAC_IP_AUTO))->SetCheck(false);",
+                             "GetDlgItem(IDC_RADIO_BAC_IP_STATIC))->SetCheck(true);" },
+                           from),
+                  "Settings ticks Obtain IP Address Automatically for 1, and Use The Following IP Address for 0 and 2");
+        }
+
+        if (read_or_fail("T3000\\BacnetSettingTcpip.cpp", text))
+        {
+            if (body_or_fail(text, "void CBacnetSettingTcpip::OnBnClickedBtnBacIPChange()", body))
+                check(body.find("boolisstatic=((CButton*)GetDlgItem(IDC_RADIO_BAC_IP_STATIC))->GetCheck();"
+                                "if(isstatic==true)Device_Basic_Setting.reg.tcp_type=0;"
+                                "elseDevice_Basic_Setting.reg.tcp_type=1;") != std::string::npos,
+                      "  and writes 0 for Use The Following IP Address, 1 for the other");
+            if (body_or_fail(text, "void CBacnetSettingTcpip::OnBnClickedBtnBacIPStatic()", body))
+                check(body.find("Device_Basic_Setting.reg.tcp_type=0;") == 0, "  as choosing it does");
+        }
+
+        std::string rc;
+        if (read_or_fail("T3000\\T3000.rc", rc))
+        {
+            const std::string r = no_spaces(rc);
+            check(r.find("\"ObtainIPAddressAutomatically\",IDC_RADIO_BAC_IP_AUTO,") != std::string::npos &&
+                      r.find("\"UseTheFollowingIPAddress\",IDC_RADIO_BAC_IP_STATIC,") != std::string::npos,
+                  "  captioned Obtain IP Address Automatically and Use The Following IP Address");
+        }
+    }
 }
 
 int run_prog_file_guard_tests()
@@ -579,5 +626,6 @@ int run_prog_file_guard_tests()
     test_a_file_t3000_saved_is_read();
     test_an_export_is_a_new_panel_of_t3000s();
     test_the_export_defaults_are_t3000s();
+    test_the_ip_address_mode_is_as_t3000s_settings_show_it();
     return 0;
 }

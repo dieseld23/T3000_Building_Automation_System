@@ -980,7 +980,7 @@ namespace
         check(b.exported(true, file, name, &message), "an export is checked");
         check(file.empty() && name.empty(), "  which makes no file");
         check(contains(message, "This file is for T3000's Load File") &&
-                  contains(message, "panel type T3-BB, so load it only onto a T3-BB") &&
+                  contains(message, "panel type 5 (T3-BB), so load it only onto a T3-BB") &&
                   contains(message, "The file says serial 9411.") && contains(message, "Nothing is sent to any device."),
               "  and says what Load File would do with it, for this model and serial");
 
