@@ -744,9 +744,8 @@ namespace t5000::web
     // say so, rather than leave the operator to wonder which is in use.
     // With the port when it is not BACnet/IP's own, as a device found at
     // another port is read there.
-    var serialLine = d.transport === "modbus-rtu" || d.transport === "bacnet-mstp";
-    var addr = el("td", "opt", d.address && !serialLine && d.port && d.port !== 47808 ? d.address + ":" + d.port
-                                                                                     : d.address);
+    var addr = el("td", "opt", d.address && !onSerialLine(d) && d.port && d.port !== 47808 ? d.address + ":" + d.port
+                                                                                            : d.address);
     if (!d.address) {
       addr.className = "dim opt";
       addr.textContent = "—";
@@ -1303,6 +1302,12 @@ namespace t5000::web
   var finding = null;
   var findNumber = 0;
 
+  // Last found on a serial port, whose address is the port, not one Find
+  // can look at.
+  function onSerialLine(d) {
+    return d.transport === "modbus-rtu" || d.transport === "bacnet-mstp";
+  }
+
   function openFind(handle) {
     var d = findDevice(handle);
     if (!d || !d.canFind) return;
@@ -1310,8 +1315,8 @@ namespace t5000::web
     findNumber++;
     finding = handle;
     $("find-which").textContent = describe(d) + ", " + d.productName;
-    $("find-host").value = d.address || "";
-    $("find-port").value = String(d.port || 47808);
+    $("find-host").value = onSerialLine(d) ? "" : d.address || "";
+    $("find-port").value = String(onSerialLine(d) ? 47808 : d.port || 47808);
     $("find-note").textContent = "When you click Find, T5000 asks this address for the panel's " +
       "settings, which cannot change anything: one request, sent once more if nothing answers. " +
       "It is found if they give serial " + d.serialNumber + ". Its address is then kept, and its " +
