@@ -25,7 +25,7 @@ T5000: the new configuration tool
 
 What it does so far:
 
-* **Scans** the network interface you pick with T3000's discovery broadcast, and lists what answers. The scan is read-only. A problem it notices, such as two devices on one Modbus id or a device with no serial number, is shown as a repair for someone to approve later, and is never written.
+* **Scans** the network interface you pick with T3000's discovery broadcast, or a COM port you pick at each of T3000's six rates, and lists what answers. The scans are read-only. A problem it notices, such as two devices on one Modbus id or a device with no serial number, is shown as a repair for someone to approve later, and is never written.
 * **Keeps a device list** in `T5000.db` between runs, with a name, building, floor and room for each device, grouped by them.
 * **Adds devices by hand.** A device no scan has found can be added with its model and serial number, then named and placed. The models are T3000's: T3-BB, T3-OEM, TSTAT10 and the rest of its Add virtual device list, then the other products. That covers a device on a network you are not on, or one not installed yet. Its inputs' Full Label, Label, Auto/Manual and Filter can be set before it is found, and are kept in the list. When a scan finds a device with that serial, the device takes the entry's place in the list, keeping its name, its location and those settings.
 * **Finds a device at an address** you give, for one a broadcast scan cannot reach, such as one across a router. It sends that address one read of the panel's settings, and nothing else.
@@ -34,7 +34,7 @@ What it does so far:
 Under way:
 * writing to devices, each change approved and then read back. A write can be encoded and a panel's answer classified, but nothing sends one yet;
 * the rest of a device's offline configuration, and virtual devices;
-* finding and reading devices through COM ports (serial, USB and RS485). The ports are listed, but none is opened yet.
+* reading devices through COM ports (serial, USB and RS485). A port you pick is scanned, and the devices on it are listed and saved; reading their points is next.
 
 Not built yet: the other screens, and Tstats and Modbus modules. [`T5000/README.md`](T5000/README.md) says where it stands, and [`docs/t5000-migration-plan.md`](docs/t5000-migration-plan.md) has the plan.
 
