@@ -719,18 +719,20 @@ device.
 
 Loaded onto a panel, such a file sets serial ports 0 and 2 to not used at
 115200 baud and port 1 to not used at 1200, the MS/TP network and max master
-to 0, the product field to 0, and the IP address's mode to Use The
-Following IP Address, so a panel that obtained its address automatically
-keeps that address, fixed. The warning says each of these.
+to 0, the product field to 0, and the IP address's mode to 0, which T3000's
+Settings shows as Use The Following IP Address (below). The warning says
+each of these, and to check the panel's address after loading the file.
 
 The IP address's mode: T3000's Settings shows a `tcp_type` of 1 as Obtain
 IP Address Automatically and 0 or 2 as Use The Following IP Address, and
 writes 0 for the second (`BacnetSetting.cpp:361-371`,
 `BacnetSettingTcpip.cpp:153-156` and `:204-207`). `ud_str.h`'s comment on
 the field, and T3000's webview export (`BacnetWebView_Exports.cpp:380`),
-say 0 is DHCP. The warning follows the dialog, in its captions, and the
-conformance checks pin the dialog. What a panel does with 0 is for a
-hardware check.
+say 0 is DHCP. The warning names the mode as the dialog shows it, says a
+comment in T3000's source calls it DHCP, and asks for the panel's address
+to be checked after loading; for 1, where every source agrees, it says the
+panel takes its address from DHCP. The conformance checks pin the dialog.
+What a panel does with 0 is for a hardware check.
 
 Export is offered for every device configured offline: a controller T5000
 reads by BACnet private transfer, added by hand and not yet found or
