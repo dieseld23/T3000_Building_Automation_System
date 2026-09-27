@@ -519,7 +519,8 @@ namespace t5000::app
             out += '}';
         }
         out += "],";
-        append_field(out, "rangeNote", view.range_note); out += ',';
+        append_field(out, "rangeNote", view.range_note);
+        append_names(out, "signalTypes", view.signal_types); out += ',';
         append_field(out, "note", view.note);
         out += "},";
 
@@ -559,6 +560,8 @@ namespace t5000::app
             append_names(out, "editable", i < view.editable.size() ? view.editable[i] : std::vector<std::string>());
             out += ',';
             append_int(out, "rangeNumber", i < view.range_numbers.size() ? (long)view.range_numbers[i] : 0L);
+            out += ',';
+            append_field(out, "valueToggle", i < view.value_toggles.size() ? view.value_toggles[i] : std::string());
             out += ",\"ranges\":[";
             if (i < view.ranges.size())
             {

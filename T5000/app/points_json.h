@@ -118,6 +118,13 @@ namespace t5000::app
         std::vector<std::vector<int>> ranges;
         std::string                   range_note;   // why some are not listed
 
+        // The names the Signal Type list offers.
+        std::vector<std::string> signal_types;
+
+        // For each input whose Value a click switches, the state it would
+        // switch it to ("On"); empty for the others.
+        std::vector<std::string> value_toggles;
+
         std::string note;        // for the page's banner
         std::string detail;      // readPath.detail: that nothing is read or sent
         std::string panel_note;  // panel.note

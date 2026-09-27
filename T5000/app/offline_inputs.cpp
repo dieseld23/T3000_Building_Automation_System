@@ -5,6 +5,7 @@
 
 #include "../device/input_rows.h"
 #include "../json/read.h"
+#include "../offline/input_cells.h"
 #include "../offline/input_ranges.h"
 #include "../wire/decode.h"
 #include "points_json.h"
@@ -259,6 +260,7 @@ namespace t5000::app
         view.rows   = (size_t)plan.rows;
         for (const auto& c : offline::input_range_choices())
             view.range_choices.push_back({ c.number, offline::input_range_name(c) });
+        view.signal_types = offline::signal_type_choices();
 
         const offline::InputPanel panel = plan.panel();
         for (size_t i = 0; i < config.inputs.size(); i++)
@@ -269,9 +271,16 @@ namespace t5000::app
                 view.edited++;
 
             std::vector<std::string> editable;
+            bool value = false;
             for (const auto f : offline::editable_input_fields(panel, (int)i, p))
+            {
                 editable.push_back(offline::input_field_name(f));
+                value = value || f == offline::InputField::Value;
+            }
             view.editable.push_back(editable);
+
+            std::string next;
+            view.value_toggles.push_back(value && offline::input_value_toggle(p, next) ? next : std::string());
 
             view.range_numbers.push_back(
                 offline::input_range_number(p[offline::input_at::digital_analog], p[offline::input_at::range]));
