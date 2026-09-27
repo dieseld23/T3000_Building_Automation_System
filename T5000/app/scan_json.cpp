@@ -62,7 +62,7 @@ namespace t5000::app
             // An entry added by hand has the panel type of the model chosen
             // for it, and says so: resolve_panel's reasons are about a
             // device that was read.
-            const PanelResolution panel = d.provenance == Provenance::ManuallyAdded || d.is_virtual()
+            const PanelResolution panel = d.provenance == Provenance::ManuallyAdded
                                               ? resolve_chosen_panel(d.product, d.mini_type)
                                               : resolve_panel(d.product, d.mini_type);
 

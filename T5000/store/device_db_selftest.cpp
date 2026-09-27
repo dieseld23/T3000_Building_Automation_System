@@ -1293,10 +1293,12 @@ namespace
         }
 
         check(!db.add_virtual(a_virtual(v), error), "a second virtual device with that serial is refused");
+        check(error.find("already in the saved list") != std::string::npos, "  saying so");
         check(!db.add_virtual(scanned(kFirstVirtualSerial + 1), error), "a record that is not virtual is refused");
         check(!db.add_virtual(a_virtual(12345), error), "a serial outside the range is refused");
         check(error.find("12345") != std::string::npos, "  naming it");
         check(!db.add_virtual(a_virtual(0xFFFFFFFFu), error), "0xFFFFFFFF, no serial, is refused");
+        check(error.find("is not one T5000 gives") != std::string::npos, "  as outside the range");
     }
 
     void test_a_virtual_and_a_real_device_with_one_serial_are_two_rows()

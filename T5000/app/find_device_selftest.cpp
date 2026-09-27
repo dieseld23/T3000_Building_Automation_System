@@ -393,6 +393,7 @@ namespace
         const std::string json = build_devices_json(registry, ScanSummary());
         check(has(json, "\"canFind\":false"), "the list does not offer Find for it");
         check(has(json, "\"provenance\":\"virtual\""), "  and says it is a virtual device");
+        check(has(json, "chosen when this virtual device was made"), "  whose panel type was chosen");
     }
 
     void test_the_plan_sends_nothing_when_it_refuses()
