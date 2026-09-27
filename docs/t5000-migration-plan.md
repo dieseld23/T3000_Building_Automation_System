@@ -245,10 +245,9 @@ running the hardware checks. In this order:
    building database.** Parts 2 and 3 of [the device
    list](#the-device-list-and-virtual-devices). The owner settled
    decisions A to E there on 2026-09-26. Adding a device by hand is built,
-   and so are configuring its inputs offline, for Full Label, Label,
-   Auto/Manual, Filter and Range, and D. Next come Value, Calibration, Sign
-   and Signal type, then import and export, E and C, in the order given
-   there.
+   and so are configuring its inputs offline, every column T3000's grid lets
+   be changed, and D. Next come import and export, E and C, in the order
+   given there.
 3. **Serial ports.** Scanning is built: a port picked on the Devices page is
    opened and scanned at each of the six rates, and the devices found are
    listed and saved with their port, rate and id. It is tested on com0com's
@@ -458,9 +457,8 @@ by. *Built;* see below.
 The order:
 
 1. B's panel type. *Built.*
-2. A's storage, with editing Inputs offline. *Built for Full Label, Label,
-   Auto/Manual, Filter and Range;* Value, Calibration, Sign and Signal type
-   are next.
+2. A's storage, with editing Inputs offline. *Built,* for every column
+   T3000's grid lets be changed.
 3. Import and export.
 4. D. *Built.*
 5. E.
@@ -479,9 +477,10 @@ the CM5 itself. A MiniPanel cannot be configured offline: T3000's list names
 no model of it either, and for a MiniPanel the model decides what its inputs
 are.
 
-Five columns can be changed, by T3000's rules (`Fresh_Input_Item`,
-`BacnetInput.cpp:451`, its click on Auto/Manual, `:1615`, and its Range
-dialog, `:1656` and `BacnetRange.cpp`). Which of them an input lets be
+Nine columns can be changed, every one T3000's grid lets the operator
+change, by its rules (`Fresh_Input_Item`, `BacnetInput.cpp:451`, its clicks
+on Value, Sign and Auto/Manual, `:1507-1654`, and its Range dialog, `:1656`
+and `BacnetRange.cpp`). Which of them an input lets be
 changed depends on the input as it stands, as T3000's grid enables its cells
 (`Fresh_Input_List`, `:1010-1022` and `:1113-1120`), and the page offers
 only those:
@@ -492,6 +491,13 @@ only those:
 - **Label:** under 9 characters, '-' made '_', a-z put in capitals, and no
   other input may have it (`Check_Label_Exsit`, `:3242`).
 - **Auto/Manual:** flipped by a click.
+- **Value:** only in Manual (`:1509`). An analog input's, or a digital one's
+  on range 0, is typed, and kept as T3000 keeps it: the number times 1000,
+  truncated (`:601`), so 1.001 is 1000 thousandths. A digital input on
+  ranges 1-22 is switched between its two states by a click, which changes
+  its state (the control byte) and leaves its value (`:1537-1550`). On the
+  device's custom digital ranges, 23-30, it cannot be changed: T3000 waits
+  for their names, which are read from the panel.
 - **Range:** chosen from T3000's Range dialog's ranges, numbered as its box
   numbers them: 0 Unused, 1-22 a digital range, and above 30 the analog
   range 30 below (`OnOK`, `BacnetRange.cpp:1158`). Each input is offered
@@ -508,9 +514,25 @@ only those:
   panels a T3-RMC-1232's 9-12 and 33-48, a T3-BMS's 33-48, a T3-RMC's 17-18
   and a T3-NG2's 25-30. A range changes only whether the input is analog and
   its range; 0 makes it analog, as T3000's answer does (`:1778`).
+- **Calibration:** an analog input's, in Auto as well as Manual. It is typed
+  with its sign and kept as T3000 keeps it: the number as a float, times 10
+  as a float, truncated, and its size in two bytes, up to 6553.5
+  (`:631-661`). T3000 builds for x86 with the compiler's default floating
+  point, so the product is rounded to a float before it is truncated: 0.7 is
+  7 tenths, and 6553.59999 is refused.
+- **Sign:** an analog input's. It is a button of its own in the Calibration
+  cell, and changes once confirmed, as T3000's Sign column asks first
+  (`:1553-1614`).
 - **Filter:** 0 to 255, on an analog input only. T3000's grid disables the
   cell on a digital one, and a new input is digital, so it needs an analog
   range first. #29 let a digital input's filter be changed; that was wrong.
+- **Signal Type:** an analog input's, while its range is one of the custom
+  tables (Table 1-5, ranges 20-24), and never a T3-PT12's (`:1897`). It is
+  chosen from T3000's list, which leaves out JumperStatus's index 4
+  (`Initial_List`, `:416`), and the status in the same byte is kept.
+  Thermistor Dry Contact is stored as 4, as T3000's grid stores it: it
+  compares the name with each of JumperStatus's, with no break, and keeps
+  the last that matches, and index 4 has index 0's name (`:678-691`).
 
 Not offered, though the dialog has a button for each: PT 1K, which the dialog
 enables only when the panel's settings say it has one (`special_flag`,
@@ -532,16 +554,36 @@ When a scan finds the device, it is read like any other, and its changes are
 kept. Its Inputs page says which inputs were changed offline, and that they
 are not written: T5000 cannot write to a device yet (C).
 
-`conformance/offline_guard.cpp` and `conformance/input_range_guard.cpp` hold
-all of this to T3000's source as text; the second compares each range's
-caption with `T3000.rc`. Where T5000 differs, on purpose:
+`conformance/offline_guard.cpp`, `conformance/input_range_guard.cpp` and
+`conformance/input_cells_guard.cpp` hold all of this to T3000's source as
+text; the second compares each range's caption with `T3000.rc`, and the third
+checks that neither T3000 nor T5000 changes the compiler's floating-point
+defaults. Where T5000 differs, on purpose:
 
 - Text that does not fit in 20 or 8 bytes of the ANSI code page is refused.
   T3000 counts characters, not bytes, and keeps 21 or 9 bytes, which can drop
   the terminator.
 - A character the code page cannot hold is refused, where T3000 keeps `?` or
   a look-alike, and so is a control character.
-- A filter must be a whole number. T3000 reads "12abc" as 12, and "abc" as 0.
+- A filter must be a whole number, and a value or calibration a number. T3000
+  reads "12abc" as 12, and "abc" as 0.
+- A value that does not fit a 32-bit count of thousandths is refused. T3000
+  keeps -2147483.648 for it.
+- The calibration's sign follows what is typed: -2 is minus, 2 is plus.
+  T3000 sets minus for a number below zero and leaves the sign as it was for
+  any other, so 2 typed after -2 is still -2 (`:635`). **Decided by the owner
+  on 2026-09-26.** A calibration refused changes nothing, where T3000 has
+  already set the sign when it refuses the size.
+- A digital input's value is switched by the click alone. T3000 also opens
+  the cell's editor after the click, and what is typed there goes to the
+  value, which the grid does not show for a digital input.
+- A digital input on a range above 30 has no value to change. T3000 opens
+  the editor there, and keeps what is typed without showing it.
+- The sign's confirmation always shows the calibration. T3000's shows it
+  only when both of its bytes are non-zero (`:1564`), so not for 0.1 or 25.6.
+- The page sends nothing when the signal type already shown is chosen again,
+  since T3000 would store Thermistor Dry Contact as 4 where it was 0, which
+  looks the same. Chosen in place of another type, it is stored as 4.
 - Typing an input's own full label or label again changes nothing, and is not
   refused as a repeat.
 - A full label is compared with the other points' default names (OUT1, VAR1,
@@ -553,14 +595,7 @@ caption with `T3000.rc`. Where T5000 differs, on purpose:
 - Choosing Table 1-5 leaves the signal type as it is. T3000 copies the one
   its custom-table dialog leaves (`BacnetInput.cpp:1816`), and that is 0xff,
   signal type 15 and status 15, when the table's button was not clicked
-  (`:1723`). The signal type will be changed in its own column.
-
-Still to do for inputs: Value, Calibration, Sign and Signal type. Settled
-for them: a negative calibration typed in sets the sign, but a positive one
-never clears it (`:631-660`). Typing 2 after -2 leaves -2; only a click on
-the Sign column (`:1553`) makes it positive again. **Decided on 2026-09-26:
-not copied.** The sign follows what is typed (-2 minus, 2 plus), and a click
-on Sign still flips it.
+  (`:1723`). The signal type is changed in its own column.
 
 *Built: finding a device at an address (D).* A device in the list that has
 not answered a scan since T5000 started - added by hand, from the saved list,
