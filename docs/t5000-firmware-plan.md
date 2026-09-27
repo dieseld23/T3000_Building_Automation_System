@@ -1,7 +1,8 @@
 # Firmware updates in T5000: plan
 
-This is a plan. Nothing in it is built, and nothing in T5000 can send
-firmware to a device.
+This is a plan. Its first step's checks (F1a) are built: `T5000/firmware/`
+reads a file and says whether ISP would take it for a device. Nothing in
+T5000 can send firmware to a device.
 
 ## What the owner decided (2026-09-27)
 
@@ -89,16 +90,45 @@ interface the operator picked for that device, as a scan does.
 ### Modbus TCP, behind a controller
 
 As serial Modbus, over a TCP socket to the controller, with the device's
-Modbus id (`ComWriter.cpp:2228`, `:2262`).
+Modbus id (`ComWriter.cpp:2228`, `:2262`). It picks its thread otherwise
+than serial does (`BeginWirteByTCP`, `ComWriter.cpp:2220-2267`): an ARM
+chip's `.hex` of linear address records goes to
+`flashThread_ForExtendFormatHexfile_RAM`, and every other file to
+`Flash_Modebus_Device`, and so to its checks (below). F5 follows that.
 
 ## What ISP checks, and what T5000 checks instead
 
 A `.hex` file's header is at 0x8200 or 0x10200 for an ARM chip of 32K or
-64K, told apart by its extended linear address records (0x0800, or 0x0801
-and up), and at 0x100 otherwise (`HexFileParser.cpp:60-68`, `:251-258`). A
+64K, told apart by the address its first line gives (0x0800, or 0x0801
+and up), and at 0x100 otherwise (`HexFileParser.cpp:58-69`, `:237-260`). A
 `.bin` file's header is at 0x100, or failing that 0x200
-(`BinFileParser.cpp:101-104`). The header gives the company, the product
-name and the version (`Bin_Info`, `Global_Struct.h:604-605`).
+(`BinFileParser.cpp:96-134`). The header gives the company, the product
+name and the version (`Bin_Info`, `Global_Struct.h:598-607`).
+
+Each path reads a file into a buffer of its own, and what lies past the
+file's data is sent as the buffer holds it:
+
+| Path | A `.bin` | A `.hex` |
+|---|---|---|
+| Serial (`FlashByCom`, `ISPDlg.cpp:2472-2523`) | 0x3FFFFF bytes of 0xFF | 0x1FFFFF bytes of 0x00 |
+| Network (`FlashByEthernet`, `:2185-2237`) | 0x3FFFFF bytes of 0xFF | 0x3FFFFF bytes of 0x00 |
+| Behind a controller (`OnFlashSubID`, `:2090-2112`) | not read | 0x1FFFFF bytes of 0xFF |
+
+On serial, the file's kind decides which thread flashes it and so how it
+is checked (`BeginWirteByCom`, `ComWriter.cpp:96-244`; a `.bin` is given
+the linear type, `ISPDlg.cpp:2542-2545`):
+
+| File | Thread | Check |
+|---|---|---|
+| A `.hex` of data records | `Flash_Modebus_Device` | `UpdataDeviceInformation_ex`: the device named by `GetProductName`, the file by the first 10 bytes of its name, its own aliases, no bootloader check |
+| A `.hex` of linear address records, or a `.bin` | `flashThread_ForExtendFormatHexfile`, or its `_RAM` twin for an ARM chip's `.hex` | `UpdataDeviceInformation`: the device named by `GetFirmwareUpdateName`, the file by its whole name, `mini_arm` made `Minipanel`, trimmed, its aliases, and the bootloader check |
+| A `.hex` of segment address records | none | ISP starts nothing |
+
+The two name lists differ only for product 10, `TStat10` to one and
+`PID10` to the other. On the network, the device's bootloader names
+itself in the handshake, and ISP compares that name with the file's in
+three places, each with aliases of its own (`MySocket.cpp:130-185` and
+`:213-270`, `TFTPServer.cpp:1249-1300`).
 
 What ISP lets through, which T5000 does not:
 
@@ -111,26 +141,37 @@ What ISP lets through, which T5000 does not:
 - **Any version.** The version comparison in `ComWriter.cpp:2194-2206` is
   never reached: it follows a `return` (`:2193`).
 - **Another product,** when `Check_Temco_Firmware=0` in ISP's `Setting.ini`
-  (`ComWriter.cpp:1867`), or when the device reports product 0 or 255
-  (`:1871`). ISP names the device's product and compares that name with the
-  file's, with one list of aliases on serial (`ComWriter.cpp:1898-1947`) and
-  another on the network (`TFTPServer.cpp:1279-1287`).
-- **A file too large for the chip,** with a message, not a refusal.
+  (`ComWriter.cpp:1867`, `:1985`), or when the device reports product 0 or
+  255 (`:1871`, `:2020`). On the network, a HUMNET, CO2NET or PSNET file
+  for any device (`MySocket.cpp:159-161`, `:246-248`), and any file for a
+  device naming itself HUMNET, CO2NET, CO2 or PSNET
+  (`TFTPServer.cpp:1284-1287`).
+- **A file needing a newer bootloader, on the data route,** which does not
+  look at the bootloader.
 
-The two paths also read files differently: serial and Modbus TCP read a
-`.hex` only, into a buffer of 0x1FFFFF filled with 0xFF
-(`ISPDlg.cpp:2106-2111`); the network tries a `.bin` first, filled with
-0xFF, then a `.hex`, filled with 0x00, in 0x3FFFFF (`:2214-2237`). T5000
-reads each as ISP does on the path it would go on, fill included.
+For a TStat6, TStat7 or TStat5i, ISP also checks the chip once the device
+is in its bootloader: register 11 below 37 is the 64K chip, which takes
+only a `.hex` of data records, and 37 or more the 128K chip, which takes
+the rest (`ComWriter.cpp:504-568`, `:1507-1570`). An ARM chip's `.hex`
+goes to the `_RAM` thread, which does not check. The same check in
+`WriteCommandtoReset` (`:290-330`) is never called.
 
 T5000 refuses, with the reason, and has no setting to turn it off:
 
 - a file whose company is not Temco's, `.bin` or `.hex`;
-- a file for another product than the device's, by the alias list of the
-  path it would go on; and a device reporting product 0 or 255;
-- a file that needs a newer bootloader than the device has (below);
-- a file ISP would say is for a larger chip than the device's. How ISP
-  tells is for F1 to pin down.
+- a file for another product than the device's, by the names and aliases
+  of the route ISP would check it on. On the network, where ISP checks
+  only in the handshake, by the device's product and the second route's
+  names, before anything is sent;
+- a device reporting product 0 or 255;
+- a `.hex` of segment address records on serial, which ISP does not flash;
+- a file that needs a newer bootloader than the device has (below), on
+  every route;
+- a device behind a controller, until F5.
+
+For a TStat6, TStat7 or TStat5i it notes the chip check, which cannot be
+made until the device is in its bootloader. F3 reads register 11 there
+and refuses a file that does not fit, as ISP does.
 
 ## Bootloaders
 
@@ -150,16 +191,24 @@ the limits differ by path (`ISPDlg.cpp:2250-2290` on the network,
 | PID10 | - | 5109 and up |
 | CO2 (all) | over 0.58 (divided by 100) | 59 and up |
 
-It also refuses a bootloader older than 62 on a MiniPanel ARM or MiniPanel
-on serial, 54 on a TSTAT10, 56 on the STM32 devices, and 48 or less (but
-not 0) on a TSTAT8 (`ISP\global_function.cpp:1083-1114`). A CO2, humidity
-or pressure device whose bootloader reads 0 and whose firmware is 59 or
-more is not checked (`:1050-1056`).
+In whole numbers, as ISP's float arithmetic comes out, the network's CO2
+limit is 59 and up, as on serial.
+
+Once a file is marked, ISP looks at the device's bootloader
+(`check_bootloader_and_frimware`, `ISP\global_function.cpp:1041-1131`). It
+updates it first when it is older than 54 on a TSTAT10, older than 56 on a
+CO2, humidity, pressure or PM2.5 device, or 48 or less (but not 0) on a
+TSTAT8. On a MiniPanel ARM or MiniPanel older than 62 it updates it on the
+network and refuses the file on serial. A CO2, humidity, pressure or PM2.5
+device whose firmware's low byte is 59 or more is not looked at
+(`:1050-1056`), and neither is any device on serial's data route.
 
 Where ISP would update the bootloader first, T5000 refuses the file and says
 which bootloader it needs. T5000 has no way to flash a bootloader. Where
-T5000 cannot read the bootloader's version, it refuses any file ISP's table
-would check.
+T5000 cannot read the bootloader's version, it refuses any marked file for
+a product ISP looks at. Whether a panel's `bootloader_rev` is the number
+ISP reads from registers 11 and 14 is for the owner's bench check before
+F3 relies on it.
 
 ## What T5000 already knows
 
@@ -176,18 +225,27 @@ would check.
 
 ## Steps
 
-Each step is its own PR. The code that sends firmware lives in a module of
-its own, `firmware/`, and the separation guard (`write_separation_guard.cpp`)
-is extended: nothing that reads, and nothing in the write path, includes
-it, and its list of the places that send (S5) gains only `firmware/`'s
-transports.
+Each step is its own PR. The firmware code lives in a module of its own,
+`firmware/`. The separation guard (`write_separation_guard.cpp`) holds it
+to reading the bytes it is given, naming no socket, serial port or file
+(S6), until a transport step lets that step's own file send, and its list
+of the places that send (S5) gains only those files.
 
-**F1. The Firmware page, checking only.** A page in the bar of pages that
-lists the devices with their product, firmware version, bootloader version
-and bootloader state. A file is picked from disk and checked by everything
-in *What T5000 checks*, against a device the operator picks. Nothing is
-sent. The checks are built and tested here, and held to ISP's source by
-the conformance checks.
+**F1. The Firmware page, checking only,** in two PRs.
+
+- **F1a, the checks** (built). `T5000/firmware/` reads a file as ISP reads
+  it on each path, and checks it against a device by everything in *What
+  ISP checks, and what T5000 checks instead*. Its self-tests build files to trip each rule;
+  `conformance/firmware_guard.cpp` parses ISP's name tables, alias chains,
+  file flags and bootloader rules and compares T5000 with them over every
+  name, product and version, pins the rest as text, and reads the
+  repository's own `.hex` files.
+- **F1b, the page.** A page in the bar of pages that lists the devices
+  with their product, firmware version, bootloader version and bootloader
+  state. A file is picked from disk and checked against a device the
+  operator picks. Nothing is sent. A panel's `bootloader_rev` is read with
+  its settings and kept, and the request carrying the file has a size
+  limit of its own.
 
 **F2. Synthetic bootloaders.** Test code only: a serial Modbus bootloader
 on com0com's CNCB0 (T5000 opens CNCA0, and never any other port), a TFTP
