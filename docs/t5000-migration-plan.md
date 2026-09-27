@@ -18,8 +18,9 @@ source-against-source, except the struct sizes, which the compiler asserts.
 saved between runs, as T3000's building database is ([The device
 list](#the-device-list-and-virtual-devices)). A device added by hand can have
 its inputs configured before a scan finds it, kept in the device list and sent
-nowhere, and a device no scan reaches can be found at an address the operator
-gives ([part 2](#the-device-list-and-virtual-devices)). In Stage 1, Inputs,
+nowhere, and so can a virtual device, a configuration with no device behind
+it. A device no scan reaches can be found at an address the operator gives
+([part 2](#the-device-list-and-virtual-devices)). In Stage 1, Inputs,
 Outputs and Variables are read and shown as T3000 shows them, after each
 panel's settings and custom range names (#17). The Panel and Type columns are
 still to do. Stage 2 has started: a write of inputs can be encoded, and a
@@ -247,8 +248,8 @@ running the hardware checks. In this order:
    decisions A to E there on 2026-09-26. Adding a device by hand is built,
    and so are configuring its inputs offline, every column T3000's grid lets
    be changed, D, and importing its inputs from a `.prog` file saved from
-   it. Next come E, export (decided 2026-09-27: with T3000's defaults,
-   behind a warning) and C, in the order given there.
+   it, and E, virtual devices. Next come export (decided 2026-09-27: with
+   T3000's defaults, behind a warning) and C, in the order given there.
 3. **Serial ports.** Scanning is built: a port picked on the Devices page is
    opened and scanned at each of the six rates, and the devices found are
    listed and saved with their port, rate and id. It is tested on com0com's
@@ -473,9 +474,9 @@ The order:
 2. A's storage, with editing Inputs offline. *Built,* for every column
    T3000's grid lets be changed.
 3. Import and export. *Import built,* for inputs. Export decided (2,
-   below), and next after E, since it covers virtual devices too.
+   below), and next, since it covers virtual devices too.
 4. D. *Built.*
-5. E.
+5. E. *Built,* for inputs; see *Built: virtual devices* below.
 6. C, the apply, once Stage 2's write transport and the first hardware check
    exist.
 
@@ -749,6 +750,31 @@ not have to be rebuilt for this. A device added by hand is kind `'scanned'`,
 with `added_by_hand` set. It is a real device a scan can find, and it must stay
 one row with that device, which `UNIQUE (kind, serial)` holds only while both
 are the same kind.
+
+*Built: virtual devices.* The Devices page makes one (Add virtual device)
+from one of `device::known_models()`, T3000's Add virtual device list, and
+never "Model not known": a virtual device is nothing but its model and its
+configuration. T5000 gives it the lowest serial from 0xFF000000
+(4,278,190,080) that no device in the list has. Neither of T3000's serial
+repairs can make one there: they give 200,000 to 300,000, or four bytes of
+`rand() % 255`, none of which is 0xFF. It is saved as kind `'virtual'`, with
+no address, and comes back as a virtual device after a restart. The registry
+never merges it with a device that answers with its serial. That device is
+listed apart, with its own offline changes, and forgetting one leaves the
+other. Nothing is ever sent for it: `plan_points_read` refuses it for Inputs,
+Outputs and Variables before it looks for an address, and Find is not offered
+for it. Its inputs are configured offline as a device added by hand's are,
+and a `.prog` file saved from any device of its model is imported into it
+without comparing the file's serial (decided 2026-09-27); a device added by
+hand still takes only a file with its own serial. Its model can be changed,
+to another model only.
+
+This build raises `T5000.db` to schema 5, with no table changes. Schema 4
+lists and forgets only kind `'scanned'`, so an older T5000 would hide a
+virtual device, and leave it behind when told to forget every device; it
+refuses a schema 5 file instead, as one written by a newer T5000. Not built:
+exporting it (next), its outputs and variables, and copying its configuration
+to a real device's entry, which goes through C.
 
 **3. Importing T3000's building database.** Read-only: T5000 reads the
 `ALL_NODE` rows into its own list and never writes T3000's file. `ALL_NODE`

@@ -1,6 +1,8 @@
 // Tests for deciding whether a device's Inputs are read at all.
 
 #include "inputs_plan.h"
+#include "outputs_plan.h"
+#include "variables_plan.h"
 #include "../discovery/scanner.h"
 #include "../testing/check.h"
 #include "../testing/fake_transport.h"
@@ -233,6 +235,33 @@ namespace
               "a record nobody gave a provenance is refused the same way");
     }
 
+    void test_a_virtual_device_is_never_read()
+    {
+        section("a virtual device is sent nothing, whatever is on its record");
+
+        DeviceRecord v;
+        v.serial_number = kFirstVirtualSerial;
+        v.product       = ProductClassId::MiniPanelArm;
+        v.mini_type     = 5;
+        v.provenance    = Provenance::Virtual;
+
+        const InputsPlan p = plan_inputs_read(v);
+        check(!p.can_read, "its inputs are not read");
+        check(has(p.reason, "There is no device to read") && has(p.reason, "is a virtual device"),
+              "  and the page is told there is no device");
+        check(has(p.reason, "Nothing was sent"), "  and that nothing was sent");
+        check(!plan_outputs_read(v).can_read, "its outputs are not read");
+        check(!plan_variables_read(v).can_read, "  nor its variables");
+
+        // Not even with an address, a sighting and a scan's number on it,
+        // which a virtual device never has.
+        DeviceRecord odd = scanned(ProductClassId::MiniPanelArm);
+        odd.provenance = Provenance::Virtual;
+        odd.reached    = true;
+        check(!plan_inputs_read(odd).can_read, "not even with an address and a sighting on it");
+        check(has(plan_inputs_read(odd).reason, "is a virtual device"), "  refused as a virtual device");
+    }
+
     void test_a_device_added_by_hand_is_read_once_a_scan_finds_it()
     {
         section("once a scan finds its serial, a device added by hand is read like any other");
@@ -401,6 +430,7 @@ int run_inputs_plan_tests()
     test_a_restored_device_must_confirm_its_serial();
     test_a_restored_device_the_plan_refuses_still_says_when_it_was_seen();
     test_a_device_added_by_hand_is_not_read();
+    test_a_virtual_device_is_never_read();
     test_a_device_added_by_hand_is_read_once_a_scan_finds_it();
     test_a_record_from_the_scan_is_never_taken_for_one_added_by_hand();
     test_times_are_shown_to_the_minute();

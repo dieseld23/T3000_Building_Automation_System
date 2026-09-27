@@ -1,5 +1,6 @@
 #include "device_list.h"
 
+#include <algorithm>
 #include <map>
 #include <vector>
 
@@ -284,7 +285,7 @@ namespace t5000::app
         if (d->has_stable_identity() && db.is_open())
         {
             std::string error;
-            if (!db.forget(d->serial_number, error))
+            if (!db.forget(store::key_of(*d), error))
             {
                 message = "It could not be removed from the saved list: " + error;
                 return false;
@@ -301,7 +302,7 @@ namespace t5000::app
         if (db.is_open())
         {
             std::string error;
-            if (!db.forget_all_scanned(error))
+            if (!db.forget_all(error))
             {
                 message = "The saved list could not be emptied: " + error;
                 return false;
@@ -349,10 +350,11 @@ namespace t5000::app
         const bool new_model = mini_type != kKeepModel && mini_type != d->mini_type;
         if (new_model)
         {
-            // Chosen only while it is an entry. A device a scan has found
-            // reports what it is, and a scan does not report a panel type,
-            // so a choice kept then would pass for the device's own.
-            if (d->provenance != Provenance::ManuallyAdded)
+            // Chosen only while it is an entry, or for a virtual device. A
+            // device a scan has found reports what it is, and a scan does not
+            // report a panel type, so a choice kept then would pass for the
+            // device's own.
+            if (d->provenance != Provenance::ManuallyAdded && !d->is_virtual())
             {
                 message = "The model of a device a scan has found is not chosen: it is what the device "
                           "reports, once its settings are read.";
@@ -362,6 +364,15 @@ namespace t5000::app
             {
                 message = "Panel type " + std::to_string(mini_type) + " is not a model of the " +
                           std::string(to_string(d->product)) + " that T5000 knows. Pick one from the list.";
+                return false;
+            }
+
+            // A virtual device is nothing but its model and configuration,
+            // so it keeps a model: "Model not known" is for an entry whose
+            // device will say what it is.
+            if (d->is_virtual() && !find_model(d->product, mini_type))
+            {
+                message = "A virtual device needs a model. Pick one from the list.";
                 return false;
             }
 
@@ -375,7 +386,7 @@ namespace t5000::app
             {
                 std::vector<int> saved;
                 std::string error;
-                if (!offline_input_indexes(db, d->serial_number, saved, error))
+                if (!offline_input_indexes(db, store::key_of(*d), saved, error))
                 {
                     message = "Its offline configuration could not be read, so the model was not changed: " +
                               error + ".";
@@ -461,6 +472,8 @@ namespace t5000::app
             message = "Serial " + std::to_string(device.serial) + " is already in the list";
             if (d.provenance == Provenance::ManuallyAdded)
                 message += ", added by hand";
+            else if (d.is_virtual())
+                message += ", as a virtual device";
             else if (!d.placement.name.empty())
                 message += ", as \"" + d.placement.name + "\"";
             message += ". Use Edit on that row to name or place it.";
@@ -541,6 +554,103 @@ namespace t5000::app
         d.product   = static_cast<ProductClassId>((uint8_t)product);
         d.mini_type = (int)mini_type;
         d.serial    = (uint32_t)serial;
+        device      = d;
+        return true;
+    }
+
+    bool add_virtual_device(Registry& registry, store::DeviceDb& db, const VirtualAdded& device,
+                            const StoreStatus& status, Handle& handle, std::string& message)
+    {
+        handle = kNoHandle;
+
+        // T3000's Add virtual device list, which known_models() is: a model
+        // decides what its points are, and a virtual device is nothing else.
+        if (!find_model(device.product, device.mini_type))
+        {
+            message = "Pick a model from the list: a virtual device is one of the models T3000 offers as one.";
+            return false;
+        }
+
+        if (!db.is_open())
+        {
+            message = "The device list is not being saved";
+            if (!status.error.empty())
+                message += " (" + status.error + ")";
+            message += ", so a virtual device made now would be lost when T5000 closes.";
+            return false;
+        }
+
+        Placement cleaned = device.placement;
+        if (!clean_placement(cleaned, message))
+            return false;
+
+        // The lowest serial of the range that no device in the list has, of
+        // any kind, so no two rows of the list share one while T5000 can
+        // help it. A real device found later with the same serial is listed
+        // apart all the same.
+        uint32_t serial = kFirstVirtualSerial;
+        for (;;)
+        {
+            const bool taken = std::any_of(registry.devices().begin(), registry.devices().end(),
+                                           [&](const DeviceRecord& d) { return d.serial_number == serial; });
+            if (!taken)
+                break;
+            if (serial == kLastVirtualSerial)
+            {
+                message = "Every serial T5000 gives a virtual device is taken. Forget one first.";
+                return false;
+            }
+            serial++;
+        }
+
+        // Nothing to reach: no address, never reached, and no observation of
+        // it, ever.
+        DeviceRecord d;
+        d.serial_number        = serial;
+        d.product              = device.product;
+        d.mini_type            = device.mini_type;
+        d.provenance           = Provenance::Virtual;
+        d.reached              = false;
+        d.observation_complete = false;
+        d.placement            = cleaned;
+
+        std::string error;
+        if (!db.add_virtual(d, error))
+        {
+            message = "It could not be saved: " + error + ".";
+            return false;
+        }
+
+        const int index = registry.add_or_merge(d);
+        handle = registry.devices()[index].handle;
+        return true;
+    }
+
+    bool read_add_virtual_request(const std::string& body, VirtualAdded& device, std::string& message)
+    {
+        std::map<std::string, json::FlatValue> fields;
+        std::string error;
+        if (!json::parse_flat_object(body, fields, error))
+        {
+            message = "The request could not be read: " + error + ".";
+            return false;
+        }
+
+        unsigned long long product   = 0;
+        unsigned long long mini_type = 0;
+        VirtualAdded d;
+        if (!number_from(fields, "productId", 255, "Choose a model.",
+                         "The product must be a product number from 0 to 255.", product, message) ||
+            !number_from(fields, "miniType", 255, "Choose a model.", "The model must be one from the list.",
+                         mini_type, message) ||
+            !string_from(fields, "name", d.placement.name, message) ||
+            !string_from(fields, "building", d.placement.building, message) ||
+            !string_from(fields, "floor", d.placement.floor, message) ||
+            !string_from(fields, "room", d.placement.room, message))
+            return false;
+
+        d.product   = static_cast<ProductClassId>((uint8_t)product);
+        d.mini_type = (int)mini_type;
         device      = d;
         return true;
     }

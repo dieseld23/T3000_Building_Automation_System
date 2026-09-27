@@ -44,9 +44,9 @@ namespace t5000::app
         offline::InputPanel panel() const;
     };
 
-    // An entry added by hand that has not been found, by a scan or by Find.
-    // The one kind of device whose Inputs page shows a configuration kept by
-    // T5000 rather than one read from the device.
+    // An entry added by hand that has not been found, by a scan or by Find,
+    // and a virtual device. The kinds of device whose Inputs page shows a
+    // configuration kept by T5000 rather than one read from the device.
     bool is_configured_offline(const device::DeviceRecord& d);
 
     // Refused, with the reason, for a device a scan has found; for a product
@@ -124,7 +124,9 @@ namespace t5000::app
     // Refused, with `message` saying why and the list as it was, as a change
     // is (a device a scan has found, no model, a list not being saved), and
     // for a file that is not a .prog file T5000 reads, one whose settings
-    // give another serial, or 0, and one saved from another model. With
+    // give another serial, or 0, and one saved from another model. A virtual
+    // device's serial is T5000's, in no file, so its file is matched by the
+    // model alone (the owner's decision, 2026-09-27). With
     // request.check, `message` says what the import would do, and nothing
     // is saved; without, what it did.
     bool import_offline_inputs(const device::Registry& registry, store::DeviceDb& db, const StoreStatus& status,
@@ -136,5 +138,6 @@ namespace t5000::app
 
     // How many inputs are saved with changes for a device, for place_device's
     // check. False, with `error`, when the file could not be read.
-    bool offline_input_indexes(store::DeviceDb& db, uint32_t serial, std::vector<int>& indexes, std::string& error);
+    bool offline_input_indexes(store::DeviceDb& db, const store::DeviceKey& key, std::vector<int>& indexes,
+                               std::string& error);
 }

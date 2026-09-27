@@ -198,7 +198,7 @@ namespace
         record_scan(reg, db, a_scan({ answered(8001), answered(8002) }), 100, summary, status);
 
         std::string error;
-        check(db.forget(8001, error), "8001's row is lost");
+        check(db.forget(store::scanned_key(8001), error), "8001's row is lost");
 
         status.error = "the last scan could not be saved: disk full";
         record_scan(reg, db, a_scan({ answered(8002) }), 200, summary, status);
@@ -1016,6 +1016,246 @@ namespace
         record_scan(reg, db, a_scan({ answered(8901) }), 200, summary, status);
         check(!summary.serial_scanned, "after a network scan it is not");
     }
+
+    // ------------------------------------------------------ virtual devices
+
+    VirtualAdded a_virtual_bb()
+    {
+        VirtualAdded v;
+        v.product   = ProductClassId::MiniPanelArm;
+        v.mini_type = static_cast<int>(MiniType::MiniPanelArm);
+        v.placement = a_placement();
+        return v;
+    }
+
+    // The record with this serial that is, or is not, a virtual device: a
+    // device that answers with a virtual device's serial is another record.
+    const DeviceRecord* by_kind(const Registry& reg, uint32_t serial, bool is_virtual)
+    {
+        for (const auto& d : reg.devices())
+            if (d.serial_number == serial && d.is_virtual() == is_virtual)
+                return &d;
+        return nullptr;
+    }
+
+    void test_a_virtual_device_is_made()
+    {
+        section("a virtual device is made from a model, given a serial of T5000's, and kept");
+
+        TempFile file(L"virtual");
+        Handle first = kNoHandle;
+        {
+            store::DeviceDb db;
+            Registry reg;
+            StoreStatus status = open_saved_list(db, file.utf8(), reg);
+            if (!require(status.saving, "a new list opens"))
+                return;
+
+            VirtualAdded v = a_virtual_bb();
+            v.placement.name = "  Spare  ";
+            std::string message;
+            check(add_virtual_device(reg, db, v, status, first, message), "a virtual T3-BB is made");
+
+            const DeviceRecord* r = by_serial(reg, kFirstVirtualSerial);
+            if (require(r != nullptr, "it is listed, with the first serial of the range"))
+            {
+                check(r->handle == first && first != kNoHandle, "  under the handle returned");
+                check(r->is_virtual(), "  as a virtual device");
+                check(r->product == ProductClassId::MiniPanelArm &&
+                          r->mini_type == static_cast<int>(MiniType::MiniPanelArm),
+                      "  of the model given");
+                check(!r->reached && r->connection.host.empty(), "  never reached, and with no address");
+                check(r->placement.name == "Spare" && r->placement.building == "North",
+                      "  named and placed, the name tidied as any is");
+            }
+            check(reg.selected() == nullptr, "making one does not select it");
+
+            Handle second = kNoHandle;
+            check(add_virtual_device(reg, db, a_virtual_bb(), status, second, message), "a second is made");
+            check(by_serial(reg, kFirstVirtualSerial + 1) != nullptr && second != first, "  with the next serial");
+        }
+
+        store::DeviceDb db;
+        Registry reg;
+        StoreStatus status = open_saved_list(db, file.utf8(), reg);
+        check_eq(status.restored, 2, "after a restart both are back");
+        const DeviceRecord* r = by_serial(reg, kFirstVirtualSerial);
+        if (!require(r != nullptr, "  the first by its serial"))
+            return;
+        check(r->is_virtual() && !r->reached, "  still a virtual device, not one seen or added by hand");
+        check(r->placement.name == "Spare", "  with its name");
+
+        ScanSummary summary;
+        std::string message;
+        check(forget_device(reg, db, r->handle, summary, message), "the first is forgotten");
+        Handle again = kNoHandle;
+        check(add_virtual_device(reg, db, a_virtual_bb(), status, again, message), "a third is made");
+        check(by_serial(reg, kFirstVirtualSerial) != nullptr, "  with the lowest serial no device has");
+    }
+
+    void test_what_making_a_virtual_device_refuses()
+    {
+        section("a virtual device is only one of the models T3000 offers, and a refusal changes nothing");
+
+        store::DeviceDb db;
+        Registry reg;
+        StoreStatus status = open_saved_list(db, ":memory:", reg);
+
+        Handle h = kNoHandle;
+        std::string message;
+        auto refused = [&](const VirtualAdded& v, const char* what) {
+            h = to_handle(999);
+            check(!add_virtual_device(reg, db, v, status, h, message), what);
+            check(h == kNoHandle, "  and hands back no handle");
+        };
+
+        VirtualAdded v = a_virtual_bb();
+        v.mini_type = 0;
+        refused(v, "a model not known is refused");
+        check(message.find("Pick a model") != std::string::npos, "  and the page is told to pick one");
+
+        v = a_virtual_bb();
+        v.product = ProductClassId::Tstat10;
+        refused(v, "a panel type that is no model of the product is refused");
+
+        v = a_virtual_bb();
+        v.product = ProductClassId::Unknown;
+        refused(v, "no product is refused");
+
+        v           = a_virtual_bb();
+        v.product   = ProductClassId::Cm5;
+        v.mini_type = 0;
+        refused(v, "a CM5 is refused: T3000 does not offer one as a virtual device");
+
+        v = a_virtual_bb();
+        v.placement.room = std::string(kMaxPlacementChars + 1, 'x');
+        refused(v, "a room one past the limit is refused");
+        check(message.find("room") != std::string::npos, "  naming the field");
+
+        check_eq(reg.size(), 0, "the list is still empty");
+        check_eq((long)saved(db).size(), 0, "  and so is the file");
+    }
+
+    void test_a_virtual_device_is_refused_when_nothing_is_saved()
+    {
+        section("a virtual device is not made when the list is not being saved");
+
+        TempFile beside(L"unsaved-virtual");
+        const std::string path = beside.utf8() + "\\no such folder\\T5000.db";
+
+        store::DeviceDb db;
+        Registry reg;
+        StoreStatus status = open_saved_list(db, path, reg);
+
+        Handle h = kNoHandle;
+        std::string message;
+        check(!add_virtual_device(reg, db, a_virtual_bb(), status, h, message), "it is refused");
+        check(message.find("not being saved") != std::string::npos, "  since it would be gone when T5000 closes");
+        check_eq(reg.size(), 0, "  and is not listed in memory either");
+    }
+
+    void test_a_device_answering_with_a_virtual_serial_is_listed_apart()
+    {
+        section("a device that answers with a virtual device's serial is listed apart from it");
+
+        TempFile file(L"apart");
+        {
+            store::DeviceDb db;
+            Registry reg;
+            StoreStatus status = open_saved_list(db, file.utf8(), reg);
+            Handle h = kNoHandle;
+            std::string message;
+            if (!require(add_virtual_device(reg, db, a_virtual_bb(), status, h, message), "a virtual device is made"))
+                return;
+
+            ScanSummary summary;
+            record_scan(reg, db, a_scan({ answered(kFirstVirtualSerial) }), 100, summary, status);
+            check(status.error.empty(), "a scan finds a device with its serial, and is saved");
+            check_eq(reg.size(), 2, "  and both are listed");
+
+            const DeviceRecord* v = by_kind(reg, kFirstVirtualSerial, true);
+            const DeviceRecord* real = by_kind(reg, kFirstVirtualSerial, false);
+            if (require(v != nullptr && real != nullptr, "  one virtual and one not"))
+            {
+                check(v->handle == h, "  the virtual one under its own handle");
+                check(!v->reached && v->connection.host.empty() && v->placement.name == "Boiler",
+                      "  and untouched by the scan");
+                check(real->reached && real->connection.host == "127.0.0.2" && real->placement.empty(),
+                      "  the other as it answered, with nothing of the virtual one's");
+            }
+        }
+
+        store::DeviceDb db;
+        Registry reg;
+        StoreStatus status = open_saved_list(db, file.utf8(), reg);
+        check_eq(status.restored, 2, "after a restart both are back");
+        const DeviceRecord* real = by_kind(reg, kFirstVirtualSerial, false);
+        if (!require(real != nullptr && by_kind(reg, kFirstVirtualSerial, true) != nullptr, "  apart"))
+            return;
+
+        ScanSummary summary;
+        std::string message;
+        check(forget_device(reg, db, real->handle, summary, message), "the device that answered is forgotten");
+        check(reg.size() == 1 && reg.devices()[0].is_virtual(), "  leaving the virtual one");
+        check(saved(db).size() == 1 && saved(db)[0].is_virtual(), "  in the file too");
+
+        record_scan(reg, db, a_scan({ answered(8001) }), 200, summary, status);
+        check(forget_all(reg, db, message), "forgetting every device");
+        check_eq(reg.size(), 0, "  takes the virtual one");
+        check_eq((long)saved(db).size(), 0, "  from the file too");
+    }
+
+    void test_a_virtual_device_keeps_a_model()
+    {
+        section("a virtual device's model can be changed, but not to none");
+
+        store::DeviceDb db;
+        Registry reg;
+        StoreStatus status = open_saved_list(db, ":memory:", reg);
+        Handle h = kNoHandle;
+        std::string message;
+        if (!require(add_virtual_device(reg, db, a_virtual_bb(), status, h, message), "a virtual T3-BB is made"))
+            return;
+
+        const int lb = static_cast<int>(MiniType::MiniPanelArmLb);
+        check(place_device(reg, db, h, a_placement(), status, message, lb), "it is made a T3-LB");
+        check_eq(reg.devices()[0].mini_type, lb, "  in the list");
+        check(saved(db).size() == 1 && saved(db)[0].mini_type == lb, "  and in the file");
+
+        check(!place_device(reg, db, h, a_placement(), status, message, 0), "made a model not known, it is refused");
+        check(message.find("needs a model") != std::string::npos, "  saying it needs one");
+        check(!place_device(reg, db, h, a_placement(), status, message, 99), "a panel type that is no model is refused");
+        check_eq(reg.devices()[0].mini_type, lb, "  and it is still a T3-LB");
+
+        HandAdded typed;
+        typed.serial  = kFirstVirtualSerial;
+        typed.product = ProductClassId::MiniPanelArm;
+        Handle other = kNoHandle;
+        check(!add_device(reg, db, typed, status, other, message), "adding its serial by hand is refused");
+        check(message.find("as a virtual device") != std::string::npos, "  saying what has it");
+    }
+
+    void test_a_virtual_request_is_read()
+    {
+        section("a request for a virtual device is read, and the model is required");
+
+        VirtualAdded v;
+        std::string message;
+        check(read_add_virtual_request("{\"productId\":74,\"miniType\":\"5\",\"name\":\"Spare\",\"room\":\"Plant\"}",
+                                       v, message) &&
+                  v.product == ProductClassId::MiniPanelArm && v.mini_type == 5 && v.placement.name == "Spare" &&
+                  v.placement.room == "Plant",
+              "a model, a name and a room are read");
+        check(!read_add_virtual_request("{\"productId\":74}", v, message), "no model is refused");
+        check(message.find("Choose a model") != std::string::npos, "  saying to choose one");
+        check(!read_add_virtual_request("{\"productId\":74,\"miniType\":\"\"}", v, message), "  as is an empty one");
+        check(!read_add_virtual_request("{\"miniType\":5}", v, message), "no product is refused");
+        check(!read_add_virtual_request("{\"productId\":74,\"miniType\":256}", v, message),
+              "a panel type past 255 is refused");
+        check(!read_add_virtual_request("{\"productId\":74,\"miniType\":5,\"name\":7}", v, message),
+              "a name that is not a string is refused");
+        check(!read_add_virtual_request("not json", v, message), "a body that is not JSON is refused");
+    }
 }
 
 int run_device_list_tests()
@@ -1045,5 +1285,11 @@ int run_device_list_tests()
     test_a_serial_scan_is_saved_and_comes_back();
     test_ids_on_different_ports_are_not_duplicates();
     test_a_network_scan_after_a_serial_one_forgets_the_port_summary();
+    test_a_virtual_device_is_made();
+    test_what_making_a_virtual_device_refuses();
+    test_a_virtual_device_is_refused_when_nothing_is_saved();
+    test_a_device_answering_with_a_virtual_serial_is_listed_apart();
+    test_a_virtual_device_keeps_a_model();
+    test_a_virtual_request_is_read();
     return 0;
 }

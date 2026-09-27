@@ -263,6 +263,7 @@ namespace t5000::store
                 ok = m_db.exec(kUpgradeToV3, error);
             if (ok && version < 4)
                 ok = m_db.exec(kUpgradeToV4, error);
+            // Version 5 has no step: only the version changes (device_db.h).
             if (ok)
                 ok = m_db.exec(set_version.c_str(), error);
             if (ok)
@@ -289,6 +290,11 @@ namespace t5000::store
         m_path.clear();
     }
 
+    const char* kind_name(DeviceKind kind)
+    {
+        return kind == DeviceKind::Virtual ? "virtual" : "scanned";
+    }
+
     bool DeviceDb::load(std::vector<DeviceRecord>& out, std::string& error)
     {
         out.clear();
@@ -297,8 +303,8 @@ namespace t5000::store
                     "SELECT serial, product_class_id, mini_type, firmware, modbus_id,"
                     "       parent_serial, object_instance, host, answered_from, reported_ip,"
                     "       bacnet_port, panel_name, name, building, floor, room,"
-                    "       first_seen, last_seen, added_by_hand, transport, serial_port, baud, slave_id"
-                    "  FROM devices WHERE kind = 'scanned' ORDER BY id");
+                    "       first_seen, last_seen, added_by_hand, transport, serial_port, baud, slave_id, kind"
+                    "  FROM devices ORDER BY id");
 
         for (;;)
         {
@@ -370,7 +376,15 @@ namespace t5000::store
             // been found, by a scan or by Find, comes back like any other
             // saved device.
             const bool added_by_hand = q.column_int(18) != 0;
-            if (added_by_hand && d.last_seen == 0)
+            if (q.column_text(23) == kind_name(DeviceKind::Virtual))
+            {
+                // Made by the operator, with nothing behind it: never
+                // reached, and saved with no address, which the reads and
+                // Find refuse before they would look for one.
+                d.provenance = Provenance::Virtual;
+                d.reached    = false;
+            }
+            else if (added_by_hand && d.last_seen == 0)
             {
                 d.provenance = Provenance::ManuallyAdded;
                 d.reached    = false;
@@ -393,8 +407,9 @@ namespace t5000::store
 
     bool DeviceDb::write(const DeviceRecord& d, bool with_placement, std::string& error)
     {
-        Statement find(m_db, "SELECT id FROM devices WHERE kind = 'scanned' AND serial = ?1");
+        Statement find(m_db, "SELECT id FROM devices WHERE kind = ?2 AND serial = ?1");
         find.bind(1, (int64_t)d.serial_number);
+        find.bind(2, std::string(kind_name(key_of(d).kind)));
 
         const Statement::Step found = find.step();
         if (found == Statement::Step::Error)
@@ -483,7 +498,7 @@ namespace t5000::store
                     "       modbus_id, parent_serial, object_instance, host, answered_from,"
                     "       reported_ip, bacnet_port, panel_name, name, building, floor, room,"
                     "       first_seen, last_seen, added_by_hand, transport, serial_port, baud, slave_id)"
-                    " VALUES ('scanned', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,"
+                    " VALUES (?24, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,"
                     "         ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)");
         i.bind(1, (int64_t)d.serial_number);
         i.bind(2, (int64_t)static_cast<uint8_t>(d.product));
@@ -509,6 +524,7 @@ namespace t5000::store
         i.bind(21, sc.port);
         i.bind(22, sc.baud);
         i.bind(23, sc.slave_id);
+        i.bind(24, std::string(kind_name(key_of(d).kind)));
         if (i.step() != Statement::Step::Done)
         {
             error = i.error();
@@ -544,6 +560,37 @@ namespace t5000::store
         }
 
         return insert(device, /*added_by_hand*/ true, error);
+    }
+
+    bool DeviceDb::add_virtual(const DeviceRecord& device, std::string& error)
+    {
+        if (!device.is_virtual())
+        {
+            error = "only a virtual device is saved as one";
+            return false;
+        }
+        if (device.serial_number < device::kFirstVirtualSerial || device.serial_number > device::kLastVirtualSerial)
+        {
+            error = "serial " + std::to_string(device.serial_number) + " is not one T5000 gives a virtual device";
+            return false;
+        }
+
+        Statement find(m_db, "SELECT 1 FROM devices WHERE kind = 'virtual' AND serial = ?1");
+        find.bind(1, (int64_t)device.serial_number);
+        const Statement::Step found = find.step();
+        if (found == Statement::Step::Error)
+        {
+            error = find.error();
+            return false;
+        }
+        if (found == Statement::Step::Row)
+        {
+            error = "a virtual device with serial " + std::to_string(device.serial_number) +
+                    " is already in the saved list";
+            return false;
+        }
+
+        return insert(device, /*added_by_hand*/ false, error);
     }
 
     bool DeviceDb::save_scanned(const std::vector<DeviceRecord>& devices, std::string& error)
@@ -595,7 +642,7 @@ namespace t5000::store
         return true;
     }
 
-    bool DeviceDb::forget(uint32_t serial, std::string& error)
+    bool DeviceDb::forget(const DeviceKey& key, std::string& error)
     {
         Transaction t(m_db);
         if (!t.began())
@@ -608,16 +655,18 @@ namespace t5000::store
         // point at it.
         Statement points(m_db,
                          "DELETE FROM offline_points WHERE device_id IN"
-                         " (SELECT id FROM devices WHERE kind = 'scanned' AND serial = ?1)");
-        points.bind(1, (int64_t)serial);
+                         " (SELECT id FROM devices WHERE kind = ?2 AND serial = ?1)");
+        points.bind(1, (int64_t)key.serial);
+        points.bind(2, std::string(kind_name(key.kind)));
         if (points.step() != Statement::Step::Done)
         {
             error = points.error();
             return false;
         }
 
-        Statement q(m_db, "DELETE FROM devices WHERE kind = 'scanned' AND serial = ?1");
-        q.bind(1, (int64_t)serial);
+        Statement q(m_db, "DELETE FROM devices WHERE kind = ?2 AND serial = ?1");
+        q.bind(1, (int64_t)key.serial);
+        q.bind(2, std::string(kind_name(key.kind)));
         if (q.step() != Statement::Step::Done)
         {
             error = q.error();
@@ -632,7 +681,7 @@ namespace t5000::store
         return true;
     }
 
-    bool DeviceDb::forget_all_scanned(std::string& error)
+    bool DeviceDb::forget_all(std::string& error)
     {
         Transaction t(m_db);
         if (!t.began())
@@ -641,16 +690,14 @@ namespace t5000::store
             return false;
         }
 
-        Statement points(m_db,
-                         "DELETE FROM offline_points WHERE device_id IN"
-                         " (SELECT id FROM devices WHERE kind = 'scanned')");
+        Statement points(m_db, "DELETE FROM offline_points");
         if (points.step() != Statement::Step::Done)
         {
             error = points.error();
             return false;
         }
 
-        Statement q(m_db, "DELETE FROM devices WHERE kind = 'scanned'");
+        Statement q(m_db, "DELETE FROM devices");
         if (q.step() != Statement::Step::Done)
         {
             error = q.error();
@@ -665,16 +712,17 @@ namespace t5000::store
         return true;
     }
 
-    bool DeviceDb::load_offline_inputs(uint32_t serial, std::vector<OfflinePoint>& out, std::string& error)
+    bool DeviceDb::load_offline_inputs(const DeviceKey& key, std::vector<OfflinePoint>& out, std::string& error)
     {
         out.clear();
 
         Statement q(m_db,
                     "SELECT idx, base, edited FROM offline_points"
                     " WHERE kind = 'input' AND device_id ="
-                    "       (SELECT id FROM devices WHERE kind = 'scanned' AND serial = ?1)"
+                    "       (SELECT id FROM devices WHERE kind = ?2 AND serial = ?1)"
                     " ORDER BY idx");
-        q.bind(1, (int64_t)serial);
+        q.bind(1, (int64_t)key.serial);
+        q.bind(2, std::string(kind_name(key.kind)));
 
         for (;;)
         {
@@ -696,7 +744,7 @@ namespace t5000::store
         }
     }
 
-    bool DeviceDb::save_offline_input(uint32_t serial, const OfflinePoint& point, std::string& error)
+    bool DeviceDb::save_offline_input(const DeviceKey& key, const OfflinePoint& point, std::string& error)
     {
         // Said here in words; the table's CHECKs would refuse both in
         // SQLite's.
@@ -718,8 +766,9 @@ namespace t5000::store
             return false;
         }
 
-        Statement device(m_db, "SELECT id FROM devices WHERE kind = 'scanned' AND serial = ?1");
-        device.bind(1, (int64_t)serial);
+        Statement device(m_db, "SELECT id FROM devices WHERE kind = ?2 AND serial = ?1");
+        device.bind(1, (int64_t)key.serial);
+        device.bind(2, std::string(kind_name(key.kind)));
         const Statement::Step found = device.step();
         if (found == Statement::Step::Error)
         {
@@ -728,7 +777,7 @@ namespace t5000::store
         }
         if (found != Statement::Step::Row)
         {
-            error = "serial " + std::to_string(serial) + " is not in the saved list";
+            error = "serial " + std::to_string(key.serial) + " is not in the saved list";
             return false;
         }
         const int64_t id = device.column_int(0);
@@ -779,13 +828,14 @@ namespace t5000::store
         return true;
     }
 
-    bool DeviceDb::revert_offline_input(uint32_t serial, int index, std::string& error)
+    bool DeviceDb::revert_offline_input(const DeviceKey& key, int index, std::string& error)
     {
         // One statement, so all or nothing without a transaction.
         Statement q(m_db,
                     "DELETE FROM offline_points WHERE kind = 'input' AND idx = ?2 AND device_id ="
-                    " (SELECT id FROM devices WHERE kind = 'scanned' AND serial = ?1)");
-        q.bind(1, (int64_t)serial);
+                    " (SELECT id FROM devices WHERE kind = ?3 AND serial = ?1)");
+        q.bind(1, (int64_t)key.serial);
+        q.bind(3, std::string(kind_name(key.kind)));
         q.bind(2, (int64_t)index);
         if (q.step() != Statement::Step::Done)
         {
@@ -795,7 +845,7 @@ namespace t5000::store
         return true;
     }
 
-    bool DeviceDb::replace_offline_inputs(uint32_t serial, const std::vector<OfflinePoint>& points,
+    bool DeviceDb::replace_offline_inputs(const DeviceKey& key, const std::vector<OfflinePoint>& points,
                                           std::string& error)
     {
         // Every point first, so a bad one refuses the lot before anything
@@ -821,8 +871,9 @@ namespace t5000::store
             return false;
         }
 
-        Statement device(m_db, "SELECT id FROM devices WHERE kind = 'scanned' AND serial = ?1");
-        device.bind(1, (int64_t)serial);
+        Statement device(m_db, "SELECT id FROM devices WHERE kind = ?2 AND serial = ?1");
+        device.bind(1, (int64_t)key.serial);
+        device.bind(2, std::string(kind_name(key.kind)));
         const Statement::Step found = device.step();
         if (found == Statement::Step::Error)
         {
@@ -831,7 +882,7 @@ namespace t5000::store
         }
         if (found != Statement::Step::Row)
         {
-            error = "serial " + std::to_string(serial) + " is not in the saved list";
+            error = "serial " + std::to_string(key.serial) + " is not in the saved list";
             return false;
         }
         const int64_t id = device.column_int(0);

@@ -73,7 +73,22 @@ namespace t5000::device
                             // operator gave, gave its serial (app/find_device.h)
         SerialScan,         // found by walking ids on a serial line
         Restored,           // loaded from the saved device list
+        Virtual,            // a configuration with no device behind it: made
+                            // by the operator, never reached, never matched
+                            // by a scan or Find (app/device_list.h)
     };
+
+    // The serials T5000 hands a virtual device: 0xFF000000 to 0xFFFFFFFE.
+    // Not a range any real Temco device is known to be kept out of; the one
+    // no T3000 code gives a device. T3000 hands a device with no serial
+    // 200000-300000 (TStatScanner.cpp:1463-1485) or four bytes of
+    // rand() % 255 each, never 0xFF (:3991-3994), and a virtual device of its
+    // own rand() % 10000000 + 1000000 (BacnetAddVirtualDevice.cpp). A real
+    // device with a serial in the range is still listed apart from a virtual
+    // one with the same serial: a virtual device is keyed on its kind as
+    // well (Registry::add_or_merge, store::DeviceKey).
+    inline constexpr uint32_t kFirstVirtualSerial = 0xFF000000u;
+    inline constexpr uint32_t kLastVirtualSerial  = 0xFFFFFFFEu;
 
     // What is wrong with a device, expressed as something that could be done
     // about it. Never applied automatically.
@@ -301,6 +316,10 @@ namespace t5000::device
         // teeth.
         bool has_stable_identity() const { return !is_uninitialised_serial(serial_number); }
 
+        // A configuration with no device behind it. Its serial is T5000's,
+        // so it is matched only with another record of a virtual device.
+        bool is_virtual() const { return provenance == Provenance::Virtual; }
+
         // True when at least one repair is outstanding.
         bool needs_attention() const;
     };
@@ -312,7 +331,12 @@ namespace t5000::device
     {
     public:
         // Adds a device, or merges into an existing record when the serial
-        // matches. Returns the index of the record.
+        // matches and both are virtual devices or neither is. Returns the
+        // index of the record.
+        //
+        // A virtual device's serial is one T5000 handed out, so a device
+        // that answers with the same serial is another device: merging would
+        // give the virtual device's configuration to it, or take it away.
         //
         // Merging on serial is the only safe merge. Merging on address would
         // collapse two devices that swapped IPs into one, and merging on

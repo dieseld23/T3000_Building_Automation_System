@@ -364,6 +364,38 @@ namespace
               "nor one it does not know");
     }
 
+    void test_a_virtual_device_is_never_found()
+    {
+        section("Find is never offered for a virtual device, and sends nothing for one");
+
+        DeviceRecord v = typed_in(kFirstVirtualSerial);
+        v.provenance = Provenance::Virtual;
+        check(has(why_not_findable(v), "virtual device"), "it is refused as a virtual device");
+
+        DeviceRecord odd = restored(kFirstVirtualSerial, "10.0.0.5");
+        odd.provenance = Provenance::Virtual;
+        check(has(why_not_findable(odd), "virtual device"), "  even with an address on it");
+
+        Registry registry;
+        const int i = registry.add_or_merge(v);
+        FindRequest r;
+        r.handle = registry.devices()[(size_t)i].handle;
+        r.host   = "192.168.1.50";
+        r.port   = 47900;
+
+        DeviceRecord d;
+        bacnet::Endpoint at;
+        std::string message;
+        check(!plan_find(registry, r, kNoNetworks, d, at, message) && has(message, "virtual device") &&
+                  has(message, "Nothing was sent"),
+              "the plan refuses it, and sends nothing");
+
+        const std::string json = build_devices_json(registry, ScanSummary());
+        check(has(json, "\"canFind\":false"), "the list does not offer Find for it");
+        check(has(json, "\"provenance\":\"virtual\""), "  and says it is a virtual device");
+        check(has(json, "chosen when this virtual device was made"), "  whose panel type was chosen");
+    }
+
     void test_the_plan_sends_nothing_when_it_refuses()
     {
         section("nothing is sent unless the device, Find and the address all pass");
@@ -503,6 +535,22 @@ namespace
             check(!o.found, "the serial of another device in the list");
             check(has(o.message, "A device with serial 555001 is in the list already, named \"Boiler\"."),
                   "  names it");
+        }
+        {
+            DeviceRecord spare = typed_in(kFirstVirtualSerial);
+            spare.provenance     = Provenance::Virtual;
+            spare.placement.name = "Spare";
+            registry.add_or_merge(spare);
+
+            Settings as_virtual;
+            as_virtual.serial = kFirstVirtualSerial;
+            FakeTransport t;
+            answers(t, as_virtual);
+            uint8_t invoke = 1;
+            const FindOutcome o = find_at(t, device_at(), entry, registry, instant(), invoke, kNow);
+            check(!o.found, "the serial of a virtual device in the list");
+            check(!has(o.message, "in the list already") && !has(o.message, "Spare"),
+                  "  names no entry: a virtual device is no device");
         }
         {
             Settings zero;
@@ -1000,6 +1048,7 @@ int run_find_device_tests()
     test_an_address_must_be_one_device();
     test_a_local_network_address_is_refused();
     test_find_applies_only_where_nothing_vouches();
+    test_a_virtual_device_is_never_found();
     test_the_plan_sends_nothing_when_it_refuses();
     test_a_match_gives_the_device_at_the_address();
     test_anything_but_the_serial_is_not_found();

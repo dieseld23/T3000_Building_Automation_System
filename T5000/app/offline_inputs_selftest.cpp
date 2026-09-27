@@ -113,7 +113,7 @@ namespace
         {
             std::vector<store::OfflinePoint> out;
             std::string error;
-            check(db.load_offline_inputs(serial, out, error), "the saved changes load");
+            check(db.load_offline_inputs(store::scanned_key(serial), out, error), "the saved changes load");
             return out;
         }
 
@@ -121,6 +121,28 @@ namespace
         {
             const DeviceRecord* d = device();
             return d ? offline_inputs_payload(db, status, *d) : std::string();
+        }
+
+        // A virtual device of this model, made as the Add virtual device
+        // dialog makes one, in place of a device added by hand.
+        bool add_virtual(ProductClassId product, int mini_type)
+        {
+            VirtualAdded device;
+            device.product   = product;
+            device.mini_type = mini_type;
+            std::string message;
+            const bool ok = add_virtual_device(registry, db, device, status, handle, message);
+            if (!ok)
+                printf("  (could not make a virtual device: %s)\n", message.c_str());
+            return ok;
+        }
+
+        std::vector<store::OfflinePoint> saved_virtual(uint32_t serial)
+        {
+            std::vector<store::OfflinePoint> out;
+            std::string error;
+            check(db.load_offline_inputs(store::virtual_key(serial), out, error), "the saved changes load");
+            return out;
         }
     };
 
@@ -569,7 +591,7 @@ namespace
         far.edited = far.base;
         far.edited[offline::input_at::filter] = 1;
         std::string error;
-        check(b.db.save_offline_input(9901, far, error), "a change to input 71 is saved");
+        check(b.db.save_offline_input(store::scanned_key(9901), far, error), "a change to input 71 is saved");
 
         std::string message;
         Placement p;
@@ -835,19 +857,99 @@ namespace
         bad.edited.pop_back();
 
         std::string error;
-        check(!b.db.replace_offline_inputs(9281, { good, bad }, error), "a point that is not one input refuses them all");
+        check(!b.db.replace_offline_inputs(store::scanned_key(9281), { good, bad }, error), "a point that is not one input refuses them all");
         auto saved = b.saved(9281);
         check(saved.size() == 1 && saved[0].index == 4, "  and the change made here is kept");
 
-        check(!b.db.replace_offline_inputs(9999, { good }, error), "a serial not saved is refused");
+        check(!b.db.replace_offline_inputs(store::scanned_key(9999), { good }, error), "a serial not saved is refused");
         check(contains(error, "9999"), "  naming it");
 
         store::OfflinePoint same = good;
         same.index = 3;
         same.edited = same.base;
-        check(b.db.replace_offline_inputs(9281, { good, same }, error), "good points replace the saved ones");
+        check(b.db.replace_offline_inputs(store::scanned_key(9281), { good, same }, error), "good points replace the saved ones");
         saved = b.saved(9281);
         check(saved.size() == 1 && saved[0].index == 0, "  and one whose bytes are its base is not saved");
+    }
+
+    void test_a_virtual_device_is_configured_offline()
+    {
+        section("a virtual device's inputs are configured offline, and say there is no device");
+
+        Bench b;
+        if (!b.open() || !b.add_virtual(ProductClassId::MiniPanelArm, 5))
+            return;
+        const DeviceRecord* d = b.device();
+        if (!require(d != nullptr, "it is listed"))
+            return;
+        const uint32_t serial = d->serial_number;
+
+        check(is_configured_offline(*d), "it is configured offline");
+        const OfflineInputsPlan plan = plan_offline_inputs(*d);
+        check(plan.can_edit && plan.model == "T3-BB", "  as a T3-BB");
+
+        check(b.edit(3, offline::InputField::Label, "V4"), "its input 4 is changed");
+        const auto saved = b.saved_virtual(serial);
+        check(saved.size() == 1 && saved[0].index == 3, "  and saved under the virtual device");
+        check(b.saved(serial).empty(), "  not under a device a scan found with that serial");
+
+        const std::string payload = b.payload();
+        check(contains(payload, "\"label\":\"V4\""), "the grid shows the change");
+        check(contains(payload, "is a virtual device: a configuration with no device behind it"),
+              "  under a note that says it is a virtual device");
+        check(!contains(payload, "added by hand"), "  and never calls it added by hand");
+
+        // A virtual device is nothing but its model, so a model that cannot
+        // be edited offline never gets here; the text for it is checked all
+        // the same.
+        DeviceRecord no_model = *d;
+        no_model.mini_type = 0;
+        const std::string refused = offline_inputs_payload(b.db, b.status, no_model);
+        check(contains(refused, "There is no device to read: this is a virtual device"),
+              "without a model, it says there is no device to read");
+    }
+
+    void test_a_virtual_device_imports_a_file_of_its_model()
+    {
+        section("a virtual device takes a .prog file saved from any device of its model");
+
+        Bench b;
+        if (!b.open() || !b.add_virtual(ProductClassId::MiniPanelArm, 5))
+            return;
+        const uint32_t serial = b.device()->serial_number;
+
+        std::vector<uint8_t> f = prog_of(9291, 5);
+        offline::InputBytes p = offline::default_input(0);
+        memcpy(&p[offline::input_at::label], "OAT", 3);
+        set_prog_input(f, 0, p);
+
+        std::string message;
+        check(b.import(f, true, &message), "a file saved from serial 9291 is checked");
+        check(contains(message, "saved from a T3-BB, serial 9291") && contains(message, "serial is not compared"),
+              "  saying where it is from, and that its serial is not compared");
+        check(b.saved_virtual(serial).empty(), "  and a check saves nothing");
+
+        check(b.import(f, false, &message), "it is imported");
+        auto saved = b.saved_virtual(serial);
+        check(saved.size() == 1 && saved[0].index == 0, "  setting input 1");
+        check(contains(b.payload(), "\"label\":\"OAT\""), "  which the grid shows");
+
+        check(b.import(prog_of(0, 5), true, &message), "a file with serial 0 is taken too");
+        check(contains(message, "with no serial"), "  saying it has none");
+
+        check(!b.import(prog_of(9291, 6), false, &message), "a file saved from a T3-LB is refused");
+        check(contains(message, "saved from a T3-LB, and this device is a T3-BB"), "  naming both models");
+        check(!b.import(prog_of(9291, 0), false, &message), "a file with no panel type is refused");
+        check(contains(message, "no panel type"), "  saying so");
+        saved = b.saved_virtual(serial);
+        check(saved.size() == 1 && saved[0].index == 0, "  and what was imported is still there");
+
+        // The rule is the virtual device's alone: a device added by hand
+        // still takes only the file saved from it.
+        Bench typed;
+        if (typed.open() && typed.add(9292, ProductClassId::MiniPanelArm, 5))
+            check(!typed.import(f, false, &message) && contains(message, "this device is serial 9292"),
+                  "a device added by hand still refuses a file from another serial");
     }
 
     void test_an_import_request_is_read_strictly()
@@ -895,5 +997,7 @@ int run_offline_inputs_tests()
     test_an_import_is_refused_with_nothing_changed();
     test_the_store_replaces_all_or_nothing();
     test_an_import_request_is_read_strictly();
+    test_a_virtual_device_is_configured_offline();
+    test_a_virtual_device_imports_a_file_of_its_model();
     return 0;
 }

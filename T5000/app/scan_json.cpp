@@ -92,7 +92,8 @@ namespace t5000::app
             append_field(out, "raw", (long long)d.mini_type);                 out += ',';
             append_field(out, "resolved", panel.resolved);                    out += ',';
             append_field(out, "name", std::string(panel_name(d.product, panel.type))); out += ',';
-            append_field(out, "reason", std::string(panel.reason));
+            append_field(out, "reason", d.is_virtual() ? std::string("chosen when this virtual device was made")
+                                                       : std::string(panel.reason));
             out += "},";
 
             append_field(out, "firmware", (long long)d.firmware);             out += ',';
