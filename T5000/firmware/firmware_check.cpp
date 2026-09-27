@@ -370,12 +370,14 @@ namespace t5000::firmware
             }
         }
 
-        // The chip size check, once the device is in ISP mode, for a TStat6,
-        // TStat7 or TStat5i: Flash_Modebus_Device wants the 64K chip for a
-        // data .hex (ComWriter.cpp:504-568), flashThread_ForExtendFormatHexfile
-        // the 128K one for the rest (:1507-1570). A .hex for an ARM chip goes
-        // to flashThread_ForExtendFormatHexfile_RAM instead, which has no
-        // such check.
+        // The chip size check for a TStat6, TStat7 or TStat5i, by register
+        // 11. Flash_Modebus_Device wants the 64K chip for a data .hex, and
+        // reads the register from the running device before it jumps to the
+        // bootloader (ComWriter.cpp:429, 461, 504-568);
+        // flashThread_ForExtendFormatHexfile wants the 128K one for the
+        // rest, and reads it in the bootloader (:1479, 1507-1570). A .hex for
+        // an ARM chip goes to flashThread_ForExtendFormatHexfile_RAM instead,
+        // which has no such check.
         const bool chip_checked = device.product == kTstat6 || device.product == kTstat7 || device.product == kTstat5i;
         if (chip_checked && data)
             v.notes.push_back("When it flashes, ISP takes this file for a TStat6, TStat7 or TStat5i only if the device's chip "

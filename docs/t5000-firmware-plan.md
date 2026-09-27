@@ -149,12 +149,15 @@ What ISP lets through, which T5000 does not:
 - **A file needing a newer bootloader, on the data route,** which does not
   look at the bootloader.
 
-For a TStat6, TStat7 or TStat5i, ISP also checks the chip once the device
-is in its bootloader: register 11 below 37 is the 64K chip, which takes
-only a `.hex` of data records, and 37 or more the 128K chip, which takes
-the rest (`ComWriter.cpp:504-568`, `:1507-1570`). An ARM chip's `.hex`
-goes to the `_RAM` thread, which does not check. The same check in
-`WriteCommandtoReset` (`:290-330`) is never called.
+For a TStat6, TStat7 or TStat5i, ISP also checks the chip by register 11:
+below 37 is the 64K chip, which takes only a `.hex` of data records, and
+37 or more the 128K chip, which takes the rest. `Flash_Modebus_Device`
+reads the register from the running device, before it jumps to the
+bootloader (`ComWriter.cpp:429`, `:461`, `:504-568`);
+`flashThread_ForExtendFormatHexfile` reads it in the bootloader (`:1479`,
+`:1507-1570`). An ARM chip's `.hex` goes to the `_RAM` thread, which does
+not check. The same check in `WriteCommandtoReset` (`:290-330`) is never
+called.
 
 T5000 refuses, with the reason, and has no setting to turn it off:
 
@@ -169,9 +172,9 @@ T5000 refuses, with the reason, and has no setting to turn it off:
   every route;
 - a device behind a controller, until F5.
 
-For a TStat6, TStat7 or TStat5i it notes the chip check, which cannot be
-made until the device is in its bootloader. F3 reads register 11 there
-and refuses a file that does not fit, as ISP does.
+For a TStat6, TStat7 or TStat5i it notes the chip check, which needs
+register 11, read by Modbus. F3 reads it where ISP does on each route and
+refuses a file that does not fit.
 
 ## Bootloaders
 
@@ -199,7 +202,11 @@ Once a file is marked, ISP looks at the device's bootloader
 updates it first when it is older than 54 on a TSTAT10, older than 56 on a
 CO2, humidity, pressure or PM2.5 device, or 48 or less (but not 0) on a
 TSTAT8. On a MiniPanel ARM or MiniPanel older than 62 it updates it on the
-network and refuses the file on serial. A CO2, humidity, pressure or PM2.5
+network. On serial it answers -1 instead, which stops the flash in the
+`_RAM` thread (an ARM chip's `.hex`), which goes on only on 1, but not in
+`flashThread_ForExtendFormatHexfile` (a `.bin`, or another linear `.hex`),
+which goes on on anything but 0 (`ComWriter.cpp:1432`, `:2524-2526`). A
+CO2, humidity, pressure or PM2.5
 device whose firmware's low byte is 59 or more is not looked at
 (`:1050-1056`), and neither is any device on serial's data route.
 

@@ -925,6 +925,29 @@ namespace
                     "(pWriter->m_nHexFileType==0) { strTips = _T(\"|hex file matches with the chip!\");",
             "flashThread_ForExtendFormatHexfile takes the rest only on its 128K chip");
         absent(thread_ram, "Chipsize", "flashThread_ForExtendFormatHexfile_RAM does not check the chip");
+
+        // Where each reads register 11: Flash_Modebus_Device from the
+        // running device, before the jump to the bootloader; the other in the
+        // bootloader.
+        const size_t read_first = modbus.find("temp_mu_ret = read_multi_tap(pWriter->m_szMdbIDs[i],temp_read_reg,0,40);");
+        const size_t jump       = modbus.find("int nRet = Write_One(pWriter->m_szMdbIDs[i],16,127);");
+        const size_t chip       = modbus.find("Chipsize_6 = temp_read_reg[11];");
+        check(read_first != std::string::npos && jump != std::string::npos && chip != std::string::npos &&
+                  read_first < jump && jump < chip && occurrences(modbus, "temp_read_reg,0,40)") == 1,
+              "Flash_Modebus_Device reads register 11 before the jump, and uses that");
+        const size_t thread_jump = thread.find("int nRet = mudbus_write_one(pWriter->m_szMdbIDs[i],16,127);");
+        const size_t thread_chip = thread.find("int Chipsize= mudbus_read_one(pWriter->m_szMdbIDs[i],11,5);");
+        check(thread_jump != std::string::npos && thread_chip != std::string::npos && thread_jump < thread_chip,
+              "flashThread_ForExtendFormatHexfile reads it after the jump, in the bootloader");
+
+        // What each makes of the check's answer. -1 (an old MiniPanel
+        // bootloader on serial) and 2 (a bootloader to update) stop the _RAM
+        // thread, which goes on only on 1, but not the other.
+        pin(thread, "if (pWriter->UpdataDeviceInformation(pWriter->m_szMdbIDs[i])) {",
+            "flashThread_ForExtendFormatHexfile goes on whatever the check returns but 0");
+        pin(thread_ram, "int nret_device_info = pWriter->UpdataDeviceInformation(pWriter->m_szMdbIDs[i]); int temp_ret3 = "
+                        "pWriter->Fix_Tstat10_76800_baudrate(); if (nret_device_info == 1) {",
+            "flashThread_ForExtendFormatHexfile_RAM only when it returns 1");
     }
 
     // ---- reader ----

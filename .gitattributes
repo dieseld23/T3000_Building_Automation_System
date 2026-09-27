@@ -1,0 +1,6 @@
+# ISP reads a .hex file a line at a time, up to each line's CR
+# (ISP\HexFileParser.cpp, ReadLineFromFile); with LF line endings a whole
+# file is one line, and broken. These are read as ISP reads them, by
+# T3000 and by T5000's conformance checks, so they are CRLF in every
+# checkout, whatever the machine's core.autocrlf.
+T3000/ResourceFile/HexFile/*.hex text eol=crlf

@@ -290,7 +290,6 @@ namespace
 
         check(!read("a.txt", good, Path::Serial, f, why), "a file named other than .hex or .bin is refused");
         check(!read("ahex", good, Path::Serial, f, why), "... a name ending hex with no dot too");
-        check(!read("a.bin", good, Path::Controller, f, why), "a .bin through a controller is refused");
     }
 
     // A .bin file: its first bytes, and a header at `at`.
@@ -329,6 +328,8 @@ namespace
         check_eq(f.image[0x3FF], 0x5A, "... the file copied in");
         check_eq(f.image[0x400], 0xFF, "... filled with 0xFF past it");
 
+        check(!read_bin(b, Path::Controller, f, why), "the same .bin through a controller is refused");
+        check(contains(why, "controller"), "... for going through one");
         check(read_bin(b, Path::Network, f, why), "the same .bin on the network");
         check_eq(f.image[0x400], 0xFF, "... is filled with 0xFF too");
 
