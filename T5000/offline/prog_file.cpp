@@ -417,13 +417,16 @@ namespace t5000::offline
         // Automatically, and 0 or 2 as Use The Following IP Address, and
         // writes 0 for the second (BacnetSetting.cpp:361-371,
         // BacnetSettingTcpip.cpp:153-156, 204-207). ud_str.h's comment on
-        // the field says the reverse; its captions are what the page names.
+        // the field, and T3000's webview export, say 0 is DHCP. What a panel
+        // does with 0 is not known here, so for 0 and 2 the page names the
+        // caption, says so, and asks for the address to be checked; for 1
+        // every source agrees.
         const std::string ip =
-            s[at::tcp_type] == 1
-                ? std::string("the IP address set to Obtain IP Address Automatically, so a panel with an address set "
-                              "by hand takes one from DHCP")
-                : std::string("the IP address set to Use The Following IP Address, so a panel that obtains its "
-                              "address automatically keeps the one it has now, fixed");
+            "the IP address's mode " + std::to_string(s[at::tcp_type]) + ", which T3000's Settings shows as " +
+            (s[at::tcp_type] == 1
+                 ? std::string("Obtain IP Address Automatically, so the panel takes its address from DHCP")
+                 : std::string("Use The Following IP Address, though a comment in T3000's source calls it DHCP, so "
+                               "check the panel's address after loading the file"));
         text += "Of the settings, Load File keeps the panel's serial, name, panel number, Modbus id, object "
                 "instance, IP address, subnet, gateway and MAC, and sets the others as the file has them: panel "
                 "type " + std::to_string(s[at::mini_type]) + " (" + model + "), so load it only onto a " + model +

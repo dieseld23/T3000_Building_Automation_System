@@ -442,9 +442,10 @@ namespace
                              "IP address, subnet, gateway and MAC"),
               "  what Load File keeps");
         check(contains(text, "panel type 6 (T3-LB), so load it only onto a T3-LB"), "  the panel type");
-        check(contains(text, "the IP address set to Use The Following IP Address, so a panel that obtains its address "
-                             "automatically keeps the one it has now, fixed"),
-              "  the IP address as set, as T3000's Settings shows a tcp_type of 0");
+        check(contains(text, "the IP address's mode 0, which T3000's Settings shows as Use The Following IP Address, "
+                             "though a comment in T3000's source calls it DHCP, so check the panel's address after "
+                             "loading the file"),
+              "  the IP address's mode 0, as T3000's Settings shows it, and to check the address after loading");
         check(contains(text, "serial ports 0, 1 and 2 not used, at 115200, 1200 and 115200 baud"), "  the serial ports");
         check(contains(text, "Modbus TCP port 502"), "  the Modbus TCP port");
         check(contains(text, "MS/TP network 0 and max master 0"), "  MS/TP");
@@ -456,12 +457,13 @@ namespace
         std::vector<uint8_t> dhcp = f;
         dhcp[s + at::tcp_type] = 1;
         const std::string automatic = describe_prog_export(dhcp, "T3-LB");
-        check(contains(automatic, "the IP address set to Obtain IP Address Automatically, so a panel with an address "
-                                  "set by hand takes one from DHCP") &&
-                  !contains(automatic, "Use The Following"),
+        check(contains(automatic, "the IP address's mode 1, which T3000's Settings shows as Obtain IP Address "
+                                  "Automatically, so the panel takes its address from DHCP") &&
+                  !contains(automatic, "Use The Following") && !contains(automatic, "check the panel's address"),
               "a tcp_type of 1 is Obtain IP Address Automatically");
         dhcp[s + at::tcp_type] = 2;
-        check(contains(describe_prog_export(dhcp, "T3-LB"), "set to Use The Following IP Address"),
+        check(contains(describe_prog_export(dhcp, "T3-LB"),
+                       "mode 2, which T3000's Settings shows as Use The Following IP Address, though"),
               "  and 2, as 0, Use The Following IP Address");
         dhcp[s + at::mini_type] = 7;
         check(contains(describe_prog_export(dhcp, "T3-LB"), "panel type 7 (T3-LB)"), "the panel type is the file's byte");
