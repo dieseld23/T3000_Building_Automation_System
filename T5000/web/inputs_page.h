@@ -161,7 +161,7 @@ namespace t5000::web
   <span class="meta"><b id="count">0</b> points</span>
   <span class="spacer"></span>
   <input type="search" id="filter" placeholder="Filter points" autocomplete="off">
-  <button id="import" hidden title="Take this device's inputs from a .prog file T3000 saved from it">Import .prog</button>
+  <button id="import" hidden title="Take this device's inputs from a .prog file T3000 saved. T5000 says what the file would change first.">Import .prog</button>
   <input type="file" id="import-file" accept=".prog" hidden>
   <button id="settings">Connection</button>
   <button id="refresh">Refresh</button>

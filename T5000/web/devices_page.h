@@ -256,9 +256,7 @@ namespace t5000::web
     <datalist id="dl-building"></datalist>
     <datalist id="dl-floor"></datalist>
     <datalist id="dl-room"></datalist>
-    <p class="note" id="f-model-note" hidden>The model is chosen, not read: a scan does not report one.
-      Once it is chosen, the device's inputs can be configured on the Inputs page before a scan
-      finds it.</p>
+    <p class="note" id="f-model-note" hidden></p>
     <p class="note">Kept in T5000's device list only. Nothing is sent to the device.</p>
     <p class="err" id="edit-error" hidden></p>
     <div class="buttons">
@@ -1137,9 +1135,10 @@ namespace t5000::web
         "out of the saved file, with every name and location given to them and every input " +
         "configured offline. Nothing is sent to any device. Devices that answer a later scan " +
         "are listed again" +
-        (typed ? "; the " + plural(typed, "device", "devices") + " added by hand are not" : "") +
+        (typed ? "; the " + plural(typed, "device", "devices") + " added by hand " +
+                 (typed === 1 ? "is" : "are") + " not" : "") +
         (made ? (typed ? ", and " : "; ") + "the " + plural(made, "virtual device", "virtual devices") +
-                " are gone for good." : ".")
+                " " + (made === 1 ? "is" : "are") + " gone for good." : ".")
       : "Clear all " + plural(n, "device", "devices") + " from the list?\n\nThe list is not " +
         "being saved, so nothing on disk changes. Nothing is sent to any device.";
     if (!confirm(question)) return;
@@ -1193,6 +1192,11 @@ namespace t5000::web
 
     $("edit-title").textContent = "Name, location and model";
     $("f-model-row").hidden = false;
+    $("f-model-note").textContent = isVirtual(d)
+      ? "A virtual device is its model and its configuration, so it keeps a model. Its inputs " +
+        "are configured on the Inputs page, and a change of model keeps the changes made to them."
+      : "The model is chosen, not read: a scan does not report one. Once it is chosen, the " +
+        "device's inputs can be configured on the Inputs page before a scan finds it.";
     $("f-model-note").hidden = false;
   }
 
