@@ -8,7 +8,8 @@
 // driver's device and holding the port's name (GetSerialComPortNumber1,
 // global_function.cpp:989-1041). Listing opens nothing, so it cannot disturb a
 // port another program holds, or whatever is wired to one. Opening a port to
-// scan it is a separate step, which T5000 does not take yet.
+// scan it is a separate step (discovery/com_port_line.h), taken only for a
+// port the operator picks, and only for one this list names.
 
 #include <string>
 #include <utility>
@@ -37,4 +38,18 @@ namespace t5000::serial
     // Reads SERIALCOMM. A machine with no serial ports has no such key; that
     // is an empty list, not an error.
     std::vector<Port> list_ports(std::string& error);
+
+    // "COM12" -> 12. 0 for anything else, including "COM0" and "COM" alone.
+    int com_number(const std::string& name);
+
+    // True for a name a port can be opened by: 1-32 letters, digits and
+    // underscores, as SERIALCOMM's names are (COM3, CNCA0). The name goes
+    // after \\.\ in CreateFile, so anything else - a backslash, a dot, a
+    // colon - could name some other device, and is refused before that.
+    bool is_plain_port_name(const std::string& name);
+
+    // The port in `ports` with this name, ignoring case, or null. Only a port
+    // the registry lists is ever opened: a name that is plain but not listed,
+    // PhysicalDrive0 say, is not a serial port.
+    const Port* find_port(const std::vector<Port>& ports, const std::string& name);
 }

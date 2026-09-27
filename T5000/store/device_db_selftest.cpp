@@ -982,6 +982,209 @@ namespace
         check_eq((long)single_int(raw, "SELECT count(*) FROM offline_points"), 1, "with the change in its new table");
     }
 
+    DeviceRecord on_port(uint32_t serial, const char* port, int baud, int slave_id)
+    {
+        DeviceRecord d = scanned(serial);
+        d.connection.host.clear();
+        d.answered_from.clear();
+        d.reported_ip.clear();
+        d.connection.transport       = Transport::ModbusRtu;
+        d.connection.serial_port     = port;
+        d.connection.baud            = baud;
+        d.connection.modbus_slave_id = slave_id;
+        d.provenance                 = Provenance::SerialScan;
+        return d;
+    }
+
+    const DeviceRecord* with_serial(const std::vector<DeviceRecord>& list, uint32_t serial)
+    {
+        for (const DeviceRecord& d : list)
+            if (d.serial_number == serial)
+                return &d;
+        return nullptr;
+    }
+
+    void test_a_serial_device_comes_back_on_its_port()
+    {
+        section("a device found on a serial port comes back on it, at its rate and id");
+
+        DeviceDb db;
+        if (!require(open_memory(db), "the list opens"))
+            return;
+
+        std::string error;
+        check(db.save_scanned({ on_port(8301, "CNCA0", 76800, 7), on_port(8302, "COM4", 9600, 200), scanned(8303) },
+                              error),
+              "two serial devices and a network one are saved");
+
+        const auto list = load(db);
+        const DeviceRecord* a = with_serial(list, 8301);
+        if (require(a != nullptr, "the one on CNCA0 comes back"))
+        {
+            check(a->connection.transport == Transport::ModbusRtu, "over Modbus RTU");
+            check(a->connection.serial_port == "CNCA0", "on CNCA0");
+            check_eq(a->connection.com_port, 0, "which is not COMn");
+            check_eq(a->connection.baud, 76800, "at 76800");
+            check_eq(a->connection.modbus_slave_id, 7, "on id 7");
+            check(a->address_note == "CNCA0 id 7, 76800 baud", "and the list says so");
+        }
+        const DeviceRecord* b = with_serial(list, 8302);
+        if (require(b != nullptr, "the one on COM4 comes back"))
+        {
+            check_eq(b->connection.com_port, 4, "as COM port 4");
+            check_eq(b->connection.modbus_slave_id, 200, "on id 200");
+        }
+        const DeviceRecord* c = with_serial(list, 8303);
+        if (require(c != nullptr, "the network one comes back"))
+        {
+            check(c->connection.transport == Transport::BacnetIp, "over BACnet/IP");
+            check(c->connection.serial_port.empty(), "with no port");
+            check(c->connection.host == "127.0.0.2", "at its address");
+        }
+    }
+
+    void test_a_device_that_moves_is_saved_where_it_is()
+    {
+        section("a device found on the network, then on a port, then on the network, is saved each time where it is");
+
+        DeviceDb db;
+        if (!require(open_memory(db), "the list opens"))
+            return;
+
+        std::string error;
+        check(db.save_scanned({ scanned(8401) }, error), "found on the network");
+        check(db.save_scanned({ on_port(8401, "COM3", 19200, 9) }, error), "then on COM3");
+
+        auto list = load(db);
+        if (require(list.size() == 1, "one device"))
+        {
+            check(list[0].connection.transport == Transport::ModbusRtu, "on the port");
+            check(list[0].connection.serial_port == "COM3", "COM3");
+            check(list[0].connection.host.empty(), "with no network address");
+        }
+
+        check(db.save_scanned({ scanned(8401) }, error), "then on the network again");
+        list = load(db);
+        if (require(list.size() == 1, "still one device"))
+        {
+            check(list[0].connection.transport == Transport::BacnetIp, "on the network");
+            check(list[0].connection.serial_port.empty(), "with the port gone");
+            check(list[0].connection.host == "127.0.0.2", "at its address");
+        }
+    }
+
+    void test_a_version_3_list_is_brought_up_to_date()
+    {
+        section("a list version 3 wrote is brought up to date, its devices on the network as they were");
+
+        TempFile file(L"v3");
+        {
+            Database raw;
+            std::string error;
+            if (!require(raw.open(file.utf8(), error), "a file is made"))
+                return;
+            check(raw.exec("CREATE TABLE devices ("
+                           "  id               INTEGER PRIMARY KEY,"
+                           "  kind             TEXT    NOT NULL CHECK (kind IN ('scanned', 'virtual')),"
+                           "  serial           INTEGER NOT NULL CHECK (serial > 0 AND serial < 4294967295),"
+                           "  product_class_id INTEGER NOT NULL,"
+                           "  mini_type        INTEGER NOT NULL,"
+                           "  firmware         INTEGER NOT NULL,"
+                           "  modbus_id        INTEGER NOT NULL,"
+                           "  parent_serial    INTEGER NOT NULL,"
+                           "  object_instance  INTEGER NOT NULL,"
+                           "  host             TEXT    NOT NULL,"
+                           "  answered_from    TEXT    NOT NULL,"
+                           "  reported_ip      TEXT    NOT NULL,"
+                           "  bacnet_port      INTEGER NOT NULL,"
+                           "  panel_name       TEXT    NOT NULL,"
+                           "  name             TEXT    NOT NULL,"
+                           "  building         TEXT    NOT NULL,"
+                           "  floor            TEXT    NOT NULL,"
+                           "  room             TEXT    NOT NULL,"
+                           "  first_seen       INTEGER NOT NULL,"
+                           "  last_seen        INTEGER NOT NULL,"
+                           "  UNIQUE (kind, serial)"
+                           ");"
+                           "ALTER TABLE devices ADD COLUMN added_by_hand INTEGER NOT NULL DEFAULT 0"
+                           "  CHECK (added_by_hand IN (0, 1));"
+                           "CREATE TABLE offline_points ("
+                           "  device_id INTEGER NOT NULL REFERENCES devices (id),"
+                           "  kind      TEXT    NOT NULL CHECK (kind IN ('input')),"
+                           "  idx       INTEGER NOT NULL CHECK (idx BETWEEN 0 AND 254),"
+                           "  base      BLOB    NOT NULL CHECK (typeof(base) = 'blob'),"
+                           "  edited    BLOB    NOT NULL CHECK (typeof(edited) = 'blob'),"
+                           "  CHECK (kind <> 'input' OR (length(base) = 46 AND length(edited) = 46)),"
+                           "  PRIMARY KEY (device_id, kind, idx)"
+                           ");"
+                           "INSERT INTO devices (kind, serial, product_class_id, mini_type, firmware,"
+                           " modbus_id, parent_serial, object_instance, host, answered_from, reported_ip,"
+                           " bacnet_port, panel_name, name, building, floor, room, first_seen, last_seen,"
+                           " added_by_hand)"
+                           " VALUES ('scanned', 8501, 10, 7, 538, 12, 0, 4321, '10.0.0.5', '10.0.0.5', '10.0.0.5',"
+                           " 47808, 'AHU 1', 'Roof', '', '', '', 100, 200, 0);"
+                           "PRAGMA user_version = 3;",
+                           error),
+                  "as version 3 of T5000 wrote it, with a scanned device in it");
+        }
+
+        {
+            DeviceDb db;
+            std::string error;
+            if (!require(db.open(file.utf8(), error), "this build opens it"))
+                return;
+
+            const auto list = load(db);
+            if (require(list.size() == 1, "its device comes back"))
+            {
+                check(list[0].connection.transport == Transport::BacnetIp, "  over BACnet/IP, as every device then was");
+                check(list[0].connection.host == "10.0.0.5", "  at its address");
+                check(list[0].connection.serial_port.empty(), "  on no port");
+                check(list[0].placement.name == "Roof", "  with its name");
+            }
+
+            check(db.save_scanned({ on_port(8501, "COM5", 38400, 12) }, error), "and it can be saved on a port now");
+            const auto again = load(db);
+            if (require(again.size() == 1, "still one device"))
+                check(again[0].connection.serial_port == "COM5", "  on COM5");
+        }
+
+        Database raw;
+        std::string error;
+        if (!require(raw.open(file.utf8(), error), "the file opens directly"))
+            return;
+        check_eq((long)single_int(raw, "PRAGMA user_version"), kSchemaVersion, "it is at this build's version");
+        check_eq((long)single_int(raw, "SELECT baud FROM devices"), 38400, "with the rate in its new column");
+        check_eq((long)single_int(raw, "SELECT slave_id FROM devices"), 12, "and the id");
+    }
+
+    void test_the_table_refuses_a_transport_it_does_not_know()
+    {
+        section("the table itself refuses a transport it does not know, and an id out of range");
+
+        TempFile file(L"transport");
+        {
+            DeviceDb db;
+            std::string error;
+            if (!require(db.open(file.utf8(), error), "a list is made"))
+                return;
+            check(db.save_scanned({ scanned(8601) }, error), "with a device in it");
+        }
+
+        Database raw;
+        std::string error;
+        if (!require(raw.open(file.utf8(), error), "the file opens directly"))
+            return;
+        check(!raw.exec("UPDATE devices SET transport = 'carrier-pigeon';", error), "an unknown transport is refused");
+        check(!raw.exec("UPDATE devices SET slave_id = 256;", error), "an id over 255 is refused");
+        check(!raw.exec("UPDATE devices SET slave_id = -1;", error), "and one under 0");
+        check(raw.exec("UPDATE devices SET transport = 'modbus-rtu', serial_port = 'COM3', baud = 9600, slave_id = 3;",
+                       error),
+              "a serial device is taken");
+        check_eq((long)single_int(raw, "SELECT count(*) FROM devices WHERE serial_port = '' AND baud = 0"), 0,
+                 "and holds its port");
+    }
+
     void test_the_default_path_is_beside_the_exe()
     {
         section("the list is kept beside the exe by default");
@@ -1023,6 +1226,10 @@ int run_device_db_tests()
     test_scans_and_names_leave_offline_changes_alone();
     test_forgetting_takes_offline_changes();
     test_a_version_2_list_is_brought_up_to_date();
+    test_a_serial_device_comes_back_on_its_port();
+    test_a_device_that_moves_is_saved_where_it_is();
+    test_a_version_3_list_is_brought_up_to_date();
+    test_the_table_refuses_a_transport_it_does_not_know();
     test_the_default_path_is_beside_the_exe();
     return 0;
 }

@@ -104,6 +104,11 @@ namespace t5000::app
             append_field(out, "parentSerial", (long long)d.parent_serial);    out += ',';
             append_field(out, "address", d.address_note);                     out += ',';
 
+            // How it is reached, so the page does not put a UDP port after a
+            // serial port's name.
+            append_field(out, "transport",
+                         std::string(transport_name(d.connection.transport))); out += ',';
+
             // The UDP port it is read at, so Find opens on the port it was
             // found at rather than on 47808.
             append_field(out, "port", (long long)d.connection.udp_port);      out += ',';
@@ -156,6 +161,55 @@ namespace t5000::app
         }
     }
 
+    namespace
+    {
+        void append_ids(std::string& out, const std::vector<int>& ids)
+        {
+            out += '[';
+            for (size_t i = 0; i < ids.size(); i++)
+            {
+                if (i) out += ',';
+                out += std::to_string(ids[i]);
+            }
+            out += ']';
+        }
+
+        void append_serial(std::string& out, const discovery::PortScanResult& s)
+        {
+            out += '{';
+            append_field(out, "port", s.port);                               out += ',';
+            append_field(out, "found", (long long)s.devices.size());         out += ',';
+            append_field(out, "repeats", (long long)s.repeats);              out += ',';
+            append_field(out, "framesSent", (long long)s.frames_sent());     out += ',';
+            append_field(out, "busyRates", (long long)s.busy_rates());       out += ',';
+            append_field(out, "runsMstp", s.runs_mstp);                      out += ',';
+            append_field(out, "mstpBaud", (long long)s.mstp_baud);           out += ',';
+            append_field(out, "error", s.error);                             out += ',';
+            append_key(out, "rates");
+            out += '[';
+            for (size_t i = 0; i < s.rates.size(); i++)
+            {
+                const discovery::RateScan& r = s.rates[i];
+                if (i) out += ',';
+                out += '{';
+                append_field(out, "baud", (long long)r.baud);                              out += ',';
+                append_field(out, "found", (long long)r.result.devices.size());            out += ',';
+                append_field(out, "framesSent", (long long)r.result.stats.frames_sent);    out += ',';
+                append_field(out, "garbled", (long long)r.result.stats.garbled);           out += ',';
+                append_field(out, "lineBusy", r.result.line_busy);                         out += ',';
+                append_field(out, "runsMstp", r.result.runs_mstp);                         out += ',';
+                append_field(out, "error", r.result.error);                                out += ',';
+                append_key(out, "sharedIds");
+                append_ids(out, r.result.stats.shared_ids);
+                out += ',';
+                append_key(out, "unreadableIds");
+                append_ids(out, r.result.stats.unreadable_ids);
+                out += '}';
+            }
+            out += "]}";
+        }
+    }
+
     std::string build_devices_json(const Registry& registry, const ScanSummary& summary,
                                    const StoreStatus& store)
     {
@@ -201,6 +255,12 @@ namespace t5000::app
         append_field(out, "waitedMs", (long long)summary.waited_ms);   out += ',';
         append_key(out, "stats");
         append_stats(out, summary.stats);
+        out += ',';
+        append_key(out, "serial");
+        if (summary.serial_scanned)
+            append_serial(out, summary.serial);
+        else
+            out += "null";
         out += "},";
 
         // Stated by the server rather than assumed by the page. This is the
@@ -265,7 +325,14 @@ namespace t5000::app
         }
         out += "],";
         append_field(out, "serialError", port_error);
-        out += '}';
+        out += ",\"serialRates\":[";
+        const auto& rates = device::supported_baud_rates();
+        for (size_t i = 0; i < rates.size(); i++)
+        {
+            if (i) out += ',';
+            out += std::to_string(rates[i]);
+        }
+        out += "]}";
         return out;
     }
 }

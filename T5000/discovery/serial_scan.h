@@ -61,8 +61,22 @@ namespace t5000::discovery
         virtual int receive(uint8_t* buffer, int capacity, int timeout_ms, std::string& error) = 0;
     };
 
+    // A port that can be moved from one rate to the next, for a scan that
+    // tries each rate in turn. Still only a scan transport: changing the rate
+    // sends nothing.
+    class SerialLine : public SerialScanTransport
+    {
+    public:
+        // Sets the port's rate and drops anything already received. False,
+        // with the reason, when the port refuses it.
+        virtual bool set_rate(int baud, std::string& error) = 0;
+    };
+
     struct SerialScanSettings
     {
+        // The port as the registry names it: "COM3", or "CNCA0" for a virtual
+        // one. com_port is its number when it is COMn, and 0 otherwise.
+        std::string port_name;
         int com_port = 0;
         int baud     = 38400;
 
@@ -112,8 +126,58 @@ namespace t5000::discovery
 
     SerialScanResult scan_serial(SerialScanTransport& line, const SerialScanSettings& settings = {});
 
+    // One rate's part of a scan of a port.
+    struct RateScan
+    {
+        int baud = 0;
+        SerialScanResult result;
+    };
+
+    // A scan of one port at each rate in turn, as T3000's scan list has an
+    // entry for each port and rate (m_scan_info, TStatScanner.cpp:596-700) and
+    // the owner decided (S2 in the migration plan).
+    struct PortScanResult
+    {
+        std::string port;
+
+        // Each rate tried, in the order tried. A rate is not tried after the
+        // scan stopped.
+        std::vector<RateScan> rates;
+
+        // Every device found, once. On a real line a device answers at its
+        // own rate only; one that answers at several - a virtual line, or an
+        // adapter that loops back - is listed at the first, and counted in
+        // repeats. A device is known by its serial, or by the id it answered
+        // on when it has none: two devices cannot answer one id on a line
+        // without colliding.
+        std::vector<device::DeviceRecord> devices;
+        int repeats = 0;
+
+        // The line runs BACnet MS/TP, heard at mstp_baud. The scan stopped
+        // there: a line is one protocol, and the rates after would send
+        // Modbus queries into it.
+        bool runs_mstp = false;
+        int  mstp_baud = 0;
+
+        // Set when the scan stopped because the port failed, or would not
+        // take a rate. What was found before that is kept.
+        std::string error;
+
+        int frames_sent() const;
+
+        // Rates at which something else was talking, so nothing was sent.
+        int busy_rates() const;
+    };
+
+    // Scans `line` at each rate in `rates`. The line must already be open.
+    // settings.baud is ignored: each rate sets its own.
+    PortScanResult scan_serial_port(SerialLine& line, const std::vector<int>& rates,
+                                    const SerialScanSettings& settings);
+
     // What a device found on a serial line becomes in the list: reached over
-    // Modbus RTU on the port, at the rate, on the id that answered.
+    // Modbus RTU on the port, at the rate, on the id that answered. The port
+    // is settings.port_name, or COMn from settings.com_port when that is
+    // empty.
     device::DeviceRecord serial_record(const serial::DeviceIdentity& identity, uint8_t answered_id,
                                        const SerialScanSettings& settings);
 }

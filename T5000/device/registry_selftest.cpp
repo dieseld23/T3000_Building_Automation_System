@@ -779,6 +779,89 @@ namespace
         check_eq(reg.begin_scan(), 3, "numbers are not reused after a clear");
     }
 
+    DeviceRecord a_device_on_port(uint32_t serial, int modbus_id, const char* port)
+    {
+        DeviceRecord d = a_device(serial);
+        d.provenance                  = Provenance::SerialScan;
+        d.modbus_id_reported          = modbus_id;
+        d.observation_complete        = true;
+        d.connection.transport        = Transport::ModbusRtu;
+        d.connection.serial_port      = port;
+        d.connection.baud             = 38400;
+        d.connection.modbus_slave_id  = modbus_id;
+        return d;
+    }
+
+    bool duplicate_problem(const DeviceRecord& d, std::string& problem)
+    {
+        for (const Repair& r : d.repairs)
+            if (r.kind == RepairKind::ResolveDuplicateModbusId)
+            {
+                problem = r.problem;
+                return true;
+            }
+        return false;
+    }
+
+    void test_an_id_is_shared_only_on_one_bus()
+    {
+        section("a Modbus id is in conflict only between devices on the same bus");
+
+        Registry reg;
+        reg.add_or_merge(a_device_on_port(3001, 5, "COM3"));
+        reg.add_or_merge(a_device_on_port(3002, 5, "COM4"));
+        reg.add_or_merge(a_device_on_modbus_id(3003, 5));
+        check_eq(reg.refresh_duplicate_modbus_ids(), 0, "id 5 on COM3, on COM4 and on the network: no conflict");
+
+        reg.add_or_merge(a_device_on_port(3004, 5, "COM3"));
+        check_eq(reg.refresh_duplicate_modbus_ids(), 2, "a second id 5 on COM3 is one");
+        check(reg.devices()[0].needs_attention(), "the first on COM3 is flagged");
+        check(reg.devices()[3].needs_attention(), "and the second");
+        check(!reg.devices()[1].needs_attention(), "the one on COM4 is not");
+        check(!reg.devices()[2].needs_attention(), "nor the one on the network");
+
+        std::string problem;
+        if (require(duplicate_problem(reg.devices()[0], problem), "the repair is there"))
+            check(problem.find("claimed by 2 devices on COM3") != std::string::npos, "and names the port");
+
+        reg.add_or_merge(a_device_on_modbus_id(3005, 5));
+        check_eq(reg.refresh_duplicate_modbus_ids(), 4, "two on the network with id 5 are a conflict too, apart");
+        if (require(duplicate_problem(reg.devices()[4], problem), "the network pair has the repair"))
+            check(problem.find(" on ") == std::string::npos, "with no port named");
+    }
+
+    void test_the_latest_sighting_decides_how_a_device_is_reached()
+    {
+        section("a device is reached where it was last found: a serial port, or the network");
+
+        Registry reg;
+        reg.add_or_merge(a_device_on_modbus_id(4001, 5));
+        reg.add_or_merge(a_device_on_port(4001, 6, "COM3"));
+        if (!require(reg.size() == 1, "one device, found both ways"))
+            return;
+        {
+            const Connection& c = reg.devices()[0].connection;
+            check(c.transport == Transport::ModbusRtu, "found on COM3, it is reached over Modbus RTU");
+            check(c.serial_port == "COM3", "on COM3");
+            check_eq(c.baud, 38400, "at the rate it answered");
+            check_eq(c.modbus_slave_id, 6, "on the id it answered");
+            check(c.host.empty(), "and the network address it had is dropped");
+        }
+
+        // Silent on both: a record that names neither leaves it where it is.
+        DeviceRecord silent = a_device(4001);
+        reg.add_or_merge(silent);
+        check(reg.devices()[0].connection.serial_port == "COM3", "a record naming neither leaves it on COM3");
+
+        reg.add_or_merge(a_device_on_modbus_id(4001, 5));
+        {
+            const Connection& c = reg.devices()[0].connection;
+            check(c.transport == Transport::BacnetIp, "found on the network again, it is reached there");
+            check(c.host == "192.168.1.60", "at the address it answered from");
+            check(c.serial_port.empty(), "and the port is dropped");
+        }
+    }
+
     void test_a_restored_device_takes_no_part_in_duplicates()
     {
         section("a device known only from the saved list is not counted as a duplicate");
@@ -834,5 +917,7 @@ int run_registry_tests()
     test_history_merges_forwards();
     test_answered_last_scan_follows_the_count();
     test_a_restored_device_takes_no_part_in_duplicates();
+    test_an_id_is_shared_only_on_one_bus();
+    test_the_latest_sighting_decides_how_a_device_is_reached();
     return 0;
 }

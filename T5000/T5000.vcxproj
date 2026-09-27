@@ -151,6 +151,8 @@
     <ClCompile Include="device\registry_selftest.cpp" />
     <ClCompile Include="device\read_path.cpp" />
     <ClCompile Include="device\read_path_selftest.cpp" />
+    <ClCompile Include="discovery\com_port_line.cpp" />
+    <ClCompile Include="discovery\com_port_line_selftest.cpp" />
     <ClCompile Include="discovery\scan_response.cpp" />
     <ClCompile Include="discovery\scan_response_selftest.cpp" />
     <ClCompile Include="discovery\scanner.cpp" />
@@ -213,6 +215,7 @@
     <ClInclude Include="device\connection.h" />
     <ClInclude Include="device\registry.h" />
     <ClInclude Include="device\read_path.h" />
+    <ClInclude Include="discovery\com_port_line.h" />
     <ClInclude Include="discovery\scan_response.h" />
     <ClInclude Include="discovery\scanner.h" />
     <ClInclude Include="discovery\serial_scan.h" />
