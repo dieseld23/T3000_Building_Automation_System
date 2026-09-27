@@ -271,6 +271,8 @@ namespace
               "a new input's value cannot be changed: it is in Auto");
 
         check(b.edit(1, offline::InputField::Range, "1"), "input 2 is given Off/On");
+        check(contains(b.payload(), "\"rangeNumber\":1,\"valueToggle\":\"\""),
+              "  in Auto, its value cannot be switched");
         check(b.edit(1, offline::InputField::AutoManual, "Manual"), "  and put in Manual");
         p = b.payload();
         check(contains(p, "\"editable\":[\"fullLabel\",\"value\",\"autoManual\",\"range\",\"label\"],"
