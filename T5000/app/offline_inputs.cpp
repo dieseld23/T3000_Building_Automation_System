@@ -631,6 +631,84 @@ namespace t5000::app
         return true;
     }
 
+    bool read_input_export_request(const std::string& body, InputExportRequest& request, std::string& message)
+    {
+        std::map<std::string, json::FlatValue> fields;
+        if (!read_fields(body, fields, message))
+            return false;
+
+        InputExportRequest r;
+        if (!handle_from(fields, r.handle, message))
+            return false;
+
+        const auto check = fields.find("check");
+        if (check != fields.end())
+        {
+            if (check->second.is_string || (check->second.text != "true" && check->second.text != "false"))
+            {
+                message = "check must be true or false.";
+                return false;
+            }
+            r.check = check->second.text == "true";
+        }
+
+        request = r;
+        return true;
+    }
+
+    bool export_offline_inputs(const Registry& registry, store::DeviceDb& db, const StoreStatus& status,
+                               const InputExportRequest& request, std::string& message, std::vector<uint8_t>& file,
+                               std::string& name)
+    {
+        file.clear();
+        name.clear();
+
+        const DeviceRecord* d = find(registry, request.handle);
+        if (!d)
+        {
+            message = kGone;
+            return false;
+        }
+
+        const OfflineInputsPlan plan = plan_offline_inputs(*d);
+        if (!plan.can_edit)
+        {
+            message = plan.reason;
+            return false;
+        }
+
+        if (!db.is_open())
+        {
+            message = not_saving(status);
+            return false;
+        }
+
+        OfflineInputs config;
+        std::string error;
+        if (!load_offline_inputs(db, *d, plan, config, error))
+        {
+            message = "The inputs T5000 keeps for this device could not be read from its list: " + error + ".";
+            return false;
+        }
+
+        offline::ProgExport device;
+        device.serial    = d->serial_number;
+        device.mini_type = (uint8_t)static_cast<int>(plan.type);
+        device.inputs    = config.inputs;
+        const std::vector<uint8_t> bytes = offline::write_prog_file(device);
+
+        if (request.check)
+        {
+            message = offline::describe_prog_export(bytes, plan.model) + " Nothing is sent to any device.";
+            return true;
+        }
+
+        file    = bytes;
+        name    = std::to_string(d->serial_number) + ".prog";
+        message = "Exported as " + name + ", with this device's inputs and T3000's defaults for everything else.";
+        return true;
+    }
+
     std::string pending_offline_note(store::DeviceDb& db, const DeviceRecord& d)
     {
         std::vector<int> saved;

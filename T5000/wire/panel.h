@@ -44,18 +44,35 @@ namespace t5000::wire
     inline constexpr int kMsvTableCount     = 4;  // BAC_MSV_COUNT + 1, :461
     inline constexpr int kMsvItemCount      = 8;  // STR_MSV_MULTIPLE_COUNT, ud_str.h:178
 
-    // Where each field T5000 reads sits in Str_Setting_Info.
+    // Where each field T5000 reads, or a .prog export writes
+    // (offline/prog_file.h), sits in Str_Setting_Info.
     namespace settings_at
     {
+        inline constexpr size_t ip_addr           = 0;     // 4 bytes
+        inline constexpr size_t subnet            = 4;     // 4 bytes
+        inline constexpr size_t gate_addr         = 8;     // 4 bytes
+        inline constexpr size_t mac_addr          = 12;    // 6 bytes
+        inline constexpr size_t tcp_type          = 18;    // 1 obtains an address; 0 and 2 use the one set
         inline constexpr size_t mini_type         = 19;
         inline constexpr size_t firmware_main     = 22;    // pro_info.firmware0_rev_main
         inline constexpr size_t firmware_sub      = 23;    // pro_info.firmware0_rev_sub
+        inline constexpr size_t com0_config       = 38;    // what each serial port runs; 0 is NOUSE
+        inline constexpr size_t com1_config       = 39;
+        inline constexpr size_t com2_config       = 40;
+        inline constexpr size_t reset_default     = 43;
+        inline constexpr size_t com_baudrate0     = 44;    // a UART_ code, global_define.h
+        inline constexpr size_t com_baudrate1     = 45;
+        inline constexpr size_t com_baudrate2     = 46;
+        inline constexpr size_t panel_type        = 51;    // the product
         inline constexpr size_t panel_name        = 52;
         inline constexpr size_t panel_name_length = 20;
         inline constexpr size_t panel_number      = 73;
         inline constexpr size_t serial_number     = 177;   // n_serial_number, 4 bytes
+        inline constexpr size_t mstp_network      = 191;   // mstp_network_number, 2 bytes
+        inline constexpr size_t modbus_port       = 195;   // 2 bytes
         inline constexpr size_t modbus_id         = 197;
         inline constexpr size_t object_instance   = 198;   // 4 bytes
+        inline constexpr size_t max_master        = 245;
         inline constexpr size_t max_var           = 266;
         inline constexpr size_t max_in            = 267;
         inline constexpr size_t max_out           = 268;

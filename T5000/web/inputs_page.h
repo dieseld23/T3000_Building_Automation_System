@@ -102,6 +102,7 @@ namespace t5000::web
     padding:3px 8px;font-variant-numeric:tabular-nums}
   dialog.ranges .choice.current{border-color:var(--accent);color:var(--accent);font-weight:600}
   dialog.ranges .note{margin:0;font-size:11px;color:var(--dim)}
+  #export-text{white-space:pre-line}
   dialog.ranges footer{display:flex;justify-content:flex-end;gap:8px;padding:10px 18px;
     border-top:1px solid var(--border);background:var(--surface)}
   dialog.ask{width:min(440px,calc(100vw - 32px))}
@@ -163,6 +164,7 @@ namespace t5000::web
   <input type="search" id="filter" placeholder="Filter points" autocomplete="off">
   <button id="import" hidden title="Take this device's inputs from a .prog file T3000 saved. T5000 says what the file would change first.">Import .prog</button>
   <input type="file" id="import-file" accept=".prog" hidden>
+  <button id="export" hidden title="Save this device's inputs as a .prog file for T3000, with T3000's defaults for everything else. T5000 says what the file would do first.">Export .prog</button>
   <button id="settings">Connection</button>
   <button id="refresh">Refresh</button>
 </header>
@@ -254,6 +256,15 @@ namespace t5000::web
   <footer>
     <button type="button" id="import-cancel">Cancel</button>
     <button type="button" class="primary" id="import-ok">Import</button>
+  </footer>
+</dialog>
+
+<dialog class="ranges ask" id="export-dlg" aria-labelledby="export-title">
+  <h2 id="export-title">Export</h2>
+  <div class="body"><p id="export-text"></p></div>
+  <footer>
+    <button type="button" id="export-cancel">Cancel</button>
+    <button type="button" class="primary" id="export-ok">Save .prog</button>
   </footer>
 </dialog>
 
@@ -464,6 +475,57 @@ namespace t5000::web
   $("import-cancel").onclick = () => $("import-dlg").close();
   $("import-dlg").addEventListener("close", () => { importBody = null; });
 
+  // ------------------------------------------------------- .prog export
+
+  // The server makes the file and says first what T3000's Load File would
+  // do with it; the page saves it only once the operator agrees.
+  async function postExport(body) {
+    const res = await fetch("/api/inputs/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    return res.json();
+  }
+
+  $("export").onclick = async () => {
+    if (!offline) return;
+    $("edit-msg").hidden = true;
+    try {
+      const data = await postExport({ handle: offline.handle, check: true });
+      if (!data.ok) { refuse(data.message || "The file could not be made."); return; }
+      $("export-text").textContent = data.message;
+      $("export-dlg").showModal();
+      $("export-cancel").focus();
+    } catch (err) {
+      refuse("T5000 could not be reached: " + err.message);
+    }
+  };
+
+  $("export-ok").onclick = async () => {
+    $("export-dlg").close();
+    if (!offline) return;
+    try {
+      const data = await postExport({ handle: offline.handle });
+      if (!data.ok || !data.file) { refuse(data.message || "The file could not be made."); return; }
+      const bytes = Uint8Array.from(atob(data.file), c => c.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = data.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      $("edit-msg").hidden = false;
+      $("edit-msg").className = "banner ok";
+      $("edit-msg").textContent = data.message;
+    } catch (err) {
+      refuse("T5000 could not be reached: " + err.message);
+    }
+  };
+  $("export-cancel").onclick = () => $("export-dlg").close();
+
   function render() {
     if (editing) return;
     const needle = $("filter").value.trim().toLowerCase();
@@ -517,6 +579,7 @@ namespace t5000::web
     showBanner(data);
     $("undo-head").hidden = !offline;
     $("import").hidden = !(offline && offline.saving);
+    $("export").hidden = !(offline && offline.saving);
 
     if (allRows.length === 0) {
       $("empty-title").textContent = data.unavailable

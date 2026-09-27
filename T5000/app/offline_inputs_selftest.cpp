@@ -137,6 +137,18 @@ namespace
             return ok;
         }
 
+        bool exported(bool check_only, std::vector<uint8_t>& file, std::string& name, std::string* message_out = nullptr)
+        {
+            InputExportRequest r;
+            r.handle = handle;
+            r.check  = check_only;
+            std::string message;
+            const bool ok = export_offline_inputs(registry, db, status, r, message, file, name);
+            if (message_out)
+                *message_out = message;
+            return ok;
+        }
+
         std::vector<store::OfflinePoint> saved_virtual(uint32_t serial)
         {
             std::vector<store::OfflinePoint> out;
@@ -952,6 +964,151 @@ namespace
                   "a device added by hand still refuses a file from another serial");
     }
 
+    void test_a_device_is_exported()
+    {
+        section("a device configured offline is exported as a .prog file, which imports back as it was");
+
+        Bench b;
+        if (!b.open() || !b.add(9411, ProductClassId::MiniPanelArm, 5))
+            return;
+        check(b.edit(1, offline::InputField::Label, "SAT"), "input 2 is labelled here");
+        check(b.edit(4, offline::InputField::Range, "41") && b.edit(4, offline::InputField::Filter, "7"),
+              "input 5 is given a range and a filter");
+
+        std::vector<uint8_t> file;
+        std::string name, message;
+        check(b.exported(true, file, name, &message), "an export is checked");
+        check(file.empty() && name.empty(), "  which makes no file");
+        check(contains(message, "This file is for T3000's Load File") &&
+                  contains(message, "panel type 5 (T3-BB), so load it only onto a T3-BB") &&
+                  contains(message, "The file says serial 9411.") && contains(message, "Nothing is sent to any device."),
+              "  and says what Load File would do with it, for this model and serial");
+
+        check(b.exported(false, file, name, &message), "it is exported");
+        check(name == "9411.prog", "  named for its serial");
+        check(contains(message, "Exported as 9411.prog"), "  saying so");
+
+        offline::ProgFile back;
+        std::string why;
+        if (!require(offline::read_prog_file(file.data(), file.size(), back, why), "  as a file T5000 reads"))
+            return;
+        check_eq((long)back.settings.serial_number, 9411, "  from serial 9411");
+        check_eq(back.settings.mini_type(), 5, "  a T3-BB");
+
+        const auto before = b.saved(9411);
+        check(b.import(file, true, &message), "the file is checked for an import into the same device");
+        check(contains(message, "2 of this device's 64 inputs are set as the file has them"),
+              "  which sets the two inputs changed here");
+        check(b.import(file, false, &message), "  and imported");
+        const auto after = b.saved(9411);
+        bool same = before.size() == after.size();
+        for (size_t i = 0; same && i < before.size(); i++)
+            same = before[i].index == after[i].index && before[i].edited == after[i].edited;
+        check(same, "  leaving every change as it was");
+    }
+
+    void test_an_export_is_what_an_import_keeps()
+    {
+        section("a value left behind in Auto is exported, and an import of the file does not keep it");
+
+        Bench b;
+        if (!b.open() || !b.add(9412, ProductClassId::MiniPanelArm, 5))
+            return;
+        check(b.edit(2, offline::InputField::Range, "41") && b.edit(2, offline::InputField::AutoManual, "Manual") &&
+                  b.edit(2, offline::InputField::Value, "3.3") && b.edit(2, offline::InputField::AutoManual, "Auto"),
+              "input 3 is given a value in Manual, then put back in Auto");
+
+        std::vector<uint8_t> file;
+        std::string name, message;
+        if (!require(b.exported(false, file, name, &message), "it is exported"))
+            return;
+        offline::ProgFile back;
+        std::string why;
+        if (!require(offline::read_prog_file(file.data(), file.size(), back, why), "  and read back"))
+            return;
+        const offline::InputBytes& in_file = back.inputs[2];
+        check(in_file[offline::input_at::value] != 0 || in_file[offline::input_at::value + 1] != 0,
+              "  the file holds the value, as T5000 keeps it");
+
+        check(b.import(file, false, &message), "the file is imported into the same device");
+        const auto after = b.saved(9412);
+        if (require(after.size() == 1 && after[0].index == 2, "  input 3 is still the one changed"))
+        {
+            const offline::InputBytes kept = offline::imported_input(2, in_file);
+            check(std::equal(after[0].edited.begin(), after[0].edited.end(), kept.begin()),
+                  "  as the import keeps it: the value in Auto is not");
+        }
+    }
+
+    void test_an_export_is_refused_where_a_change_is()
+    {
+        section("an export is refused where a change would be, and for a virtual device is named for its serial");
+
+        std::vector<uint8_t> file;
+        std::string name, message;
+
+        Bench none;
+        if (none.open() && none.add(9413, ProductClassId::Tstat10, 0))
+        {
+            check(!none.exported(true, file, name, &message), "a device with no model chosen is refused");
+            check(contains(message, "Choose its model") && file.empty(), "  saying to choose it, and with no file");
+        }
+
+        Bench closed;
+        if (closed.open() && closed.add(9414, ProductClassId::MiniPanelArm, 5))
+        {
+            closed.db.close();
+            closed.status.saving = false;
+            check(!closed.exported(false, file, name, &message), "a list not being saved refuses it");
+            check(contains(message, "not being saved") && file.empty(), "  saying so, with no file");
+        }
+
+        Bench b;
+        if (b.open() && b.add(9415, ProductClassId::MiniPanelArm, 5))
+        {
+            InputExportRequest gone;
+            gone.handle = to_handle(424242);
+            check(!export_offline_inputs(b.registry, b.db, b.status, gone, message, file, name),
+                  "a device no longer in the list is refused");
+            check(contains(message, "no longer in the list"), "  saying so");
+
+            DeviceRecord found = typed_in(9416, ProductClassId::MiniPanelArm, 5);
+            found.provenance = Provenance::BacnetBroadcast;
+            const int i = b.registry.add_or_merge(found);
+            InputExportRequest scanned;
+            scanned.handle = b.registry.devices()[(size_t)i].handle;
+            check(!export_offline_inputs(b.registry, b.db, b.status, scanned, message, file, name),
+                  "a device a scan found is refused: its inputs are read, not configured here");
+        }
+
+        Bench v;
+        if (v.open() && v.add_virtual(ProductClassId::MiniPanelArm, 6))
+        {
+            check(v.exported(false, file, name, &message), "a virtual device is exported");
+            check(name == std::to_string(kFirstVirtualSerial) + ".prog", "  named for the serial T5000 gave it");
+            offline::ProgFile back;
+            std::string why;
+            check(offline::read_prog_file(file.data(), file.size(), back, why) &&
+                      back.settings.serial_number == kFirstVirtualSerial && back.settings.mini_type() == 6,
+                  "  with that serial and its model in the file");
+        }
+    }
+
+    void test_an_export_request_is_read_strictly()
+    {
+        section("an export request is read strictly");
+
+        InputExportRequest r;
+        std::string message;
+        check(read_input_export_request("{\"handle\":\"7\",\"check\":true}", r, message) && r.handle == to_handle(7) &&
+                  r.check,
+              "a check is read");
+        check(read_input_export_request("{\"handle\":\"7\"}", r, message) && !r.check, "with no check, it is an export");
+        check(!read_input_export_request("{\"handle\":\"7\",\"check\":\"true\"}", r, message), "check as a string is refused");
+        check(!read_input_export_request("{\"handle\":\"7\",\"check\":1}", r, message), "check as a number is refused");
+        check(!read_input_export_request("{\"check\":true}", r, message), "no handle is refused");
+    }
+
     void test_an_import_request_is_read_strictly()
     {
         section("an import request is read strictly");
@@ -999,5 +1156,9 @@ int run_offline_inputs_tests()
     test_an_import_request_is_read_strictly();
     test_a_virtual_device_is_configured_offline();
     test_a_virtual_device_imports_a_file_of_its_model();
+    test_a_device_is_exported();
+    test_an_export_is_what_an_import_keeps();
+    test_an_export_is_refused_where_a_change_is();
+    test_an_export_request_is_read_strictly();
     return 0;
 }

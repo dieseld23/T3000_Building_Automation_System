@@ -28,7 +28,23 @@ namespace
     static_assert(offsetof(::Str_Setting_Info, reg.field) == (ours),           \
         "Str_Setting_Info::reg." #field " is not at the offset panel.h reads")
 
+    SETTINGS_FIELD_AT(ip_addr, w::settings_at::ip_addr);
+    SETTINGS_FIELD_AT(subnet, w::settings_at::subnet);
+    SETTINGS_FIELD_AT(gate_addr, w::settings_at::gate_addr);
+    SETTINGS_FIELD_AT(mac_addr, w::settings_at::mac_addr);
+    SETTINGS_FIELD_AT(tcp_type, w::settings_at::tcp_type);
     SETTINGS_FIELD_AT(mini_type, w::settings_at::mini_type);
+    SETTINGS_FIELD_AT(com0_config, w::settings_at::com0_config);
+    SETTINGS_FIELD_AT(com1_config, w::settings_at::com1_config);
+    SETTINGS_FIELD_AT(com2_config, w::settings_at::com2_config);
+    SETTINGS_FIELD_AT(reset_default, w::settings_at::reset_default);
+    SETTINGS_FIELD_AT(com_baudrate0, w::settings_at::com_baudrate0);
+    SETTINGS_FIELD_AT(com_baudrate1, w::settings_at::com_baudrate1);
+    SETTINGS_FIELD_AT(com_baudrate2, w::settings_at::com_baudrate2);
+    SETTINGS_FIELD_AT(panel_type, w::settings_at::panel_type);
+    SETTINGS_FIELD_AT(mstp_network_number, w::settings_at::mstp_network);
+    SETTINGS_FIELD_AT(modbus_port, w::settings_at::modbus_port);
+    SETTINGS_FIELD_AT(max_master, w::settings_at::max_master);
     SETTINGS_FIELD_AT(pro_info.firmware0_rev_main, w::settings_at::firmware_main);
     SETTINGS_FIELD_AT(pro_info.firmware0_rev_sub, w::settings_at::firmware_sub);
     SETTINGS_FIELD_AT(panel_name, w::settings_at::panel_name);

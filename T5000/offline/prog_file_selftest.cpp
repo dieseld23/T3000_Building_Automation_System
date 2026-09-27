@@ -1,5 +1,5 @@
-// Tests for reading a .prog file's inputs and settings, and for what an
-// import keeps of each input.
+// Tests for reading a .prog file's inputs and settings, for what an import
+// keeps of each input, and for the file an export writes.
 //
 // The property most worth guarding is that an import keeps only what the
 // operator sets. A .prog file also holds what the panel measured and set
@@ -278,6 +278,262 @@ namespace
         check(!base64_decode("QU J", out) && !base64_decode("QUJ\n", out), "whitespace is refused");
         check(!base64_decode("QU-_", out), "the URL alphabet's - and _ are refused");
     }
+
+    void test_base64_encoding()
+    {
+        section("base64 out, as the page decodes it");
+
+        check(base64_encode({}).empty(), "nothing is nothing");
+        check(base64_encode({ 'M' }) == "TQ==", "one byte, padded twice");
+        check(base64_encode({ 'M', 'a' }) == "TWE=", "two, padded once");
+        check(base64_encode({ 'M', 'a', 'n' }) == "TWFu", "three, not padded");
+        check(base64_encode({ 0xFB, 0xFF, 0xBF }) == "+/+/", "+ and / for 62 and 63");
+
+        std::vector<uint8_t> all(256);
+        for (int i = 0; i < 256; i++)
+            all[(size_t)i] = (uint8_t)i;
+        bool round_trip = true;
+        for (size_t n = 0; n <= all.size(); n++)
+        {
+            const std::vector<uint8_t> part(all.begin(), all.begin() + (long)n);
+            std::vector<uint8_t> back;
+            round_trip = round_trip && base64_decode(base64_encode(part), back) && back == part;
+        }
+        check(round_trip, "and every length from 0 to 256 comes back as it was");
+    }
+
+    std::vector<InputBytes> inputs_as_t3000_starts_them()
+    {
+        std::vector<InputBytes> inputs;
+        for (int i = 0; i < kProgInputs; i++)
+            inputs.push_back(default_input(i));
+        return inputs;
+    }
+
+    ProgExport a_device(uint32_t serial, uint8_t mini_type)
+    {
+        ProgExport d;
+        d.serial    = serial;
+        d.mini_type = mini_type;
+        d.inputs    = inputs_as_t3000_starts_them();
+        return d;
+    }
+
+    bool all_are(const std::vector<uint8_t>& f, size_t from, size_t n, uint8_t b)
+    {
+        return std::all_of(f.begin() + (long)from, f.begin() + (long)(from + n), [&](uint8_t x) { return x == b; });
+    }
+
+    std::string text_at(const std::vector<uint8_t>& f, size_t at)
+    {
+        return std::string(reinterpret_cast<const char*>(&f[at]));
+    }
+
+    void test_an_export_is_a_file_t5000_reads()
+    {
+        section("an export is a version 8 file, which T5000 reads back as it was written");
+
+        check_eq((long)prog_table_at(prog_table::settings), (long)prog_at::settings, "the settings are where the reader looks");
+        check_eq((long)prog_table_at(prog_table::inputs), (long)prog_at::inputs, "  and so are the inputs");
+
+        ProgExport d = a_device(9401, 6);
+        memcpy(&d.inputs[1][input_at::label], "SAT", 4);
+        d.inputs[2][input_at::auto_manual] = 1;
+        d.inputs[2][input_at::value]       = 0xFC;
+        d.inputs[2][input_at::value + 1]   = 0x53;
+
+        const std::vector<uint8_t> f = write_prog_file(d);
+        check_eq((long)f.size(), (long)prog_file_length(8), "67184 bytes");
+        check(f[0] == 0x55 && f[1] == 0xFF && f[2] == 8, "  starting 55 FF 08");
+
+        ProgFile back;
+        std::string why;
+        if (!require(read_prog_file(f.data(), f.size(), back, why), "T5000 reads it"))
+            return;
+        check_eq((long)back.settings.serial_number, 9401, "  as saved from serial 9401");
+        check_eq(back.settings.mini_type(), 6, "  a T3-LB");
+        bool same = back.inputs.size() == d.inputs.size();
+        for (size_t i = 0; same && i < d.inputs.size(); i++)
+            same = back.inputs[i] == d.inputs[i];
+        check(same, "  with every input as written, the changes to inputs 2 and 3 among them");
+    }
+
+    void test_an_export_holds_t3000s_defaults()
+    {
+        section("an export holds, for every table T5000 does not keep, what T3000 gives a new virtual device");
+
+        const std::vector<uint8_t> f = write_prog_file(a_device(9402, 5));
+        const auto& sections = prog_sections();
+
+        const size_t outputs = prog_table_at(prog_table::outputs);
+        const size_t out_size = sections[prog_table::outputs].size;
+        check(text_at(f, outputs) == "OUT1" && text_at(f, outputs + 63 * out_size) == "OUT64",
+              "the outputs are OUT1 to OUT64");
+        bool outputs_ok = true;
+        for (int i = 0; i < 64; i++)
+        {
+            std::vector<uint8_t> expected(out_size, 0);
+            const std::string name = "OUT" + std::to_string(i + 1);
+            memcpy(expected.data(), name.data(), name.size());
+            expected[offsetof(wire::OutputPoint, hw_switch_status)] = 1;
+            outputs_ok = outputs_ok && std::equal(expected.begin(), expected.end(), f.begin() + (long)(outputs + i * out_size));
+        }
+        check(outputs_ok, "  each with its hand switch at Auto, and nothing else");
+
+        const size_t variables = prog_table_at(prog_table::variables);
+        const size_t var_size = sections[prog_table::variables].size;
+        check(text_at(f, variables) == "VAR1" && text_at(f, variables + 127 * var_size) == "VAR128",
+              "the variables are VAR1 to VAR128");
+        check(all_are(f, variables + 4, var_size - 4, 0), "  and nothing else");
+
+        const size_t programs = prog_table_at(prog_table::programs);
+        const size_t prg_size = sections[prog_table::programs].size;
+        check(text_at(f, programs) == "PRG1" && text_at(f, programs + 15 * prg_size) == "PRG16",
+              "the programs are PRG1 to PRG16");
+        check(all_are(f, programs + 5, prg_size - 5, 0), "  with nothing else, their length 0 among it");
+
+        bool zeros = true;
+        for (size_t t = 4; t < sections.size(); t++)
+            if (t != prog_table::settings && t != prog_table::schedule_flags)
+                zeros = zeros && all_are(f, prog_table_at(t), (size_t)sections[t].items * sections[t].size, 0);
+        check(zeros, "every other table is 0, the program code, holidays' codes and graphic labels among them");
+
+        const ProgSection& flags = sections[prog_table::schedule_flags];
+        check(all_are(f, prog_table_at(prog_table::schedule_flags), (size_t)flags.items * flags.size, 0xFF),
+              "the schedules' time flags are all 0xFF");
+
+        const size_t s = prog_table_at(prog_table::settings);
+        namespace at = wire::settings_at;
+        std::vector<uint8_t> expected(wire::kSettingsWireSize, 0);
+        expected[at::mini_type]         = 5;
+        expected[at::serial_number]     = 9402 & 0xFF;
+        expected[at::serial_number + 1] = 9402 >> 8;
+        expected[at::com_baudrate0]     = 9;
+        expected[at::com_baudrate2]     = 9;
+        expected[at::ip_addr]           = 192;
+        expected[at::ip_addr + 1]       = 168;
+        expected[at::ip_addr + 3]       = 3;
+        expected[at::modbus_port]       = 502 & 0xFF;
+        expected[at::modbus_port + 1]   = 502 >> 8;
+        check(std::equal(expected.begin(), expected.end(), f.begin() + (long)s),
+              "the settings are 0 but the serial, the panel type, ports 0 and 2 at 115200, 192.168.0.3 and port 502");
+        check_eq(uart_rate(kUart115200), 115200, "code 9 is 115200 baud");
+        check(uart_rate(0) == 1200 && uart_rate(10) == 921600 && uart_rate(11) == 0, "  0 is 1200, 10 is 921600, 11 none");
+    }
+
+    void test_the_warning_reads_the_file()
+    {
+        section("what the page is told Load File would do is read back from the file");
+
+        std::vector<uint8_t> f = write_prog_file(a_device(0xFF000001, 6));
+        const std::string text = describe_prog_export(f, "T3-LB");
+        const size_t s = prog_table_at(prog_table::settings);
+        namespace at = wire::settings_at;
+        check(contains(text, "holds every table of a panel, not only its inputs"), "it says the file is every table");
+        check(contains(text, "the outputs as OUT1 to OUT64, their hand switches at Auto"), "  the outputs");
+        check(contains(text, "the variables as VAR1 to VAR128"), "  the variables");
+        check(contains(text, "the programs as PRG1 to PRG16, with no code"), "  the programs");
+        check(contains(text, "and no PID loops, screens, graphic labels, logins, custom units, range tables, "
+                             "schedules, holidays, trend logs, schedule times, holiday codes, program code, "
+                             "variable units and multi-state values."),
+              "  and the tables it empties");
+        check(contains(text, "multi-state values.\n\nOf the settings,"), "  then, in a paragraph of their own, the settings");
+        check(contains(text, "Load File keeps the panel's serial, name, panel number, Modbus id, object instance, "
+                             "IP address, subnet, gateway and MAC"),
+              "  what Load File keeps");
+        check(contains(text, "panel type 6 (T3-LB), so load it only onto a T3-LB"), "  the panel type");
+        check(contains(text, "the IP address set to Use The Following IP Address, so a panel that obtains its address "
+                             "automatically keeps the one it has now, fixed"),
+              "  the IP address as set, as T3000's Settings shows a tcp_type of 0");
+        check(contains(text, "serial ports 0, 1 and 2 not used, at 115200, 1200 and 115200 baud"), "  the serial ports");
+        check(contains(text, "Modbus TCP port 502"), "  the Modbus TCP port");
+        check(contains(text, "MS/TP network 0 and max master 0"), "  MS/TP");
+        check(contains(text, "its product field 0; and every other setting 0."), "  and every other setting");
+        check(contains(text, "The file says serial 4278190081."), "  and the serial in the file, all four bytes");
+
+        // Changed bytes change the words: the text is the file's, not a
+        // copy of what the writer meant to put there.
+        std::vector<uint8_t> dhcp = f;
+        dhcp[s + at::tcp_type] = 1;
+        const std::string automatic = describe_prog_export(dhcp, "T3-LB");
+        check(contains(automatic, "the IP address set to Obtain IP Address Automatically, so a panel with an address "
+                                  "set by hand takes one from DHCP") &&
+                  !contains(automatic, "Use The Following"),
+              "a tcp_type of 1 is Obtain IP Address Automatically");
+        dhcp[s + at::tcp_type] = 2;
+        check(contains(describe_prog_export(dhcp, "T3-LB"), "set to Use The Following IP Address"),
+              "  and 2, as 0, Use The Following IP Address");
+        dhcp[s + at::mini_type] = 7;
+        check(contains(describe_prog_export(dhcp, "T3-LB"), "panel type 7 (T3-LB)"), "the panel type is the file's byte");
+
+        std::vector<uint8_t> port2 = f;
+        port2[s + at::com2_config] = 3;
+        check(contains(describe_prog_export(port2, "T3-LB"),
+                       "serial port 0 not used at 115200 baud, serial port 1 not used at 1200 baud and serial port 2 in "
+                       "mode 3 at 115200 baud"),
+              "a port that differs from the other two only in port 2 is named");
+
+        std::vector<uint8_t> code = f;
+        code[prog_table_at(16) + 5] = 0x21;
+        const std::string with_code = describe_prog_export(code, "T3-LB");
+        check(!contains(with_code, ", with no code") && contains(with_code, "and the program code the file holds"),
+              "program code in the file is not called none");
+        std::vector<uint8_t> holiday = f;
+        holiday[prog_table_at(15)] = 1;
+        check(contains(describe_prog_export(holiday, "T3-LB"), "PRG16, with no code"),
+              "  and holiday codes are not program code");
+
+        f[s + at::com1_config]   = 2;
+        f[s + at::com_baudrate1] = 5;
+        f[s + at::max_master]    = 127;
+        f[s + 170]               = 1;   // en_dyndns, named nowhere
+        f[prog_table_at(6)]      = 1;   // a graphic label
+        f[prog_table_at(prog_table::outputs) + offsetof(wire::OutputPoint, hw_switch_status)] = 2;
+        const std::string changed = describe_prog_export(f, "T3-LB");
+        check(contains(changed, "serial port 0 not used at 115200 baud, serial port 1 in mode 2 at 9600 baud and "
+                                "serial port 2 not used at 115200 baud"),
+              "  ports that differ, each");
+        check(contains(changed, "max master 127"), "  the max master");
+        check(contains(changed, "every other setting as the file has it"), "  a setting named nowhere");
+        check(contains(changed, "and the graphic labels the file holds"), "  a table not empty");
+        check(!contains(changed, "hand switches at Auto"), "  and an output's hand switch not at Auto");
+
+        check(describe_prog_export(std::vector<uint8_t>(100, 0), "T3-LB").empty(), "a file of another length says nothing");
+    }
+
+    void test_every_setting_is_named_or_counted()
+    {
+        section("each byte of the settings is one the warning names, one Load File keeps, or one of 'every other'");
+
+        // What the sentence names, and what Load File keeps
+        // (global_function.cpp:11261-11272), from Str_Setting_Info's layout.
+        namespace at = wire::settings_at;
+        const struct { size_t from, n; } named[] = {
+            { at::ip_addr, 4 }, { at::subnet, 4 }, { at::gate_addr, 4 }, { at::mac_addr, 6 },
+            { at::tcp_type, 1 }, { at::mini_type, 1 }, { at::com0_config, 3 }, { at::reset_default, 1 },
+            { at::com_baudrate0, 3 }, { at::panel_type, 1 }, { at::panel_name, at::panel_name_length },
+            { at::panel_number, 1 }, { at::serial_number, 4 }, { at::mstp_network, 2 }, { at::modbus_port, 2 },
+            { at::modbus_id, 1 }, { at::object_instance, 4 }, { at::max_master, 1 },
+        };
+        const std::vector<uint8_t> f = write_prog_file(a_device(9404, 6));
+        const size_t s = prog_table_at(prog_table::settings);
+
+        std::string wrong;
+        for (size_t b = 0; b < wire::kSettingsWireSize; b++)
+        {
+            bool is_named = false;
+            for (const auto& n : named)
+                is_named = is_named || (b >= n.from && b < n.from + n.n);
+            std::vector<uint8_t> g = f;
+            g[s + b] = (uint8_t)(g[s + b] + 1);
+            const bool said_zero = contains(describe_prog_export(g, "T3-LB"), "every other setting 0.");
+            if (said_zero != is_named)
+                wrong += (wrong.empty() ? "" : ", ") + std::to_string(b);
+        }
+        check(wrong.empty(), "a byte changed alone leaves 'every other setting 0' if and only if it is named or kept");
+        if (!wrong.empty())
+            printf("        bytes not so: %s\n", wrong.c_str());
+    }
 }
 
 int run_prog_file_tests()
@@ -288,5 +544,10 @@ int run_prog_file_tests()
     test_an_import_keeps_what_the_operator_sets();
     test_rows_past_the_model_are_not_kept();
     test_base64();
+    test_base64_encoding();
+    test_an_export_is_a_file_t5000_reads();
+    test_an_export_holds_t3000s_defaults();
+    test_the_warning_reads_the_file();
+    test_every_setting_is_named_or_counted();
     return 0;
 }
