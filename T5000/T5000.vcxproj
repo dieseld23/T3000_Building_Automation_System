@@ -159,6 +159,10 @@
     <ClCompile Include="discovery\scanner_selftest.cpp" />
     <ClCompile Include="discovery\serial_scan.cpp" />
     <ClCompile Include="discovery\serial_scan_selftest.cpp" />
+    <ClCompile Include="firmware\firmware_check.cpp" />
+    <ClCompile Include="firmware\firmware_check_selftest.cpp" />
+    <ClCompile Include="firmware\firmware_file.cpp" />
+    <ClCompile Include="firmware\firmware_file_selftest.cpp" />
     <ClCompile Include="net\interfaces.cpp" />
     <ClCompile Include="offline\input_edit.cpp" />
     <ClCompile Include="offline\input_edit_selftest.cpp" />
@@ -196,6 +200,8 @@
     <ClInclude Include="app\inputs_read.h" />
     <ClInclude Include="app\find_device.h" />
     <ClInclude Include="app\offline_inputs.h" />
+    <ClInclude Include="firmware\firmware_check.h" />
+    <ClInclude Include="firmware\firmware_file.h" />
     <ClInclude Include="offline\input_edit.h" />
     <ClInclude Include="offline\input_cells.h" />
     <ClInclude Include="offline\prog_file.h" />
