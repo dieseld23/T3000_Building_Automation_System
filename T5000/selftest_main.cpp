@@ -21,6 +21,7 @@ int run_scanner_tests();
 int run_serial_ports_tests();
 int run_rtu_tests();
 int run_serial_scan_tests();
+int run_com_port_line_tests();
 int run_json_read_tests();
 int run_scan_json_tests();
 int run_private_transfer_tests();
@@ -72,6 +73,8 @@ int run_selftests(int, char**)
     run_rtu_tests();
     printf("\n");
     run_serial_scan_tests();
+    printf("\n");
+    run_com_port_line_tests();
     printf("\n");
     run_scan_json_tests();
     printf("\n");

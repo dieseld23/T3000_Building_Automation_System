@@ -12,11 +12,17 @@
 // Every frame sent is kept, and every receive counted, so a test can say that
 // nothing was sent, or that nothing was even listened for. An empty inbox
 // times out at once, so tests never wait on a clock.
+//
+// The line has a rate, which a scan of a port changes. A device with a rate
+// of its own answers only at that rate, as one on a real line does: at any
+// other its reply would be noise, and here it is silence. One with no rate
+// answers at every rate, as every device does on com0com's virtual pair.
 
 #include <string.h>
 
 #include <algorithm>
 #include <array>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -90,6 +96,9 @@ namespace t5000::testing
 
         // What register 6 says. 0 is the id it answers on.
         uint8_t reported_id = 0;
+
+        // The rate it answers at. 0 for every rate.
+        int baud = 0;
 
         // An old Tstat's version, 240-249, in register 4 alone. 0 for none.
         uint16_t old_version = 0;
@@ -170,7 +179,7 @@ namespace t5000::testing
         }
     };
 
-    class FakeSerialLine : public discovery::SerialScanTransport
+    class FakeSerialLine : public discovery::SerialLine
     {
     public:
         // When several devices answer at once: their replies one after the
@@ -185,22 +194,50 @@ namespace t5000::testing
         Collision collision = Collision::Concatenate;
 
         // What arrives before anything is sent: another master, or MS/TP.
+        // chatter_at is what arrives at one rate only, in place of chatter.
         SerialBytes chatter;
+        std::map<int, SerialBytes> chatter_at;
 
         // An MS/TP line: from this frame on, counting from 0, every frame
         // sent is answered with token frames. -1 for never.
         int mstp_from = -1;
 
         // The send, or the receive, counting from 0, at which the line
-        // fails. -1 for never.
+        // fails. -1 for never. fail_rate_at is the change of rate, counting
+        // from 0, that the port refuses.
         int fail_send_at    = -1;
         int fail_receive_at = -1;
+        int fail_rate_at    = -1;
 
         // What happened.
         std::vector<SerialBytes> sent;
         std::vector<int> timeouts;   // each receive's timeout, in order
+        std::vector<int> rates;      // each rate set, in order
         int receives      = 0;
         int refused_empty = 0;
+
+        // The rate now. 0 until one is set.
+        int rate = 0;
+
+        // How many frames were sent at each rate.
+        std::map<int, int> sent_at;
+
+        bool set_rate(int baud, std::string& error) override
+        {
+            if (fail_rate_at == (int)rates.size())
+            {
+                error = "the driver refused it";
+                return false;
+            }
+            rates.push_back(baud);
+            rate = baud;
+
+            // A new rate starts with nothing waiting, and is listened to
+            // afresh.
+            m_inbox.clear();
+            m_listened = false;
+            return true;
+        }
 
         bool send(const serial::ScanFrame& frame, std::string& error) override
         {
@@ -216,6 +253,7 @@ namespace t5000::testing
                 return false;
             }
             sent.push_back(frame.bytes());
+            sent_at[rate]++;
             m_inbox = answer(frame.bytes());
             return true;
         }
@@ -229,7 +267,8 @@ namespace t5000::testing
                 return -1;
             }
 
-            const SerialBytes& from = m_listened ? m_inbox : chatter;
+            const auto at = chatter_at.find(rate);
+            const SerialBytes& from = m_listened ? m_inbox : at != chatter_at.end() ? at->second : chatter;
             m_listened = true;
             const int n = std::min((int)from.size(), capacity);
             if (n > 0)
@@ -314,19 +353,22 @@ namespace t5000::testing
             if (!line_crc_ok(b))
                 return {};
 
+            // A device at another rate does not hear the frame as one.
+            const auto hears = [this](const SerialDevice& d) { return d.baud == 0 || rate == 0 || d.baud == rate; };
+
             std::vector<SerialBytes> replies;
             if (b.size() == 6 && b[0] == 0xFF && b[1] == 0x19)
             {
                 const uint8_t hi = b[2];
                 const uint8_t lo = b[3];
                 for (SerialDevice& d : devices)
-                    if (d.id >= lo && d.id <= hi)
+                    if (hears(d) && d.id >= lo && d.id <= hi)
                         replies.push_back(d.range_reply());
             }
             else if (b.size() == 8 && b[1] == 0x03 && b[2] == 0 && b[3] == 0 && b[4] == 0 && b[5] == 10)
             {
                 for (SerialDevice& d : devices)
-                    if (d.id == b[0] && d.answers_identity)
+                    if (hears(d) && d.id == b[0] && d.answers_identity)
                         replies.push_back(d.identity_reply());
             }
             return combine(replies);

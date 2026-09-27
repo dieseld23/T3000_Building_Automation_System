@@ -21,21 +21,6 @@ namespace t5000::serial
             return out;
         }
 
-        // "COM12" -> 12. 0 for anything else, including "COM0" and "COM" alone.
-        int com_number(const std::string& name)
-        {
-            if (name.size() < 4 || _strnicmp(name.c_str(), "COM", 3) != 0)
-                return 0;
-            int n = 0;
-            for (size_t i = 3; i < name.size(); i++)
-            {
-                if (name[i] < '0' || name[i] > '9' || n > 100000)
-                    return 0;
-                n = n * 10 + (name[i] - '0');
-            }
-            return n;
-        }
-
         // The device names of common USB-serial drivers, after "\Device\".
         // T3000 looks for USBSER alone (global_function.cpp:1024), which is
         // Windows' own driver for CDC adapters; the FTDI adapters RS485
@@ -57,6 +42,41 @@ namespace t5000::serial
             }
             return false;
         }
+    }
+
+    int com_number(const std::string& name)
+    {
+        if (name.size() < 4 || _strnicmp(name.c_str(), "COM", 3) != 0)
+            return 0;
+        int n = 0;
+        for (size_t i = 3; i < name.size(); i++)
+        {
+            if (name[i] < '0' || name[i] > '9' || n > 100000)
+                return 0;
+            n = n * 10 + (name[i] - '0');
+        }
+        return n;
+    }
+
+    bool is_plain_port_name(const std::string& name)
+    {
+        if (name.empty() || name.size() > 32)
+            return false;
+        for (const char c : name)
+        {
+            const bool ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
+            if (!ok)
+                return false;
+        }
+        return true;
+    }
+
+    const Port* find_port(const std::vector<Port>& ports, const std::string& name)
+    {
+        for (const Port& p : ports)
+            if (p.name.size() == name.size() && _stricmp(p.name.c_str(), name.c_str()) == 0)
+                return &p;
+        return nullptr;
     }
 
     std::vector<Port> ports_from_values(const std::vector<std::pair<std::string, std::string>>& values)

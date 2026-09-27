@@ -606,6 +606,76 @@ namespace
     }
 }
 
+namespace
+{
+    void test_a_serial_scan_reaches_the_page()
+    {
+        section("a serial scan reaches the page, rate by rate");
+
+        Registry reg;
+        ScanSummary summary;
+        summary.has_scanned = true;
+        const std::string network = build_devices_json(reg, summary);
+        check(has(network, "\"serial\":null"), "a network scan has no serial part");
+
+        summary.serial_scanned = true;
+        summary.serial.port    = "CNCA0";
+        t5000::discovery::RateScan quiet;
+        quiet.baud = 9600;
+        quiet.result.stats.frames_sent = 1;
+        t5000::discovery::RateScan busy;
+        busy.baud = 19200;
+        busy.result.line_busy = "3 bytes arrived while listening";
+        t5000::discovery::RateScan shared;
+        shared.baud = 38400;
+        shared.result.stats.frames_sent  = 9;
+        shared.result.stats.garbled      = 2;
+        shared.result.stats.shared_ids   = { 5, 9 };
+        shared.result.stats.unreadable_ids = { 11 };
+        summary.serial.rates   = { quiet, busy, shared };
+        summary.serial.repeats = 3;
+        summary.serial.error   = "CNCA0 stopped responding";
+
+        const std::string json = build_devices_json(reg, summary);
+        check(has(json, "\"serial\":{\"port\":\"CNCA0\",\"found\":0,\"repeats\":3,\"framesSent\":10,"
+                        "\"busyRates\":1,\"runsMstp\":false,\"mstpBaud\":0,\"error\":\"CNCA0 stopped responding\""),
+              "the port, what it found, and how it ended");
+        check(has(json, "{\"baud\":9600,\"found\":0,\"framesSent\":1,\"garbled\":0,\"lineBusy\":\"\","),
+              "each rate in turn");
+        check(has(json, "\"lineBusy\":\"3 bytes arrived while listening\""), "why a rate was left alone");
+        check(has(json, "\"sharedIds\":[5,9],\"unreadableIds\":[11]"), "and the ids it could not list");
+    }
+
+    void test_a_serial_device_says_how_it_is_reached()
+    {
+        section("a device says how it is reached");
+
+        Registry reg;
+        DeviceRecord d;
+        d.serial_number            = 1234;
+        d.connection.transport     = t5000::device::Transport::ModbusRtu;
+        d.connection.serial_port   = "COM3";
+        d.address_note             = "COM3 id 5, 9600 baud";
+        reg.add_or_merge(d);
+        DeviceRecord n;
+        n.serial_number = 1235;
+        reg.add_or_merge(n);
+
+        const std::string json = build_devices_json(reg, ScanSummary());
+        check(has(json, "\"address\":\"COM3 id 5, 9600 baud\",\"transport\":\"modbus-rtu\""),
+              "one on a serial port over Modbus RTU");
+        check(has(json, "\"transport\":\"bacnet-ip\""), "one on the network over BACnet/IP");
+    }
+
+    void test_the_rates_a_port_is_scanned_at_are_listed()
+    {
+        section("the rates a serial scan tries are listed with the ports");
+
+        const std::string json = build_interfaces_json({}, std::string());
+        check(has(json, "\"serialRates\":[9600,19200,38400,57600,76800,115200]"), "all six, in the order tried");
+    }
+}
+
 int run_scan_json_tests()
 {
     test_an_empty_registry_is_not_an_error();
@@ -628,5 +698,8 @@ int run_scan_json_tests()
     test_inputs_carry_what_t3000_shows();
     test_the_saved_list_reaches_the_page();
     test_a_list_not_being_saved_says_why();
+    test_a_serial_scan_reaches_the_page();
+    test_a_serial_device_says_how_it_is_reached();
+    test_the_rates_a_port_is_scanned_at_are_listed();
     return 0;
 }
