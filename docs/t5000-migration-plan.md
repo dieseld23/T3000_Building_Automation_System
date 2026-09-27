@@ -794,7 +794,7 @@ firmware is not here, and T3000 treats every answer alike.
 |---|---|
 | W1a | Write encoding, reply classification and guards; nothing can send. Done (#32) |
 | W1b | One input's Filter, approved in the page and read back |
-| W2 | Evidence: a log of each write with the panel's raw answer, and a check of T3000's reply handling through its DLL; then the first hardware check |
+| W2 | Evidence: a log of each write with the panel's raw answer, and a check of T3000's reply handling through its DLL. The test panel's default answer becomes what the first hardware check, run after W1b, recorded |
 | W3 | Inputs' Auto/Manual |
 | W4, W5 | Outputs (101) and Variables (103), with their grids' rules |
 | W6 | Staging and review: changes collected, then read, compared and written as a batch. Applying offline changes to a found device (C, above) goes through it |
