@@ -45,6 +45,7 @@ int run_input_edit_tests();
 int run_offline_inputs_tests();
 int run_find_device_tests();
 int run_http_server_tests();
+int run_nav_tests();
 
 int run_selftests(int, char**)
 {
@@ -119,6 +120,8 @@ int run_selftests(int, char**)
     run_find_device_tests();
     printf("\n");
     run_http_server_tests();
+    printf("\n");
+    run_nav_tests();
 
     const int failures = t5000::testing::g_failures;
     const int checks   = t5000::testing::g_checks;

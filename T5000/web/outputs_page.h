@@ -37,9 +37,6 @@ namespace t5000::web
   header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 16px;
          border-bottom:1px solid var(--border);background:var(--surface);flex:none}
   h1{font-size:14px;font-weight:600;margin:0}
-  nav{display:flex;gap:10px;font-size:12px}
-  nav a{color:var(--accent);text-decoration:none}
-  nav a:hover{text-decoration:underline}
   .meta{color:var(--dim);font-size:12px}
   .meta b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
   .spacer{flex:1}
@@ -100,7 +97,6 @@ namespace t5000::web
 
 <header>
   <h1>Outputs</h1>
-  <nav><a href="/">Devices</a><a href="/inputs">Inputs</a><a href="/variables">Variables</a></nav>
   <span class="meta">Device <b id="serial">&mdash;</b></span>
   <span class="meta"><b id="count">0</b> points</span>
   <span class="spacer"></span>

@@ -37,7 +37,7 @@ synthetic devices on loopback.
 | Inputs | Done for the five BACnet private-data products (CM5, MiniPanel, MiniPanel ARM, ESP32 T3, TSTAT10) over BACnet/IP. The grid matches T3000's column by column, including the panel's own custom range names and its row count per model. The Panel and Type columns are not done. |
 | Outputs | Done for the same five products over BACnet/IP. The grid matches T3000's column by column: the HOA Switch column and the rows it marks, each model's row count, the panel's custom digital range names, and outputs on T3 expansion modules. The Panel, Type and Product Name columns are not done. |
 | Variables | Done for the same five products over BACnet/IP. The grid matches T3000's column by column: every variable the panel has, three decimals, times, the fixed and the panel's own state pairs, the panel's own units, and names from its multi-state tables. |
-| Every other screen | Not started. See the migration plan's stages. |
+| Every other screen | Not started. The bar across the top of every page names them all in T3000's toolbar order, dimmed until they are built; Alt+I, Alt+O and Alt+V open Inputs, Outputs and Variables, as in T3000. See the migration plan's stages. |
 | Writes | Started. A write of inputs can be encoded, and a panel's answer classified, byte for byte as T3000's BACnet stack does it, but nothing can send one yet. Writing one input's Filter, approved in the page and confirmed by reading it back, is next. See the migration plan's Writes. |
 | Tstats and Modbus modules | Identified in the device list; not read. They need the register path, which does not exist yet. |
 | Devices behind a controller | Refused, with the controller named. T3000 reaches them through the controller over Modbus; T5000 does not yet. |
