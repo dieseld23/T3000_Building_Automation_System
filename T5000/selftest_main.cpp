@@ -49,6 +49,8 @@ int run_firmware_file_tests();
 int run_firmware_check_tests();
 int run_offline_inputs_tests();
 int run_find_device_tests();
+int run_firmware_page_tests();
+int run_firmware_read_tests();
 int run_http_server_tests();
 int run_nav_tests();
 
@@ -133,6 +135,10 @@ int run_selftests(int, char**)
     run_offline_inputs_tests();
     printf("\n");
     run_find_device_tests();
+    printf("\n");
+    run_firmware_page_tests();
+    printf("\n");
+    run_firmware_read_tests();
     printf("\n");
     run_http_server_tests();
     printf("\n");
