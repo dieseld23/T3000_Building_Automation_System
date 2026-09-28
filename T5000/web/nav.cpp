@@ -69,6 +69,10 @@ namespace t5000::web
             // T3000's menu gives it Alt-T as well, which Trend Logs has.
             { "Remote Points", nullptr, 0 },
             { "Configuration", nullptr, 'e' },
+            // Not a screen of T3000's toolbar: its Tools menu's "Load
+            // firmware for a single device", on Ctrl+F2 there
+            // (T3000.rc:11530), which the bar does not take.
+            { "Firmware", "/firmware", 0 },
         };
         return pages;
     }

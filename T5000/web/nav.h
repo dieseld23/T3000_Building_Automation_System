@@ -4,9 +4,11 @@
 //
 // T3000's screens, in the order of its toolbar (IDR_TOOLBAR_BACNET,
 // T3000.rc:7001-7016) and named as its Control menu names them
-// (T3000.rc:11566-11581), less Graphics, which T5000 leaves out. The pages
-// built are links. The rest are named and dimmed, so the bar says what
-// T5000 has and what it still has to do, rather than hiding it.
+// (T3000.rc:11566-11581), less Graphics, which T5000 leaves out; then
+// Firmware, T3000's "Load firmware for a single device" (Tools,
+// T3000.rc:11530). The pages built are links. The rest are named and
+// dimmed, so the bar says what T5000 has and what it still has to do,
+// rather than hiding it.
 //
 // Added to a page as it is served, rather than written into each one, so
 // every page has the same bar and a new page gets it by being served

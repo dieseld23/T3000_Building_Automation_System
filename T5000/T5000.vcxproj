@@ -255,6 +255,7 @@
     <ClInclude Include="testing\fake_serial_line.h" />
     <ClInclude Include="testing\temp_file.h" />
     <ClInclude Include="web\devices_page.h" />
+    <ClInclude Include="web\firmware_page.h" />
     <ClInclude Include="web\inputs_page.h" />
     <ClInclude Include="web\outputs_page.h" />
     <ClInclude Include="web\variables_page.h" />
