@@ -18,6 +18,14 @@
 //       only its own headers, the test harness and the standard library,
 //       and names no socket, serial port or file. Until T5000 flashes, a
 //       firmware file goes nowhere.
+//   S7  app/firmware_page.*, which checks a file for the Firmware page, can
+//       reach no transport: nothing it includes, or what that includes in
+//       turn, is in bacnet/, serial/, discovery/, net/, http/ or store/, or
+//       is an OS or file header, and it names no socket, serial port or
+//       file. In main.cpp, the route that checks a file calls only
+//       check_firmware_json, and is the only route that takes a firmware
+//       file's size; each points page keeps the bootloader's version its
+//       read gave.
 //
 // The T3000 pins are text, not line numbers, and whitespace-blind:
 //   - WritePrivateData encodes into uint8_t test_value[480], which is what
@@ -137,6 +145,46 @@ namespace
         return out;
     }
 
+    // Headers that reach the OS: sockets, serial ports, files.
+    const char* const kOsHeaders[] = { "windows.h", "winsock.h", "winsock2.h", "ws2tcpip.h", "iphlpapi.h",
+                                       "io.h",      "fcntl.h",   "filesystem", "fstream",    "cstdio" };
+
+    // Calls that send, or open a port or a file.
+    const char* const kReachingCalls[] = { "socket(",   "sendto(", "send(",   "CreateFile", "WriteFile(",
+                                           "ReadFile(", "fopen",   "_open(",  "ifstream",   "ofstream" };
+
+    bool includes_an_os_header(const SourceFile& f, std::string& what)
+    {
+        static const std::regex angled(R"re(#\s*include\s*<([^>]+)>)re");
+        for (std::sregex_iterator it(f.text.begin(), f.text.end(), angled), end; it != end; ++it)
+        {
+            const std::string inc = (*it)[1].str();
+            for (const char* os : kOsHeaders)
+            {
+                if (inc == os)
+                {
+                    what = "includes <" + inc + ">";
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    bool names_a_reaching_call(const SourceFile& f, std::string& what)
+    {
+        const std::string code = t5000::conformance::strip_comments(f.text);
+        for (const char* call : kReachingCalls)
+        {
+            if (code.find(call) != std::string::npos)
+            {
+                what = std::string("calls ") + call;
+                return true;
+            }
+        }
+        return false;
+    }
+
     // S6: what a firmware/ file may not include or call.
     bool firmware_reaches_out(const SourceFile& f, std::string& what)
     {
@@ -151,31 +199,104 @@ namespace
                 return true;
             }
         }
-        for (std::sregex_iterator it(f.text.begin(), f.text.end(), angled), end; it != end; ++it)
+        return includes_an_os_header(f, what) || names_a_reaching_call(f, what);
+    }
+
+    // A quoted include, as a path under T5000/: "../json/read.h" from
+    // "app/firmware_page.cpp" is "json/read.h". Empty when it climbs out.
+    std::string resolve(const std::string& from, const std::string& inc)
+    {
+        std::vector<std::string> parts;
+        const size_t slash = from.rfind('/');
+        const std::string joined = (slash == std::string::npos ? std::string() : from.substr(0, slash + 1)) + inc;
+        size_t start = 0;
+        while (start <= joined.size())
         {
-            const std::string inc = (*it)[1].str();
-            for (const char* os : { "windows.h", "winsock.h", "winsock2.h", "ws2tcpip.h", "iphlpapi.h", "io.h", "fcntl.h",
-                                    "filesystem", "fstream", "cstdio" })
+            size_t next = joined.find('/', start);
+            if (next == std::string::npos)
+                next = joined.size();
+            const std::string part = joined.substr(start, next - start);
+            if (part == "..")
             {
-                if (inc == os)
+                if (parts.empty())
+                    return std::string();
+                parts.pop_back();
+            }
+            else if (!part.empty() && part != ".")
+                parts.push_back(part);
+            start = next + 1;
+        }
+        std::string out;
+        for (const std::string& p : parts)
+            out += (out.empty() ? "" : "/") + p;
+        return out;
+    }
+
+    // Every T5000 file a file includes, and what those include in turn,
+    // itself first. A quoted include T5000 does not have is kept by name,
+    // so the check below sees it.
+    std::vector<std::string> include_closure(const std::vector<SourceFile>& files, const std::string& start)
+    {
+        static const std::regex quoted(R"re(#\s*include\s*"([^"]+)")re");
+        std::vector<std::string> seen = { start };
+        for (size_t i = 0; i < seen.size(); i++)
+        {
+            const auto f = std::find_if(files.begin(), files.end(),
+                                        [&](const SourceFile& s) { return s.relative == seen[i]; });
+            if (f == files.end())
+                continue;
+            for (std::sregex_iterator it(f->text.begin(), f->text.end(), quoted), end; it != end; ++it)
+            {
+                std::string next = resolve(f->relative, (*it)[1].str());
+                if (next.empty())
+                    next = "(outside T5000) " + (*it)[1].str();
+                if (std::find(seen.begin(), seen.end(), next) == seen.end())
+                    seen.push_back(next);
+            }
+        }
+        return seen;
+    }
+
+    // S7: whether a Firmware-page file reaches a transport, by what it
+    // includes at any depth or by what it names itself.
+    bool firmware_page_reaches_out(const std::vector<SourceFile>& files, const SourceFile& f, std::string& what)
+    {
+        for (const std::string& r : include_closure(files, f.relative))
+        {
+            for (const char* dir : { "bacnet/", "serial/", "discovery/", "net/", "http/", "store/", "(outside" })
+            {
+                if (starts_with(r, dir))
                 {
-                    what = "includes <" + inc + ">";
+                    what = "reaches " + r;
                     return true;
                 }
             }
-        }
-        const std::string code = t5000::conformance::strip_comments(f.text);
-        for (const char* call : { "socket(", "sendto(", "send(", "CreateFile", "WriteFile(", "ReadFile(", "fopen",
-                                  "_open(", "ifstream", "ofstream" })
-        {
-            if (code.find(call) != std::string::npos)
+            const auto g = std::find_if(files.begin(), files.end(),
+                                        [&](const SourceFile& s) { return s.relative == r; });
+            std::string how;
+            if (g != files.end() && includes_an_os_header(*g, how))
             {
-                what = std::string("calls ") + call;
+                what = "reaches " + r + ", which " + how;
                 return true;
             }
         }
-        return false;
+        return names_a_reaching_call(f, what);
     }
+
+    // The text of a main.cpp route's registration, from its path to the
+    // `});` or `);` that ends it. Empty when the path is not registered
+    // once.
+    std::string route_text(const std::string& main, const std::string& path)
+    {
+        const std::string quoted = "\"" + path + "\",";
+        const size_t at = main.find(quoted);
+        if (at == std::string::npos || main.find(quoted, at + 1) != std::string::npos)
+            return std::string();
+        const size_t next = main.find("server.route(", at);
+        return main.substr(at, (next == std::string::npos ? main.size() : next) - at);
+    }
+
+    int occurrences(const std::string& text, const std::string& what);
 
     bool includes_a_write_header(const SourceFile& f, std::string& which)
     {
@@ -205,7 +326,8 @@ namespace
             return;
         }
 
-        int read_path_files = 0, s1 = 0, s2 = 0, s4 = 0, s5 = 0, s6 = 0, firmware_files = 0;
+        int read_path_files = 0, s1 = 0, s2 = 0, s4 = 0, s5 = 0, s6 = 0, firmware_files = 0, s7 = 0,
+            firmware_page_files = 0;
         bool saw_point_read = false, saw_write_command = false;
 
         static const std::regex raw_command(R"re(\b(uint8_t|unsigned\s+char)\s+command\b)re");
@@ -263,6 +385,17 @@ namespace
                     s6++;
                 }
             }
+
+            if (f.relative == "app/firmware_page.h" || f.relative == "app/firmware_page.cpp")
+            {
+                firmware_page_files++;
+                std::string what;
+                if (firmware_page_reaches_out(files, f, what))
+                {
+                    printf("        S7: %s %s\n", f.relative.c_str(), what.c_str());
+                    s7++;
+                }
+            }
         }
 
         check(saw_point_read && saw_write_command, "  the files these checks are about are among them");
@@ -273,6 +406,61 @@ namespace
         check_eq(s5, 0, "S5: sendto( only in the scanner, the reader and self-tests");
         check(firmware_files >= 6, "  firmware/'s files are among them");
         check_eq(s6, 0, "S6: firmware/ reads what it is given, and reaches nothing else");
+        check_eq(firmware_page_files, 2, "  app/firmware_page.h and .cpp are among them");
+        check_eq(s7, 0, "S7: the Firmware page's check reaches no transport, at any depth");
+        const std::vector<std::string> reached = include_closure(files, "app/firmware_page.cpp");
+        const auto has = [&](const char* r) { return std::find(reached.begin(), reached.end(), r) != reached.end(); };
+        check(has("app/firmware_page.h") && has("json/read.h") && has("wire/panel.h") && has("device/connection.h"),
+              "  its includes are followed, down to the headers of the headers it includes");
+
+        std::string what;
+        std::vector<SourceFile> planted = { { "app/firmware_page.cpp", "#include \"points_json.h\"\n" },
+                                            { "app/points_json.h", "#include \"../wire/panel.h\"\n" },
+                                            { "wire/panel.h", "#include \"../bacnet/point_read.h\"\n" },
+                                            { "bacnet/point_read.h", "" } };
+        check(firmware_page_reaches_out(planted, planted[0], what) && what == "reaches bacnet/point_read.h",
+              "  a transport three includes down is seen");
+        planted[2].text = "#include <winsock2.h>\n";
+        check(firmware_page_reaches_out(planted, planted[0], what) &&
+                  what == "reaches wire/panel.h, which includes <winsock2.h>",
+              "  and so is an OS header");
+        planted[2].text = "";
+        planted[0].text += "void f() { sendto(0, 0, 0, 0, 0, 0); }\n";
+        check(firmware_page_reaches_out(planted, planted[0], what) && what == "calls sendto(",
+              "  and a call it names itself");
+        planted[0].text = "#include \"../../elsewhere.h\"\n";
+        check(firmware_page_reaches_out(planted, planted[0], what), "  and a header from outside T5000");
+        planted[0].text = "#include \"points_json.h\"\n";
+        check(!firmware_page_reaches_out(planted, planted[0], what), "  while what reaches nothing passes");
+
+        section("the Firmware routes in main.cpp");
+
+        const auto main = std::find_if(files.begin(), files.end(),
+                                       [](const SourceFile& s) { return s.relative == "main.cpp"; });
+        if (!require(main != files.end(), "main.cpp is read"))
+            return;
+        const std::string code  = t5000::conformance::strip_comments(main->text);
+        const std::string check_route = route_text(code, "/api/firmware/check");
+        if (require(!check_route.empty(), "/api/firmware/check is registered, once"))
+        {
+            check(check_route.find("app::check_firmware_json(g_registry, request, req.body)") != std::string::npos,
+                  "  it answers with check_firmware_json");
+            bool reaches = false;
+            for (const char* word : { "ransport", "read_bootloader", "sendto(", "Udp", "Serial", "scan", "fopen",
+                                      "stream", "CreateFile" })
+                reaches = reaches || check_route.find(word) != std::string::npos;
+            check(!reaches, "  and names no transport, read or file");
+            check(check_route.find("app::kLargestFirmwareRequest);") != std::string::npos,
+                  "  it takes up to kLargestFirmwareRequest");
+        }
+        check_eq(occurrences(code, "kLargestFirmwareRequest"), 1, "  and no other route does");
+
+        for (const char* page : { "Inputs", "Outputs", "Variables" })
+        {
+            const std::string keep = std::string("app::keep_bootloader(g_registry, d.handle, panel, \"the ") + page +
+                                     " page\");";
+            check_eq(occurrences(code, keep), 1, (std::string("the ") + page + " page keeps the bootloader's version its read gave").c_str());
+        }
     }
 
     // Whitespace collapsed to single spaces, so the pins survive re-indenting.
