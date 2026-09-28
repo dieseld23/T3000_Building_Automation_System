@@ -86,6 +86,13 @@ namespace t5000::http
     // it take in more than kMaxBody, whatever it names.
     size_t body_limit(const Request& head, unsigned short port, const std::vector<Route>& routes);
 
+    // Whether a request whose head declares `declared` bytes of body is
+    // refused them by body_limit. If so, `refused` is the answer, a 413
+    // saying how much it carries and how much it may, and the server reads
+    // none of the body.
+    bool body_refused(const Request& head, size_t declared, unsigned short port, const std::vector<Route>& routes,
+                      Response& refused);
+
     class Server
     {
     public:

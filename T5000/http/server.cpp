@@ -213,6 +213,19 @@ namespace t5000::http
         return kMaxBody;
     }
 
+    bool body_refused(const Request& head, size_t declared, unsigned short port, const std::vector<Route>& routes,
+                      Response& refused)
+    {
+        const size_t limit = body_limit(head, port, routes);
+        if (declared <= limit)
+            return false;
+        refused        = Response();
+        refused.status = 413;
+        refused.body   = "The request carries " + std::to_string(declared) + " bytes; it may carry " +
+                         std::to_string(limit) + ".";
+        return true;
+    }
+
     Response Response::json(std::string body)
     {
         Response r;
@@ -317,25 +330,19 @@ namespace t5000::http
             std::string why;
             size_t head_end = 0;
             size_t declared = 0;
-            size_t limit    = 0;
             const bool head_ok = read_head(client, raw, head_end) && parse_request(raw.substr(0, head_end + 4), req);
             if (head_ok)
-            {
                 declared = header_value_size(raw.substr(0, head_end), "content-length");
-                limit    = body_limit(req, m_port, m_routes);
-            }
 
             if (!head_ok)
             {
                 res.status = 400;
                 res.body   = "Bad request";
             }
-            else if (declared > limit)
+            else if (body_refused(req, declared, m_port, m_routes, res))
             {
-                // Not read: the connection is closed with the rest unread.
-                res.status = 413;
-                res.body   = "The request carries " + std::to_string(declared) + " bytes; it may carry " +
-                             std::to_string(limit) + ".";
+                // res is the 413. Nothing of the body is read: the
+                // connection is closed with the rest unread.
             }
             else if (!read_body(client, raw, head_end + 4, declared) || !parse_request(raw, req))
             {

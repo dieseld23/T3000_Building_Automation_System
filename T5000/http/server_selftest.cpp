@@ -123,6 +123,26 @@ namespace
         small[0].max_body = 10;
         check_eq((long)body_limit(head("POST /api/firmware/check HTTP/1.1", own), 8730, small), (long)kMaxBody,
                  "a route asking for less than 256 KB still gets 256 KB");
+
+        const size_t big = 16u * 1024 * 1024;
+        Response refused;
+        check(!body_refused(head("POST /api/firmware/check HTTP/1.1", own), big, 8730, routes, refused),
+              "16 MiB to the route that asks, from T5000's page: read");
+        check(body_refused(head("POST /api/firmware/check HTTP/1.1", own), big + 1, 8730, routes, refused),
+              "  a byte more: refused");
+        check_eq(refused.status, 413, "  with 413");
+        check(refused.body == "The request carries 16777217 bytes; it may carry 16777216.",
+              "  saying how much it carries and how much it may");
+        check(!body_refused(head("POST /api/devices HTTP/1.1", own), kMaxBody, 8730, routes, refused),
+              "256 KB to any other route: read");
+        check(body_refused(head("POST /api/devices HTTP/1.1", own), kMaxBody + 1, 8730, routes, refused),
+              "  a byte more: refused");
+        check(body_refused(head("POST /api/firmware/check HTTP/1.1", "https://evil.example"), kMaxBody + 1, 8730,
+                           routes, refused) &&
+                  refused.body == "The request carries 262145 bytes; it may carry 262144.",
+              "another site's page, a byte over 256 KB to the route that asks: refused");
+        check(!body_refused(head("GET /api/firmware/check HTTP/1.1", own), 0, 8730, routes, refused),
+              "no body at all: read");
     }
 }
 
