@@ -189,11 +189,25 @@ namespace t5000::device
                 existing.observation_complete =
                     existing.observation_complete || device.observation_complete;
 
+                // A scan response says whether the device is in its
+                // bootloader, false included: a device that has left it must
+                // stop being shown as in it. Nothing else says either way.
+                // The bootloader's version is not merged: only
+                // note_bootloader sets it.
+                if (device.observation_complete)
+                    existing.in_bootloader = device.in_bootloader;
+
                 return (int)i;
             }
         }
 
         m_devices.push_back(device);
+
+        // As for a merge: only note_bootloader gives a device a
+        // bootloader's version.
+        m_devices.back().bootloader_known = false;
+        m_devices.back().bootloader       = 0;
+        m_devices.back().bootloader_from.clear();
 
         // The handle is the registry's to give, never the caller's. A record
         // arriving with one set - copied from an older list, say - would
@@ -243,6 +257,22 @@ namespace t5000::device
             return false;
 
         m_devices[i].placement = placement;
+        return true;
+    }
+
+    bool Registry::note_bootloader(Handle handle, uint32_t settings_serial, int bootloader, const std::string& from)
+    {
+        const int i = index_of(handle);
+        if (i < 0)
+            return false;
+
+        DeviceRecord& d = m_devices[i];
+        if (d.is_virtual() || !d.has_stable_identity() || settings_serial != d.serial_number)
+            return false;
+
+        d.bootloader_known = true;
+        d.bootloader       = bootloader;
+        d.bootloader_from  = from;
         return true;
     }
 

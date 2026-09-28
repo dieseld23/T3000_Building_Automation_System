@@ -23,6 +23,7 @@ namespace t5000::wire
         out.mini_type_byte = buffer[settings_at::mini_type];
         out.firmware_main  = buffer[settings_at::firmware_main];
         out.firmware_sub   = buffer[settings_at::firmware_sub];
+        out.bootloader_rev = buffer[settings_at::bootloader_rev];
         memcpy(out.panel_name, buffer + settings_at::panel_name, settings_at::panel_name_length);
         out.panel_number    = buffer[settings_at::panel_number];
         out.serial_number   = le32(buffer + settings_at::serial_number);

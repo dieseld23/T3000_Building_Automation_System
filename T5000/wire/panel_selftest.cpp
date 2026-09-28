@@ -24,6 +24,7 @@ namespace
         b[settings_at::mini_type]     = 0x80 | 44;   // APM chip, T3-8AI8AO6DO
         b[settings_at::firmware_main] = 63;
         b[settings_at::firmware_sub]  = 7;
+        b[settings_at::bootloader_rev] = 62;
         memset(&b[settings_at::panel_name], 0, settings_at::panel_name_length);
         memcpy(&b[settings_at::panel_name], "Boiler Room", 11);
         b[settings_at::panel_number] = 12;
@@ -62,6 +63,7 @@ namespace
         check_eq((int)s.firmware_main, 63, "firmware main");
         check_eq((int)s.firmware_sub, 7, "firmware sub");
         check_eq(s.firmware(), 637, "firmware as T3000 compares it");
+        check_eq((int)s.bootloader_rev, 62, "bootloader_rev");
         check(memcmp(s.panel_name, "Boiler Room\0\0\0\0\0\0\0\0\0", 20) == 0, "panel name");
         check_eq((int)s.panel_number, 12, "panel number");
         check_eq((long)s.serial_number, 134341184L, "serial number, little-endian");

@@ -862,6 +862,73 @@ namespace
         }
     }
 
+    void test_in_bootloader_follows_the_latest_scan()
+    {
+        section("whether a device is in its bootloader is what the latest scan response said");
+
+        Registry reg;
+        DeviceRecord stuck = a_device(8101);
+        stuck.observation_complete = true;
+        stuck.in_bootloader = true;
+        const int i = reg.add_or_merge(stuck);
+        check(reg.devices()[i].in_bootloader, "a scan response from its bootloader says so");
+
+        DeviceRecord partial = a_device(8101);
+        partial.observation_complete = false;
+        partial.in_bootloader = false;
+        reg.add_or_merge(partial);
+        check(reg.devices()[i].in_bootloader, "a partial look at it does not say it has left");
+
+        DeviceRecord running = a_device(8101);
+        running.observation_complete = true;
+        running.in_bootloader = false;
+        reg.add_or_merge(running);
+        check(!reg.devices()[i].in_bootloader, "a later scan response from its firmware does");
+    }
+
+    void test_a_bootloader_number_is_kept_only_for_its_own_serial()
+    {
+        section("a bootloader number from settings is kept only when the settings give the device's serial");
+
+        Registry reg;
+        const int i = reg.add_or_merge(a_device(8201));
+        const Handle h = handle_at(reg, i);
+
+        check(!reg.note_bootloader(h, 8202, 62, "its settings"), "settings with another serial are refused");
+        check(!reg.devices()[i].bootloader_known, "... and nothing is kept");
+        check(!reg.note_bootloader(h, 0, 62, "its settings"), "settings with serial 0 are refused");
+        check(!reg.devices()[i].bootloader_known, "... and nothing is kept");
+        check(!reg.note_bootloader(to_handle(999), 8201, 62, "its settings"), "a handle of no device is refused");
+
+        check(reg.note_bootloader(h, 8201, 62, "its settings, read at 14:02"), "its own serial is kept");
+        check(reg.devices()[i].bootloader_known, "... as known");
+        check_eq(reg.devices()[i].bootloader, 62, "... with the number");
+        check(reg.devices()[i].bootloader_from == "its settings, read at 14:02", "... and where it came from");
+
+        DeviceRecord rescan = a_device(8201);
+        rescan.observation_complete = true;
+        rescan.bootloader_known = true;
+        rescan.bootloader = 30;
+        reg.add_or_merge(rescan);
+        check_eq(reg.devices()[i].bootloader, 62, "a merge does not change it");
+
+        DeviceRecord arrives = a_device(8203);
+        arrives.bootloader_known = true;
+        arrives.bootloader = 30;
+        const int j = reg.add_or_merge(arrives);
+        check(!reg.devices()[j].bootloader_known, "nor does a new record bring one");
+
+        DeviceRecord nameless = a_device(0);
+        const int k = reg.add_or_merge(nameless);
+        check(!reg.note_bootloader(handle_at(reg, k), 0, 62, "its settings"), "a device with no serial of its own gets none");
+
+        DeviceRecord made = a_device(kFirstVirtualSerial);
+        made.provenance = Provenance::Virtual;
+        const int v = reg.add_or_merge(made);
+        check(!reg.note_bootloader(handle_at(reg, v), kFirstVirtualSerial, 62, "its settings"),
+              "a virtual device gets none, whatever answers with its serial");
+    }
+
     void test_a_restored_device_takes_no_part_in_duplicates()
     {
         section("a device known only from the saved list is not counted as a duplicate");
@@ -919,5 +986,7 @@ int run_registry_tests()
     test_a_restored_device_takes_no_part_in_duplicates();
     test_an_id_is_shared_only_on_one_bus();
     test_the_latest_sighting_decides_how_a_device_is_reached();
+    test_in_bootloader_follows_the_latest_scan();
+    test_a_bootloader_number_is_kept_only_for_its_own_serial();
     return 0;
 }
