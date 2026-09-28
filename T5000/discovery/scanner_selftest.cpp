@@ -385,6 +385,21 @@ namespace
         check_eq((int)result.devices.size(), 1, "it is listed");
         check_eq(result.stats.in_bootloader, 1, "and counted");
         check(result.devices[0].reached, "it answered, so it was reached");
+        check(result.devices[0].bootloader_state_known && result.devices[0].in_bootloader,
+              "its record says it is in its bootloader, and that the scan said so");
+
+        FakeTransport u;
+        u.queued.push_back(a_response(3001));
+        const auto later = scan(u, quick());
+        if (require(later.devices.size() == 1, "a later scan finds it running"))
+        {
+            check(later.devices[0].bootloader_state_known && !later.devices[0].in_bootloader,
+                  "  and its record says so, as something known");
+            Registry reg;
+            reg.add_or_merge(result.devices[0]);
+            reg.add_or_merge(later.devices[0]);
+            check(!reg.devices()[0].in_bootloader, "  so the list stops showing it in its bootloader");
+        }
     }
 
     void test_foreign_traffic_and_malformed_responses_are_told_apart()

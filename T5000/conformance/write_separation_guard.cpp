@@ -297,6 +297,7 @@ namespace
     }
 
     int occurrences(const std::string& text, const std::string& what);
+    std::string squeeze(const std::string& s);
 
     bool includes_a_write_header(const SourceFile& f, std::string& which)
     {
@@ -457,9 +458,13 @@ namespace
 
         for (const char* page : { "Inputs", "Outputs", "Variables" })
         {
-            const std::string keep = std::string("app::keep_bootloader(g_registry, d.handle, panel, \"the ") + page +
-                                     " page\");";
-            check_eq(occurrences(code, keep), 1, (std::string("the ") + page + " page keeps the bootloader's version its read gave").c_str());
+            std::string lower = page;
+            lower[0] = (char)tolower((unsigned char)lower[0]);
+            const std::string read = "app::read_planned_" + lower +
+                                     "(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id, &panel); "
+                                     "app::keep_bootloader(g_registry, d.handle, panel, \"the " + page + " page\");";
+            check_eq(occurrences(squeeze(code), read), 1,
+                     (std::string("the ") + page + " page keeps the bootloader's version its read gave").c_str());
         }
     }
 
