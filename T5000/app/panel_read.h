@@ -20,6 +20,7 @@
 
 #include "../bacnet/point_read.h"
 #include "../device/product.h"
+#include "../device/registry.h"
 #include "../display/custom_ranges.h"
 #include "../display/variable_ranges.h"
 #include "../wire/panel.h"
@@ -53,6 +54,16 @@ namespace t5000::app
         // is held to MustConfirm's rule, and the page says to find it again.
         FoundAtAddress,
     };
+
+    struct PanelRead;
+
+    // Keeps the bootloader's version from the settings a read left, for
+    // the device with this handle, through Registry::note_bootloader,
+    // which keeps it only when their serial is the device's own. Nothing
+    // when the settings did not decode. `by` names the read, for the
+    // Firmware page and its reasons: "Find", "the Inputs page".
+    bool keep_bootloader(device::Registry& registry, device::Handle handle, const PanelRead& panel,
+                         const std::string& by);
 
     struct PanelRead
     {

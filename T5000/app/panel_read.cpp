@@ -32,6 +32,15 @@ namespace t5000::app
             std::this_thread::sleep_for(std::chrono::milliseconds(settings.pause_between_requests_ms));
     }
 
+    bool keep_bootloader(device::Registry& registry, device::Handle handle, const PanelRead& panel,
+                         const std::string& by)
+    {
+        if (!panel.settings_known)
+            return false;
+        return registry.note_bootloader(handle, panel.settings.serial_number, (int)panel.settings.bootloader_rev,
+                                        "its settings, read by " + by);
+    }
+
     bool read_panel_settings(bacnet::ReadTransport& transport, const bacnet::Endpoint& device,
                              device::ProductClassId product, uint32_t expected_serial, Identity identity,
                              const bacnet::ReadSettings& settings, uint8_t& next_invoke_id,

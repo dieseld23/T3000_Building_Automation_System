@@ -19,6 +19,7 @@ namespace
     using namespace t5000::testing;
     using t5000::bacnet::ReadCommand;
     using t5000::device::DeviceRecord;
+    using t5000::device::Registry;
     using t5000::device::ProductClassId;
     namespace w = t5000::wire;
 
@@ -42,6 +43,7 @@ namespace
         uint32_t serial    = kSerial;
         int      firmware  = 600;
         uint8_t  max_out   = 0;
+        uint8_t  bootloader = 0;
 
         Bytes settings_block() const
         {
@@ -54,6 +56,7 @@ namespace
             for (int i = 0; i < 4; i++)
                 b[w::settings_at::serial_number + i] = (uint8_t)(serial >> (8 * i));
             b[w::settings_at::max_out] = max_out;
+            b[w::settings_at::bootloader_rev] = bootloader;
             return b;
         }
 
@@ -311,6 +314,63 @@ namespace
         return read_planned_outputs(d, plan, t, instant(), invoke);
     }
 
+    // What a planned read of this panel hands back, and whether the list
+    // then keeps the bootloader's version for the scanned device.
+    bool kept_after(const Panel& panel, PanelRead& seen, int& kept)
+    {
+        Registry registry;
+        const DeviceRecord d = scanned();
+        const int i = registry.add_or_merge(d);
+        FakeTransport t;
+        t.respond = [&panel](const FakeTransport::Sent& s, size_t, FakeTransport& tr)
+        {
+            panel.respond(s, tr);
+        };
+        uint8_t invoke = 0;
+        read_planned_outputs(d, plan_outputs_read(d), t, instant(), invoke, &seen);
+        const bool ok = keep_bootloader(registry, registry.devices()[(size_t)i].handle, seen, "the Outputs page");
+        kept = registry.devices()[(size_t)i].bootloader_known ? registry.devices()[(size_t)i].bootloader : -1;
+        if (ok)
+            check(registry.devices()[(size_t)i].bootloader_from == "its settings, read by the Outputs page",
+                  "  said as read by the Outputs page");
+        return ok;
+    }
+
+    void test_the_bootloader_is_kept_only_from_its_own_settings()
+    {
+        section("a read hands back the settings, and the list keeps the bootloader only from the device's own");
+
+        Panel own;
+        own.bootloader = 62;
+        PanelRead seen;
+        int kept = 0;
+        check(kept_after(own, seen, kept), "settings with the device's serial are kept");
+        check(seen.settings_known, "  the settings were handed back");
+        check_eq(kept, 62, "  with the bootloader's version");
+
+        Panel nameless;
+        nameless.serial = 0;
+        nameless.bootloader = 62;
+        PanelRead vouched;
+        check(!kept_after(nameless, vouched, kept), "settings with serial 0 are not");
+        check(vouched.settings_known, "  though the read the scan vouched for went on with them");
+        check_eq(kept, -1, "  and nothing is kept");
+
+        Panel other;
+        other.serial = kSerial + 1;
+        other.bootloader = 62;
+        PanelRead another;
+        check(!kept_after(other, another, kept), "settings with another serial are not");
+        check_eq(kept, -1, "  and nothing is kept");
+
+        Panel refuses;
+        refuses.settings = Does::Refuse;
+        refuses.bootloader = 62;
+        PanelRead none;
+        check(!kept_after(refuses, none, kept), "no settings, nothing kept");
+        check_eq(kept, -1, "  at all");
+    }
+
     void test_the_payload()
     {
         section("the payload: T3000's text for each output");
@@ -503,6 +563,7 @@ int run_outputs_read_tests()
     test_silent_outputs_after_answered_settings();
     test_esp32_reads_its_own_count();
     test_the_payload();
+    test_the_bootloader_is_kept_only_from_its_own_settings();
     test_the_payload_leaves_out_the_rows_t3000_blanks();
     test_the_unavailable_payload_has_every_key();
     test_the_inputs_payloads_did_not_change();

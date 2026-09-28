@@ -407,6 +407,13 @@ namespace t5000::app
 
         f.panel_name = panel_name_of(panel);
 
+        // The bootloader's version, for record_found to keep through
+        // Registry::note_bootloader, as every settings read does. A merge
+        // never takes it from the record.
+        f.bootloader_known = true;
+        f.bootloader       = panel.bootloader_rev;
+        f.bootloader_from  = "its settings, read by Find";
+
         out.found   = true;
         out.record  = f;
         out.message = "The panel at " + where + " gives serial " + expected +
@@ -428,6 +435,10 @@ namespace t5000::app
             message = "That device is no longer in the list, so what was found was not recorded.";
             return false;
         }
+
+        if (found.bootloader_known)
+            next.note_bootloader(next.devices()[(size_t)i].handle, found.serial_number, found.bootloader,
+                                 found.bootloader_from);
 
         const int duplicates = next.refresh_duplicate_modbus_ids();
 

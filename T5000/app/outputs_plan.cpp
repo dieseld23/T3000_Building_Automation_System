@@ -47,10 +47,12 @@ namespace t5000::app
 
     std::string read_planned_outputs(const device::DeviceRecord& d, const PointsPlan& plan,
                                      bacnet::ReadTransport& transport, const bacnet::ReadSettings& settings,
-                                     uint8_t& next_invoke_id)
+                                     uint8_t& next_invoke_id, PanelRead* panel)
     {
         const OutputsPageRead read = read_outputs_page(transport, plan.endpoint, d.product, d.serial_number,
                                                        plan.identity, settings, next_invoke_id);
+        if (panel)
+            *panel = read.panel;
         return outputs_payload(d, plan, read);
     }
 }

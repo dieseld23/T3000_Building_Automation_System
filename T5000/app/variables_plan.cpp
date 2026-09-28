@@ -49,10 +49,12 @@ namespace t5000::app
 
     std::string read_planned_variables(const device::DeviceRecord& d, const PointsPlan& plan,
                                        bacnet::ReadTransport& transport, const bacnet::ReadSettings& settings,
-                                       uint8_t& next_invoke_id)
+                                       uint8_t& next_invoke_id, PanelRead* panel)
     {
         const VariablesPageRead read = read_variables_page(transport, plan.endpoint, d.product, d.serial_number,
                                                            plan.identity, settings, next_invoke_id);
+        if (panel)
+            *panel = read.panel;
         return variables_payload(d, plan, read);
     }
 }

@@ -239,7 +239,11 @@ namespace
                 d.serial_number, d.address_note, "Nothing was sent. " + error + after, plan.sighting);
         }
 
-        return app::read_planned_inputs(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id);
+        app::PanelRead panel;
+        const std::string json =
+            app::read_planned_inputs(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id, &panel);
+        app::keep_bootloader(g_registry, d.handle, panel, "the Inputs page");
+        return json;
     }
 
     // The same, for its outputs.
@@ -260,7 +264,11 @@ namespace
                 d.serial_number, d.address_note, "Nothing was sent. " + error, plan.sighting);
         }
 
-        return app::read_planned_outputs(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id);
+        app::PanelRead panel;
+        const std::string json =
+            app::read_planned_outputs(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id, &panel);
+        app::keep_bootloader(g_registry, d.handle, panel, "the Outputs page");
+        return json;
     }
 
     // The same, for its variables.
@@ -281,7 +289,11 @@ namespace
                 d.serial_number, d.address_note, "Nothing was sent. " + error, plan.sighting);
         }
 
-        return app::read_planned_variables(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id);
+        app::PanelRead panel;
+        const std::string json =
+            app::read_planned_variables(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id, &panel);
+        app::keep_bootloader(g_registry, d.handle, panel, "the Variables page");
+        return json;
     }
 }
 

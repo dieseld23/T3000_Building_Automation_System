@@ -45,6 +45,7 @@ namespace
         uint32_t serial   = kSerial;
         int      firmware = 600;
         uint8_t  max_var  = 0;
+        uint8_t  bootloader = 0;
 
         Bytes settings_block() const
         {
@@ -57,6 +58,7 @@ namespace
             for (int i = 0; i < 4; i++)
                 b[w::settings_at::serial_number + i] = (uint8_t)(serial >> (8 * i));
             b[w::settings_at::max_var] = max_var;
+            b[w::settings_at::bootloader_rev] = bootloader;
             return b;
         }
 
@@ -399,6 +401,25 @@ namespace
         return read_planned_variables(d, plan, t, instant(), invoke);
     }
 
+    void test_the_settings_are_handed_back()
+    {
+        section("a planned read hands back the settings it read");
+
+        Panel panel;
+        panel.bootloader = 57;
+        const DeviceRecord d = scanned();
+        FakeTransport t;
+        t.respond = [&panel](const FakeTransport::Sent& s, size_t, FakeTransport& tr)
+        {
+            panel.respond(s, tr);
+        };
+        uint8_t invoke = 0;
+        PanelRead seen;
+        read_planned_variables(d, plan_variables_read(d), t, instant(), invoke, &seen);
+        check(seen.settings_known && seen.settings.serial_number == kSerial, "the settings");
+        check_eq((int)seen.settings.bootloader_rev, 57, "  with the bootloader's version");
+    }
+
     void test_the_payload()
     {
         section("the payload: T3000's text for each variable");
@@ -595,6 +616,7 @@ int run_variables_read_tests()
     test_silent_variables_after_answered_settings();
     test_esp32_reads_its_own_count();
     test_the_payload();
+    test_the_settings_are_handed_back();
     test_the_unavailable_payload_has_every_key();
     test_the_other_pages_unavailable_payloads_did_not_change();
     test_the_plan();

@@ -49,6 +49,7 @@ namespace
         uint8_t     mini_type_byte = 0x80 | 5;   // APM chip bits over panel type 5
         uint8_t     modbus_id      = 7;
         uint32_t    instance       = 123456;
+        uint8_t     bootloader     = 62;
         const char* name           = "AHU 2   ";
 
         Bytes block() const
@@ -64,6 +65,7 @@ namespace
                 b[w::settings_at::object_instance + i] = (uint8_t)(instance >> (8 * i));
             }
             b[w::settings_at::modbus_id] = modbus_id;
+            b[w::settings_at::bootloader_rev] = bootloader;
             return b;
         }
     };
@@ -495,6 +497,8 @@ namespace
         check_eq(f.connection.device_instance, 123456, "its instance");
         check(f.panel_name == "AHU 2", "its name, trailing blanks dropped");
         check_eq(f.firmware, 0, "the firmware is left for a scan");
+        check(f.bootloader_known && f.bootloader == 62 && f.bootloader_from == "its settings, read by Find",
+              "the bootloader's version, for the list to keep");
         check(o.message == "The panel at 192.168.1.50:47900 gives serial 920001 in its settings. Its pages are "
                            "read from that address now.",
               "the message says where, and which serial");
@@ -657,6 +661,8 @@ namespace
         check(d->placement.name == "Boiler AHU", "the name given stays");
         check_eq(d->mini_type, 5, "the panel type is the device's now, not the model chosen");
         check(d->reached, "reached");
+        check(d->bootloader_known && d->bootloader == 62, "the bootloader's version is kept");
+        check(d->bootloader_from == "its settings, read by Find", "  said as read by Find");
         check(!is_configured_offline(*d), "no longer configured offline: it is read from its address");
         check(has(pending_offline_note(b.db, *d), "Changes to input 3"), "the change made offline is kept, unwritten");
 
@@ -673,6 +679,7 @@ namespace
         check_eq(s.modbus_id_reported, 7, "  and Modbus id");
         check(s.first_seen == kNow && s.last_seen == kNow, "  first and last seen now");
         check(s.panel_name == "AHU 2", "  and its own name");
+        check(!s.bootloader_known, "  but not the bootloader's version, which is for this session only");
 
         // Found this session: held to the stricter rule, and said so.
         const InputsPlan plan = plan_inputs_read(*d);
