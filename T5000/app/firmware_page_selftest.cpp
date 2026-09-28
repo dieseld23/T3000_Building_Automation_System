@@ -268,6 +268,15 @@ namespace
             check(!ok && !message.empty() && kept.handle == to_handle(99), q);
         }
 
+        // A field missing, or one it does not take, is told the form, not
+        // a rule about what a field holds.
+        const std::string form = "The address must end ?handle=<the device's handle>&name=<the file's name>.";
+        for (const char* q : { "", "handle=3", "name=a.hex", "handle=3&name=a.hex&x=1", "handle=3&name" })
+        {
+            check(!read_firmware_check_request(q, r, message) && message == form,
+                  (std::string("  \"") + q + "\" is told the form").c_str());
+        }
+
         const std::string longest(255, 'a');
         check(read_firmware_check_request("handle=3&name=" + longest, r, message), "a name of 255 bytes");
         check(!read_firmware_check_request("handle=3&name=" + longest + "a", r, message), "  but not 256");

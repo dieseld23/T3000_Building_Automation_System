@@ -376,6 +376,18 @@ namespace
         PanelRead none;
         check(!kept_after(refuses, none, kept), "no settings, nothing kept");
         check_eq(kept, -1, "  at all");
+
+        // Settings a read did not vouch for are not used, whatever they
+        // hold: settings_known is the only word that they are its own.
+        PanelRead unvouched;
+        unvouched.settings_known          = false;
+        unvouched.settings.serial_number  = kSerial;
+        unvouched.settings.bootloader_rev = 62;
+        Registry registry;
+        const int i = registry.add_or_merge(scanned());
+        check(!keep_bootloader(registry, registry.devices()[(size_t)i].handle, unvouched, "the Outputs page") &&
+                  !registry.devices()[(size_t)i].bootloader_known,
+              "settings not known to be read are not used, whatever they hold");
     }
 
     void test_the_payload()
