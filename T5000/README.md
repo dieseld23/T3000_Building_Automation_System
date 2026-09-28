@@ -72,6 +72,9 @@ of its settings. A virtual device is sent nothing, ever.
   `conformance/write_command_guard.cpp` checks the lists cover the header.
   `conformance/write_separation_guard.cpp` fails if the read path, or anything
   outside `bacnet/`, includes the write code.
+- **Firmware is read and checked, never sent.** `firmware/` reads a file it
+  is given and says whether ISP would take it for a device. The separation
+  guard holds it to naming no socket, serial port or file.
 - **The device list is a file on this machine.** Saving it, naming a device,
   adding one by hand, configuring one offline and forgetting one change
   `T5000.db` and nothing else.
@@ -127,12 +130,15 @@ T5000's copies of T3000 to the originals:
   dialog's among them - against T3000's source and resources, as text;
 - the write lists against every write code in `CM5/ud_str.h`, and the read
   path kept apart from the write code;
+- the firmware checks against ISP's source: its name tables and aliases,
+  the file's bootloader flags and the bootloader rules, run over every
+  name, product and version, and which serial thread checks which file;
 - the oracle: T3000's BACnet DLL encodes a read or a write, and T5000's bytes
   must match it.
 
 A change to `wire/`, `bacnet/command.h`, `bacnet/write_command.h`,
 `bacnet/private_transfer.cpp`, `bacnet/private_write.cpp`,
-`device/product.h`, `display/tables.h` or `offline/` is not checked against
+`device/product.h`, `display/tables.h`, `offline/` or `firmware/` is not checked against
 T3000 until those run. Build
 `-t:T5000Conformance` or run `scripts/ci-local.ps1` before pushing one.
 [`README_Build.md`](../README_Build.md) has both.
@@ -147,6 +153,7 @@ T3000 until those run. Build
 | `device/` | Product identity (`ProductClassId` and `MiniType`, kept as distinct types), the device registry, read-path choice, row limits, connection settings |
 | `discovery/` | The scan: the query, parsing the responses, the scanner |
 | `display/` | Ports of how T3000 turns a point into grid text, and the tables it uses |
+| `firmware/` | Reading a firmware file as ISP does on each path, and whether ISP would take it for a device. Nothing here sends, or opens a file |
 | `http/`, `json/`, `net/` | A small loopback HTTP server, a JSON reader, local interfaces |
 | `offline/` | The rules a change to an input of a device configured offline follows, ported from T3000's Inputs grid. No transport: nothing here can reach a device |
 | `store/` | The saved device list and the offline configurations, on the SQLite that ships with Windows |

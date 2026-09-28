@@ -280,8 +280,8 @@ running the hardware checks. In this order:
    guard on the Tstat registers described under Risks, and then a Modbus
    write path for Tstats and the scan's repairs.
 8. **Files and firmware:** loading and saving `.prog` files (item 2's import
-   and export, built for inputs), and updating firmware through T3000's
-   ISP. The firmware
+   and export, built for inputs), and updating firmware as T3000's ISP
+   does. Its checks (F1a) are built; the page is next. The firmware
    steps, and what waits for the owner, are in [the firmware
    plan](t5000-firmware-plan.md).
 

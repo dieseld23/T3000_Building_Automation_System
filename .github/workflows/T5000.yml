@@ -12,9 +12,11 @@
 #                windows-2022, whose Visual Studio 2022 carries MFC for the
 #                v143 toolset. It needs no .NET.
 #
-# It runs when T5000 changes, or when anything under T3000/ does: the
+# It runs when T5000 changes, or when anything under T3000/ or ISP/ does: the
 # conformance checks read T3000's headers and source by name, and one of them
-# (offline_guard.cpp) reads every source file there, to find a setlocale.
+# (offline_guard.cpp) reads every source file there, to find a setlocale;
+# firmware_guard.cpp reads ISP's source, and the .hex files in
+# T3000/ResourceFile/HexFile.
 # Listing the files one by one missed the ones added later. T3000 itself is no
 # longer built on every push: see T3000.yml, which is run by hand.
 #
@@ -30,6 +32,7 @@ on:
       - '.github/workflows/T5000.yml'
       - 'T3000 - VS2019.sln'
       - 'T3000/**'
+      - 'ISP/**'
       - 'BacNetDllforVc/**'
       - 'ModbusDllforVc/ModbusDllforVc/crc.h'
       - 'ModbusDllforVc/ModbusDllforVc/crc.cpp'
@@ -40,6 +43,7 @@ on:
       - '.github/workflows/T5000.yml'
       - 'T3000 - VS2019.sln'
       - 'T3000/**'
+      - 'ISP/**'
       - 'BacNetDllforVc/**'
       - 'ModbusDllforVc/ModbusDllforVc/crc.h'
       - 'ModbusDllforVc/ModbusDllforVc/crc.cpp'

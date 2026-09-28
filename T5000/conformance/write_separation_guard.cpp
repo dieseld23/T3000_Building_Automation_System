@@ -4,7 +4,7 @@
 //   S1  the read path includes no write header: bacnet/command.*,
 //       bacnet/private_transfer.*, bacnet/point_read.*, app/*_read.*,
 //       app/*_plan.*, app/panel_read.*, app/find_device.*, and everything in
-//       discovery/, serial/ and offline/
+//       discovery/, serial/, offline/ and firmware/
 //   S2  nothing outside bacnet/ includes a write header, except the
 //       conformance checks. Nothing can send a write yet, and nothing above
 //       bacnet/ can reach the code that encodes one.
@@ -14,6 +14,10 @@
 //   S5  in T5000.exe's code, sendto( appears only in discovery/scanner.cpp,
 //       bacnet/point_read.cpp and self-tests. A new place that sends is a
 //       decision, not a detail.
+//   S6  firmware/ reads the bytes it is given and nothing else: it includes
+//       only its own headers, the test harness and the standard library,
+//       and names no socket, serial port or file. Until T5000 flashes, a
+//       firmware file goes nowhere.
 //
 // The T3000 pins are text, not line numbers, and whitespace-blind:
 //   - WritePrivateData encodes into uint8_t test_value[480], which is what
@@ -106,7 +110,8 @@ namespace
     bool is_read_path(const std::string& r)
     {
         const std::string name = base_name(r);
-        if (starts_with(r, "discovery/") || starts_with(r, "serial/") || starts_with(r, "offline/"))
+        if (starts_with(r, "discovery/") || starts_with(r, "serial/") || starts_with(r, "offline/") ||
+            starts_with(r, "firmware/"))
             return true;
         if (starts_with(r, "bacnet/"))
             return starts_with(name, "command.") || starts_with(name, "private_transfer") ||
@@ -130,6 +135,46 @@ namespace
         for (std::sregex_iterator it(text.begin(), text.end(), include_line), end; it != end; ++it)
             out.push_back(base_name((*it)[1].str()));
         return out;
+    }
+
+    // S6: what a firmware/ file may not include or call.
+    bool firmware_reaches_out(const SourceFile& f, std::string& what)
+    {
+        static const std::regex quoted(R"re(#\s*include\s*"([^"]+)")re");
+        static const std::regex angled(R"re(#\s*include\s*<([^>]+)>)re");
+        for (std::sregex_iterator it(f.text.begin(), f.text.end(), quoted), end; it != end; ++it)
+        {
+            const std::string inc = (*it)[1].str();
+            if (inc.find('/') != std::string::npos && inc != "../testing/check.h")
+            {
+                what = "includes " + inc;
+                return true;
+            }
+        }
+        for (std::sregex_iterator it(f.text.begin(), f.text.end(), angled), end; it != end; ++it)
+        {
+            const std::string inc = (*it)[1].str();
+            for (const char* os : { "windows.h", "winsock.h", "winsock2.h", "ws2tcpip.h", "iphlpapi.h", "io.h", "fcntl.h",
+                                    "filesystem", "fstream", "cstdio" })
+            {
+                if (inc == os)
+                {
+                    what = "includes <" + inc + ">";
+                    return true;
+                }
+            }
+        }
+        const std::string code = t5000::conformance::strip_comments(f.text);
+        for (const char* call : { "socket(", "sendto(", "send(", "CreateFile", "WriteFile(", "ReadFile(", "fopen",
+                                  "_open(", "ifstream", "ofstream" })
+        {
+            if (code.find(call) != std::string::npos)
+            {
+                what = std::string("calls ") + call;
+                return true;
+            }
+        }
+        return false;
     }
 
     bool includes_a_write_header(const SourceFile& f, std::string& which)
@@ -160,7 +205,7 @@ namespace
             return;
         }
 
-        int read_path_files = 0, s1 = 0, s2 = 0, s4 = 0, s5 = 0;
+        int read_path_files = 0, s1 = 0, s2 = 0, s4 = 0, s5 = 0, s6 = 0, firmware_files = 0;
         bool saw_point_read = false, saw_write_command = false;
 
         static const std::regex raw_command(R"re(\b(uint8_t|unsigned\s+char)\s+command\b)re");
@@ -207,6 +252,17 @@ namespace
                 printf("        S5: %s calls sendto(\n", f.relative.c_str());
                 s5++;
             }
+
+            if (starts_with(f.relative, "firmware/"))
+            {
+                firmware_files++;
+                std::string what;
+                if (firmware_reaches_out(f, what))
+                {
+                    printf("        S6: %s %s\n", f.relative.c_str(), what.c_str());
+                    s6++;
+                }
+            }
         }
 
         check(saw_point_read && saw_write_command, "  the files these checks are about are among them");
@@ -215,6 +271,8 @@ namespace
         check_eq(s2, 0, "S2: nothing outside bacnet/ includes one, but the conformance checks");
         check_eq(s4, 0, "S4: no raw command byte in a bacnet/ header");
         check_eq(s5, 0, "S5: sendto( only in the scanner, the reader and self-tests");
+        check(firmware_files >= 6, "  firmware/'s files are among them");
+        check_eq(s6, 0, "S6: firmware/ reads what it is given, and reaches nothing else");
     }
 
     // Whitespace collapsed to single spaces, so the pins survive re-indenting.

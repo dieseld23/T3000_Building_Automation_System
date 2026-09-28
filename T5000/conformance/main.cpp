@@ -32,6 +32,9 @@
 //                                  sends
 //     crc_oracle.cpp               the serial scan's CRC and frames, against
 //                                  T3000's CRC16 and its tables
+//     firmware_guard.cpp           the firmware checks in firmware/, read
+//                                  against ISP's source as text, and ISP's
+//                                  own repair files read as ISP reads them
 //
 // Built by "T3000 - VS2019.sln", which also builds the stack, and run by its
 // post-build step, so a change on either side that breaks the other fails
@@ -57,6 +60,7 @@ int run_offline_guard_tests();
 int run_input_range_guard_tests();
 int run_input_cells_guard_tests();
 int run_prog_file_guard_tests();
+int run_firmware_guard_tests();
 int run_write_command_guard_tests();
 int run_write_separation_guard_tests();
 
@@ -88,6 +92,8 @@ int main(int argc, char** argv)
     run_input_cells_guard_tests();
     printf("\n");
     run_prog_file_guard_tests();
+    printf("\n");
+    run_firmware_guard_tests();
     printf("\n");
     run_write_command_guard_tests();
     printf("\n");
