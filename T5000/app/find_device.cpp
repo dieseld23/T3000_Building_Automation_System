@@ -410,7 +410,7 @@ namespace t5000::app
         // The bootloader's version, for record_found to keep through
         // Registry::note_bootloader, as every settings read does. A merge
         // never takes it from the record.
-        f.bootloader_known = true;
+        f.bootloader_known = panel.bootloader_rev != 0;   // 0 says nothing; see keep_bootloader
         f.bootloader       = panel.bootloader_rev;
         f.bootloader_from  = "its settings, read by Find";
 

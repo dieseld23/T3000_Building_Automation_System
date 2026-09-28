@@ -130,6 +130,15 @@ namespace
         {
             Bench b(scanned());
             FakeTransport t;
+            answers(t, settings(kSerial, 0));
+            std::string message;
+            check(!b.read(t, message), "a bootloader's version of 0: nothing kept");
+            check(!b.device().bootloader_known, "  at all");
+            check(has(message, "gives 0 for its bootloader's version"), "  and said so");
+        }
+        {
+            Bench b(scanned());
+            FakeTransport t;
             answers(t, settings(kSerial + 1, 62));
             std::string message;
             check(!b.read(t, message), "another serial: nothing kept");

@@ -499,6 +499,13 @@ namespace
         check_eq(f.firmware, 0, "the firmware is left for a scan");
         check(f.bootloader_known && f.bootloader == 62 && f.bootloader_from == "its settings, read by Find",
               "the bootloader's version, for the list to keep");
+
+        Settings zero;
+        zero.bootloader = 0;
+        FakeTransport z;
+        answers(z, zero);
+        const FindOutcome none = find_at(z, device_at(kDeviceIp, 47900), entry, registry, instant(), invoke, kNow);
+        check(none.found && !none.record.bootloader_known, "settings giving 0: found, with no bootloader's version");
         check(o.message == "The panel at 192.168.1.50:47900 gives serial 920001 in its settings. Its pages are "
                            "read from that address now.",
               "the message says where, and which serial");

@@ -74,6 +74,13 @@ namespace t5000::app
             return false;
         }
 
+        if (panel.settings.bootloader_rev == 0)
+        {
+            message = where + " gives 0 for its bootloader's version, which a panel that does not report one "
+                              "leaves there, so T5000 kept nothing.";
+            return false;
+        }
+
         // Only here does the read put anything on the device, and only through
         // the one rule every settings read keeps it by.
         if (!keep_bootloader(registry, d.handle, panel, "the Firmware page"))

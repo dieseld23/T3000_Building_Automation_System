@@ -35,7 +35,7 @@ namespace t5000::app
     bool keep_bootloader(device::Registry& registry, device::Handle handle, const PanelRead& panel,
                          const std::string& by)
     {
-        if (!panel.settings_known)
+        if (!panel.settings_known || panel.settings.bootloader_rev == 0)
             return false;
         return registry.note_bootloader(handle, panel.settings.serial_number, (int)panel.settings.bootloader_rev,
                                         "its settings, read by " + by);

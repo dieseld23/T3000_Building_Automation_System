@@ -60,8 +60,11 @@ namespace t5000::app
     // Keeps the bootloader's version from the settings a read left, for
     // the device with this handle, through Registry::note_bootloader,
     // which keeps it only when their serial is the device's own. Nothing
-    // when the settings did not decode. `by` names the read, for the
-    // Firmware page and its reasons: "Find", "the Inputs page".
+    // when the settings did not decode, or give 0: a panel that does not
+    // report its bootloader leaves the byte 0, and ISP passes over 0 as
+    // no version where it reads one (a TSTAT8's, global_function.cpp:1083).
+    // `by` names the read, for the Firmware page and its reasons: "Find",
+    // "the Inputs page".
     bool keep_bootloader(device::Registry& registry, device::Handle handle, const PanelRead& panel,
                          const std::string& by);
 

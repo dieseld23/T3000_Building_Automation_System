@@ -363,6 +363,13 @@ namespace
         check(!kept_after(other, another, kept), "settings with another serial are not");
         check_eq(kept, -1, "  and nothing is kept");
 
+        Panel zero;
+        zero.bootloader = 0;
+        PanelRead nothing;
+        check(!kept_after(zero, nothing, kept), "its own settings giving 0 are not: 0 is no version");
+        check(nothing.settings_known, "  though they were read");
+        check_eq(kept, -1, "  and nothing is kept");
+
         Panel refuses;
         refuses.settings = Does::Refuse;
         refuses.bootloader = 62;
