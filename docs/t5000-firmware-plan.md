@@ -1,7 +1,8 @@
 # Firmware updates in T5000: plan
 
-This is a plan. Its first step's checks (F1a) are built: `T5000/firmware/`
-reads a file and says whether ISP would take it for a device. Nothing in
+This is a plan. Its first step (F1) is built: `T5000/firmware/` reads a
+file and says whether ISP would take it for a device, and the Firmware
+page checks a file from disk against a device in the list. Nothing in
 T5000 can send firmware to a device.
 
 ## What the owner decided (2026-09-27)
@@ -215,7 +216,17 @@ which bootloader it needs. T5000 has no way to flash a bootloader. Where
 T5000 cannot read the bootloader's version, it refuses any marked file for
 a product ISP looks at. Whether a panel's `bootloader_rev` is the number
 ISP reads from registers 11 and 14 is for the owner's bench check before
-F3 relies on it.
+F3 relies on it. Until then the Firmware page checks by it, and says it
+came from the panel's settings and which read gave them.
+
+A panel whose settings give 0 there is taken to give none, as ISP passes
+over a TSTAT8's 0 (`global_function.cpp:1083`): nothing is kept, and a
+marked file for it is refused as for any device whose bootloader is not
+known. The firmware's low byte, which spares a CO2, humidity or pressure
+device at 59 or more, is not passed on either: ISP reads it from
+register 4, which T5000 does not read before F3, and the scan's firmware
+number has not been shown to be it. So such a device is checked as if
+the byte were under 59, which refuses more than ISP would, never less.
 
 ## What T5000 already knows
 
@@ -236,7 +247,8 @@ Each step is its own PR. The firmware code lives in a module of its own,
 `firmware/`. The separation guard (`write_separation_guard.cpp`) holds it
 to reading the bytes it is given, naming no socket, serial port or file
 (S6), until a transport step lets that step's own file send, and its list
-of the places that send (S5) gains only those files.
+of the places that send (S5) gains only those files. The Firmware page's
+check is held the same way, with what it includes (S7).
 
 **F1. The Firmware page, checking only,** in two PRs.
 
@@ -247,12 +259,25 @@ of the places that send (S5) gains only those files.
   file flags and bootloader rules and compares T5000 with them over every
   name, product and version, pins the rest as text, and reads the
   repository's own `.hex` files.
-- **F1b, the page.** A page in the bar of pages that lists the devices
-  with their product, firmware version, bootloader version and bootloader
-  state. A file is picked from disk and checked against a device the
-  operator picks. Nothing is sent. A panel's `bootloader_rev` is read with
-  its settings and kept, and the request carrying the file has a size
-  limit of its own.
+- **F1b, the page** (built). `/firmware`, last in the bar of pages: T3000
+  has it in its Tools menu, on Ctrl+F2 (`T3000.rc:11530`). It lists each
+  device with its product, firmware version, the path ISP would take to
+  it (serial, the network, or behind a controller), its bootloader's
+  version and where that came from, and whether the last scan found it
+  in its bootloader. **Read** asks a panel for its settings, one request
+  and only where the points pages would send one, for its
+  `bootloader_rev`; Find and the Inputs, Outputs and Variables pages keep
+  it too, from the settings they read. It is kept for the session, not
+  saved, and only when the settings give the device's own serial.
+  **Check a file...** sends a `.hex` or `.bin` from disk to T5000 itself,
+  as the body of `POST /api/firmware/check`, the one route that takes up
+  to 16 MiB, and only from T5000's own page; every other request stays at
+  256 KB, and a larger one is refused before it is read. ISP takes a file
+  of any size and stops at its buffer, which the largest `.hex` to fill
+  it, about 11.5 MB, fits under. T5000 reads the file as ISP would on
+  the device's path and shows what ISP and T5000 make of it. Nothing is
+  sent to any device. The separation guard holds `app/firmware_page.*`,
+  which does the checking, to reaching no transport at any depth (S7).
 
 **F2. Synthetic bootloaders.** Test code only: a serial Modbus bootloader
 on com0com's CNCB0 (T5000 opens CNCA0, and never any other port), a TFTP

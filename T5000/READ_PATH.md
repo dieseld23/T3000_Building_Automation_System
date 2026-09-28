@@ -198,6 +198,19 @@ for a scan, since its scale in the settings has not been checked against the
 scan's. The device is saved at that address and comes back next time from the
 saved list. A scan that later finds it vouches for it from then on.
 
+**The Firmware page's Read: the bootloader's version.** Read, on the
+Firmware page, sends a device the settings read and nothing else - one
+request, sent once more if nothing answers - when it is clicked, and only
+where the points pages would send one: `plan_firmware_read` is
+`plan_points_read` (`app/firmware_read.h`). The settings are held to the
+same identity rules as on the points pages. From them it keeps the
+bootloader's version (`bootloader_rev`, byte 27), and so do Find and the
+Inputs, Outputs and Variables reads, from the settings they read first:
+each through `Registry::note_bootloader`, which keeps it only when the
+settings give the device's own serial, never 0 (a panel that does not
+report one leaves 0 there), and never for a virtual device. It is kept for
+the session and not saved.
+
 T3000's nearest equivalent, Add Remote Device (`BacnetAddRemoteDevice.cpp:146-300`),
 sends the address a Who-Is five times and then reads Modbus registers
 0-49 through BACnet. T5000 does not read Modbus registers yet; the settings
