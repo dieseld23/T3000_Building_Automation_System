@@ -67,7 +67,8 @@ namespace t5000::discovery
 
         // Whether it is in its bootloader, as it says now. A merge takes
         // this from every scan response, false included.
-        d.in_bootloader = r.in_bootloader;
+        d.bootloader_state_known = true;
+        d.in_bootloader          = r.in_bootloader;
 
         // It answered, so it is demonstrably there - even if it answered from
         // its bootloader.

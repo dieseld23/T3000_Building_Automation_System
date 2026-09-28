@@ -68,6 +68,24 @@ namespace t5000::http
 
     using Handler = std::function<Response(const Request&)>;
 
+    // The most body a request may carry: a small JSON object is all a page
+    // sends. A route that takes more says so when it is added.
+    inline constexpr size_t kMaxBody = 256 * 1024;
+
+    struct Route
+    {
+        std::string path;
+        Handler     handler;
+        size_t      max_body = kMaxBody;   // for a POST; see body_limit
+    };
+
+    // How much body a request may carry, from its head alone, before any
+    // of the body is read: the route's own max_body for a POST to exactly
+    // its path from T5000's own page or a script (from_this_tool), and
+    // kMaxBody for anything else. So a page that is not T5000's cannot make
+    // it take in more than kMaxBody, whatever it names.
+    size_t body_limit(const Request& head, unsigned short port, const std::vector<Route>& routes);
+
     class Server
     {
     public:
@@ -77,7 +95,9 @@ namespace t5000::http
         Server(const Server&) = delete;
         Server& operator=(const Server&) = delete;
 
-        void route(const std::string& path, Handler handler);
+        // `max_body` above kMaxBody lets a POST to this path carry that
+        // much (body_limit).
+        void route(const std::string& path, Handler handler, size_t max_body = kMaxBody);
 
         // Blocks. Returns false if the listening socket could not be opened,
         // with the reason in last_error().
@@ -96,6 +116,6 @@ namespace t5000::http
         unsigned short m_port;
         std::string    m_error;
         void*          m_listen = nullptr;   // SOCKET, kept opaque to the header
-        std::vector<std::pair<std::string, Handler>> m_routes;
+        std::vector<Route> m_routes;
     };
 }

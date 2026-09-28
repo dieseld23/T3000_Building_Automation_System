@@ -189,13 +189,16 @@ namespace t5000::device
                 existing.observation_complete =
                     existing.observation_complete || device.observation_complete;
 
-                // A scan response says whether the device is in its
+                // A network scan response says whether the device is in its
                 // bootloader, false included: a device that has left it must
-                // stop being shown as in it. Nothing else says either way.
-                // The bootloader's version is not merged: only
-                // note_bootloader sets it.
-                if (device.observation_complete)
-                    existing.in_bootloader = device.in_bootloader;
+                // stop being shown as in it. Nothing else says either way,
+                // a serial scan's complete look included. The bootloader's
+                // version is not merged: only note_bootloader sets it.
+                if (device.bootloader_state_known)
+                {
+                    existing.bootloader_state_known = true;
+                    existing.in_bootloader          = device.in_bootloader;
+                }
 
                 return (int)i;
             }

@@ -82,11 +82,54 @@ namespace
         r.host = "127.0.0.1:87300";
         check(!from_this_tool(r, 8730, why), "a port that only starts with ours is refused");
     }
+
+    void test_only_a_route_that_asks_takes_more()
+    {
+        section("a request may carry more body only for a route that asks, from T5000's own page");
+
+        std::vector<Route> routes(2);
+        routes[0].path = "/api/devices";
+        routes[1].path     = "/api/firmware/check";
+        routes[1].max_body = 16u * 1024 * 1024;
+
+        const auto head = [](const std::string& line, const std::string& origin) {
+            std::string raw = line + "\r\nHost: 127.0.0.1:8730\r\n";
+            if (!origin.empty())
+                raw += "Origin: " + origin + "\r\n";
+            return parsed(raw + "Content-Length: 9999999\r\n\r\n");
+        };
+        const std::string own = "http://127.0.0.1:8730";
+
+        check_eq((long)kMaxBody, 256L * 1024, "everything else: 256 KB");
+        check_eq((long)body_limit(head("POST /api/firmware/check?handle=3&name=a.hex HTTP/1.1", own), 8730, routes),
+                 16L * 1024 * 1024, "a POST from T5000's page to the route that asks: its own limit");
+        check_eq((long)body_limit(head("POST /api/firmware/check HTTP/1.1", ""), 8730, routes),
+                 16L * 1024 * 1024, "  and from a script with no page");
+        check_eq((long)body_limit(head("GET /api/firmware/check HTTP/1.1", own), 8730, routes), (long)kMaxBody,
+                 "a GET: 256 KB");
+        check_eq((long)body_limit(head("POST /api/devices HTTP/1.1", own), 8730, routes), (long)kMaxBody,
+                 "a route that does not ask: 256 KB");
+        check_eq((long)body_limit(head("POST /api/firmware/checks HTTP/1.1", own), 8730, routes), (long)kMaxBody,
+                 "a path that only starts with it: 256 KB");
+        check_eq((long)body_limit(head("POST /api/firmware/check HTTP/1.1", "https://evil.example"), 8730, routes),
+                 (long)kMaxBody, "another site's page: 256 KB, before any of the body is read");
+
+        Request renamed = head("POST /api/firmware/check HTTP/1.1", own);
+        renamed.host = "evil.example:8730";
+        check_eq((long)body_limit(renamed, 8730, routes), (long)kMaxBody, "a hostile name pointed here: 256 KB");
+
+        std::vector<Route> small(1);
+        small[0].path     = "/api/firmware/check";
+        small[0].max_body = 10;
+        check_eq((long)body_limit(head("POST /api/firmware/check HTTP/1.1", own), 8730, small), (long)kMaxBody,
+                 "a route asking for less than 256 KB still gets 256 KB");
+    }
 }
 
 int run_http_server_tests()
 {
     test_headers_are_read_by_name();
     test_only_this_tool_may_ask();
+    test_only_a_route_that_asks_takes_more();
     return 0;
 }

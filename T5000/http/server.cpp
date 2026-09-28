@@ -20,6 +20,7 @@ namespace t5000::http
             case 400: return "Bad Request";
             case 403: return "Forbidden";
             case 404: return "Not Found";
+            case 413: return "Payload Too Large";
             case 500: return "Internal Server Error";
             default:  return "OK";
             }
@@ -45,15 +46,13 @@ namespace t5000::http
             return (size_t)strtoul(head.c_str() + colon + 1, nullptr, 10);
         }
 
-        // Reads the head, then whatever body Content-Length declares. Chunked
-        // encoding is not handled: nothing here asks for it, and fetch() with a
-        // string body always sends a length.
-        bool read_request(SOCKET client, std::string& out)
+        // Reads up to the end of the head, and whatever of the body came with
+        // it. `head_end` is where the blank line starts.
+        bool read_head(SOCKET client, std::string& out, size_t& head_end)
         {
             char buffer[4096];
             out.clear();
 
-            size_t head_end = std::string::npos;
             while ((head_end = out.find("\r\n\r\n")) == std::string::npos)
             {
                 const int n = recv(client, buffer, (int)sizeof(buffer), 0);
@@ -66,16 +65,15 @@ namespace t5000::http
                 if (out.size() > 64 * 1024)
                     return false;
             }
+            return true;
+        }
 
-            const size_t body_start = head_end + 4;
-            const size_t declared   = header_value_size(out.substr(0, head_end), "content-length");
-
-            // Bounded deliberately. This accepts a small JSON settings object
-            // and nothing else, so a large declared length is a reason to stop
-            // rather than something to allocate for.
-            if (declared > 256 * 1024)
-                return false;
-
+        // Then the rest of the body Content-Length declares, which body_limit
+        // has already allowed. Chunked encoding is not handled: nothing here
+        // asks for it, and fetch() always sends a length.
+        bool read_body(SOCKET client, std::string& out, size_t body_start, size_t declared)
+        {
+            char buffer[4096];
             while (out.size() - body_start < declared)
             {
                 const int n = recv(client, buffer, (int)sizeof(buffer), 0);
@@ -201,6 +199,20 @@ namespace t5000::http
         return true;
     }
 
+    size_t body_limit(const Request& head, unsigned short port, const std::vector<Route>& routes)
+    {
+        // Bounded deliberately: a large declared length is a reason to stop,
+        // not something to allocate for, unless the route asked for it and
+        // the request is from T5000's own page.
+        std::string why;
+        if (head.method != "POST" || !from_this_tool(head, port, why))
+            return kMaxBody;
+        for (const auto& r : routes)
+            if (r.path == head.path)
+                return r.max_body > kMaxBody ? r.max_body : kMaxBody;
+        return kMaxBody;
+    }
+
     Response Response::json(std::string body)
     {
         Response r;
@@ -234,9 +246,13 @@ namespace t5000::http
         WSACleanup();
     }
 
-    void Server::route(const std::string& path, Handler handler)
+    void Server::route(const std::string& path, Handler handler, size_t max_body)
     {
-        m_routes.emplace_back(path, std::move(handler));
+        Route r;
+        r.path     = path;
+        r.handler  = std::move(handler);
+        r.max_body = max_body;
+        m_routes.push_back(std::move(r));
     }
 
     bool Server::serve_forever(const std::function<void()>& on_ready)
@@ -296,8 +312,32 @@ namespace t5000::http
             Request req;
             Response res;
 
+            // The head first: how much body may follow is decided from it,
+            // before any of the body is read.
             std::string why;
-            if (!read_request(client, raw) || !parse_request(raw, req))
+            size_t head_end = 0;
+            size_t declared = 0;
+            size_t limit    = 0;
+            const bool head_ok = read_head(client, raw, head_end) && parse_request(raw.substr(0, head_end + 4), req);
+            if (head_ok)
+            {
+                declared = header_value_size(raw.substr(0, head_end), "content-length");
+                limit    = body_limit(req, m_port, m_routes);
+            }
+
+            if (!head_ok)
+            {
+                res.status = 400;
+                res.body   = "Bad request";
+            }
+            else if (declared > limit)
+            {
+                // Not read: the connection is closed with the rest unread.
+                res.status = 413;
+                res.body   = "The request carries " + std::to_string(declared) + " bytes; it may carry " +
+                             std::to_string(limit) + ".";
+            }
+            else if (!read_body(client, raw, head_end + 4, declared) || !parse_request(raw, req))
             {
                 res.status = 400;
                 res.body   = "Bad request";
@@ -313,9 +353,9 @@ namespace t5000::http
                 res = Response::not_found();
                 for (const auto& r : m_routes)
                 {
-                    if (r.first == req.path)
+                    if (r.path == req.path)
                     {
-                        res = r.second(req);
+                        res = r.handler(req);
                         break;
                     }
                 }

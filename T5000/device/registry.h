@@ -308,11 +308,13 @@ namespace t5000::device
         int answered_scan = 0;
 
         // --- This session only, and never saved. -------------------------
-        // Whether the device said it was in its bootloader in the last scan
-        // response it gave (scan_response.h). It says nothing when
-        // answered_scan is 0: a device restored from the saved list has not
-        // said either way since T5000 started.
-        bool in_bootloader = false;
+        // Whether the device was in its bootloader, as the last network scan
+        // response it gave this session said (scan_response.h). Only such a
+        // response says either way: a serial scan does not, and a device
+        // restored from the saved list has not said since T5000 started.
+        // in_bootloader means nothing unless bootloader_state_known.
+        bool bootloader_state_known = false;
+        bool in_bootloader          = false;
 
         // The bootloader's version, from settings read this session whose
         // serial is this device's (Registry::note_bootloader), and where it

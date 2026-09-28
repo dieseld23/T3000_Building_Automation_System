@@ -864,26 +864,33 @@ namespace
 
     void test_in_bootloader_follows_the_latest_scan()
     {
-        section("whether a device is in its bootloader is what the latest scan response said");
+        section("whether a device is in its bootloader is what the latest network scan response said");
 
         Registry reg;
-        DeviceRecord stuck = a_device(8101);
-        stuck.observation_complete = true;
-        stuck.in_bootloader = true;
-        const int i = reg.add_or_merge(stuck);
-        check(reg.devices()[i].in_bootloader, "a scan response from its bootloader says so");
+        const int s = reg.add_or_merge(a_device(8100));
+        check(!reg.devices()[s].bootloader_state_known, "a device nothing has said it of: not known");
 
-        DeviceRecord partial = a_device(8101);
-        partial.observation_complete = false;
-        partial.in_bootloader = false;
-        reg.add_or_merge(partial);
-        check(reg.devices()[i].in_bootloader, "a partial look at it does not say it has left");
+        DeviceRecord stuck = a_device(8101);
+        stuck.observation_complete   = true;
+        stuck.bootloader_state_known = true;
+        stuck.in_bootloader          = true;
+        const int i = reg.add_or_merge(stuck);
+        check(reg.devices()[i].bootloader_state_known && reg.devices()[i].in_bootloader,
+              "a scan response from its bootloader says so");
+
+        DeviceRecord serial = a_device(8101);
+        serial.observation_complete = true;
+        serial.provenance           = Provenance::SerialScan;
+        reg.add_or_merge(serial);
+        check(reg.devices()[i].in_bootloader, "a serial scan's complete look does not say it has left");
 
         DeviceRecord running = a_device(8101);
-        running.observation_complete = true;
-        running.in_bootloader = false;
+        running.observation_complete   = true;
+        running.bootloader_state_known = true;
+        running.in_bootloader          = false;
         reg.add_or_merge(running);
-        check(!reg.devices()[i].in_bootloader, "a later scan response from its firmware does");
+        check(reg.devices()[i].bootloader_state_known && !reg.devices()[i].in_bootloader,
+              "a later scan response from its firmware does");
     }
 
     void test_a_bootloader_number_is_kept_only_for_its_own_serial()
