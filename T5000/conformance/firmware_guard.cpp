@@ -940,14 +940,38 @@ namespace
         check(thread_jump != std::string::npos && thread_chip != std::string::npos && thread_jump < thread_chip,
               "flashThread_ForExtendFormatHexfile reads it after the jump, in the bootloader");
 
-        // What each makes of the check's answer. -1 (an old MiniPanel
-        // bootloader on serial) and 2 (a bootloader to update) stop the _RAM
-        // thread, which goes on only on 1, but not the other.
+        // What each makes of the check's answer. UpdataDeviceInformation
+        // hands back check_bootloader_and_frimware's as it is, -1 for an old
+        // MiniPanel bootloader on serial among them, or 2 once it has posted
+        // a bootloader update. The code after the call up to its return is
+        // in #if 0.
+        const std::string answer = "Ret_Result = check_bootloader_and_frimware(Device_infor[7], 0, Device_infor[11], "
+                                   "Device_infor[14], c2_update_boot, Device_infor[4]); if (c2_update_boot == 1) { "
+                                   "CString str_temp_tips; str_temp_tips.Format(_T(\"New bootloader available ,need "
+                                   "update!\")); OutPutsStatusInfo(str_temp_tips, false); "
+                                   "PostMessage(m_pParentWnd->m_hWnd, WM_FLASH_RESTATR_BOOT, Device_infor[7], 0); "
+                                   "Ret_Result = 2; } #if 0 ";
+        const size_t answered = upd.find(answer);
+        const size_t endif = answered == std::string::npos ? std::string::npos : upd.find("#endif", answered);
+        check(endif != std::string::npos && upd.compare(endif, 25, "#endif return Ret_Result;") == 0 &&
+                  upd.substr(answered + answer.size(), endif - answered - answer.size()).find('#') == std::string::npos,
+              "UpdataDeviceInformation hands back the check's answer, or 2 for a bootloader update");
+
+        // The _RAM thread goes on only on 1: on 2 it ends, and on -1 it
+        // skips the device, saying to use the network. The other goes on on
+        // anything but 0, so it flashes after a -1.
         pin(thread, "if (pWriter->UpdataDeviceInformation(pWriter->m_szMdbIDs[i])) {",
             "flashThread_ForExtendFormatHexfile goes on whatever the check returns but 0");
         pin(thread_ram, "int nret_device_info = pWriter->UpdataDeviceInformation(pWriter->m_szMdbIDs[i]); int temp_ret3 = "
                         "pWriter->Fix_Tstat10_76800_baudrate(); if (nret_device_info == 1) {",
             "flashThread_ForExtendFormatHexfile_RAM only when it returns 1");
+        pin(thread_ram, "else if (nret_device_info == 2) { Sleep(1); return 1; } else if (nret_device_info == -1) { "
+                        "CString srtInfo; srtInfo.Format(_T(\"The new firmware needs update bootloader first.\"));",
+            "  it ends on 2, and on -1 says the file needs a new bootloader");
+        pin(thread_ram, "srtInfo.Format(_T(\"Please use the network to update the firmware\")); "
+                        "pWriter->OutPutsStatusInfo(srtInfo); srtInfo.Format(_T(\" \")); pWriter->OutPutsStatusInfo(srtInfo); "
+                        "continue; } else { continue; }",
+            "  and goes on to the next device");
     }
 
     // ---- reader ----
