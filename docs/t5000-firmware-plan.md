@@ -278,8 +278,9 @@ check is held the same way, with what it includes (S7).
   names no other page; every other request stays at 256 KB, and a larger
   one is refused before it is read. ISP copies a `.bin` of any length
   into its 0x3FFFFF-byte buffer, past its end; of a linear `.hex`, it
-  refuses a record that starts past the buffer and writes one that starts
-  inside it past its end. T5000 refuses all three, and 16 MiB takes the
+  refuses a record whose address is more than the buffer's length and
+  writes any other whole, past the end when it runs over. T5000 refuses
+  all of these, and 16 MiB takes the
   `.hex` of sixteen-byte records that
   fills it, about 11.5 MB. T5000 reads the file as ISP would on the
   device's path and shows what ISP and T5000 make of it, and the device

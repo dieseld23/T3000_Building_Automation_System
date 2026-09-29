@@ -189,6 +189,13 @@ namespace
         FakeTransport quiet;
         check(!r.read(quiet, message) && !has(message, "bootloader, which"),
               "a device not known to be in its bootloader: no such reason");
+
+        Bench other(boot);
+        FakeTransport answering;
+        answers(answering, settings(kSerial + 1, 62));
+        check(!other.read(answering, message) && has(message, "gives its serial number as") &&
+                  !has(message, "bootloader, which"),
+              "a panel that answers with settings, another's: it answers reads, so its bootloader is not blamed");
     }
 
     void test_only_where_the_points_pages_would_read()

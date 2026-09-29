@@ -100,7 +100,8 @@ namespace t5000::app
         {
             // As T3000: a panel whose settings do not come back is not
             // connected, and nothing more is asked of it.
-            error = s.error;
+            panel.no_answer = true;
+            error           = s.error;
             return false;
         }
         else if (must_confirm)

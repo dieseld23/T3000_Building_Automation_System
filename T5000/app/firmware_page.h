@@ -26,9 +26,10 @@ namespace t5000::app
     // ISP's largest buffer is 0x3FFFFF bytes. It copies a .bin of any length
     // into it, past its end (BinFileParser.cpp:82-83), where T5000 refuses a
     // .bin longer than the buffer (firmware/firmware_file.cpp). Of a
-    // .hex of linear address records, it refuses a record that starts past
-    // it and writes one that starts inside it past its end
-    // (HexFileParser.cpp:566-569); T5000 refuses both. A .hex of
+    // .hex of linear address records, it refuses a record whose address is
+    // more than the buffer's length and writes any other whole, past the
+    // end when it runs over (HexFileParser.cpp:566-569); T5000 refuses
+    // both. A .hex of
     // sixteen-byte records that
     // fills it is about 11.5 MB of text. 16 MiB takes that and the largest
     // .bin. A larger request is refused without being read, and the page

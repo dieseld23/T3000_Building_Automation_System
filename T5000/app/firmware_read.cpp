@@ -59,7 +59,9 @@ namespace t5000::app
 
         // A device the last scan found in its bootloader answers a scan,
         // and ISP, but not a read. That state may be old, so the read is
-        // still sent, and its failure names it as the likely reason.
+        // still sent, and when nothing answers it, or the answer is no
+        // settings, the message names it as the likely reason. Not when
+        // settings came back: then the panel answers reads.
         const std::string in_bootloader =
             d.bootloader_state_known && d.in_bootloader
                 ? " Its last scan response said it is in its bootloader, which answers a scan but not a read: that is "
@@ -72,7 +74,7 @@ namespace t5000::app
         if (!read_panel_settings(transport, plan.endpoint, d.product, d.serial_number, plan.identity, settings,
                                  next_invoke_id, kWords, panel, error, sent))
         {
-            message = error + in_bootloader;
+            message = error + (panel.no_answer ? in_bootloader : std::string());
             return false;
         }
 

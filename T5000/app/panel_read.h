@@ -74,6 +74,10 @@ namespace t5000::app
         bool                settings_known = false;
         wire::PanelSettings settings;
 
+        // Nothing answered the settings read, sent once more: as T3000
+        // takes it, the panel is not connected.
+        bool no_answer = false;
+
         display::CustomRanges ranges;
 
         // What the page should be told about the panel: why the settings or
