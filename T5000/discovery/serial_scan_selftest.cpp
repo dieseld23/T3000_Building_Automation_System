@@ -110,6 +110,7 @@ namespace
         const DeviceRecord& rec = r.devices[0];
         check_eq((long)rec.serial_number, 123456, "its serial");
         check_eq((long)rec.product, 88, "its product");
+        check(rec.product_reported, "  reported by the scan");
         check_eq(rec.firmware, 538, "its firmware");
         check(rec.provenance == Provenance::SerialScan, "found by a serial scan");
         check(rec.reached, "it answered");
@@ -127,6 +128,14 @@ namespace
         check(r.error.empty() && r.stats.shared_ids.empty() && r.stats.unreadable_ids.empty(),
               "and nothing went wrong");
         only_scan_frames(line);
+
+        FakeSerialLine blank;
+        SerialDevice z = device(12, 123457);
+        z.product = 0;
+        blank.devices.push_back(z);
+        const SerialScanResult b = scan_serial(blank, settings());
+        if (require(b.devices.size() == 1, "a device giving product 0 is found"))
+            check(!b.devices[0].product_reported, "  and its product is not reported");
     }
 
     void test_devices_answering_together_are_told_apart()

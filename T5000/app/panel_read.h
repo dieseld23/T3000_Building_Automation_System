@@ -20,6 +20,7 @@
 
 #include "../bacnet/point_read.h"
 #include "../device/product.h"
+#include "../device/registry.h"
 #include "../display/custom_ranges.h"
 #include "../display/variable_ranges.h"
 #include "../wire/panel.h"
@@ -54,11 +55,28 @@ namespace t5000::app
         FoundAtAddress,
     };
 
+    struct PanelRead;
+
+    // Keeps the bootloader's version from the settings a read left, for
+    // the device with this handle, through Registry::note_bootloader,
+    // which keeps it only when their serial is the device's own. Nothing
+    // when the settings did not decode, or give 0: a panel that does not
+    // report its bootloader leaves the byte 0, and ISP passes over 0 as
+    // no version where it reads one (a TSTAT8's, global_function.cpp:1083).
+    // `by` names the read, for the Firmware page and its reasons: "Find",
+    // "the Inputs page".
+    bool keep_bootloader(device::Registry& registry, device::Handle handle, const PanelRead& panel,
+                         const std::string& by);
+
     struct PanelRead
     {
         // The settings answered and decoded.
         bool                settings_known = false;
         wire::PanelSettings settings;
+
+        // Nothing answered the settings read, sent once more: as T3000
+        // takes it, the panel is not connected.
+        bool no_answer = false;
 
         display::CustomRanges ranges;
 

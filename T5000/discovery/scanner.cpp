@@ -57,6 +57,7 @@ namespace t5000::discovery
         DeviceRecord d;
         d.serial_number = r.serial_number;
         d.product       = static_cast<ProductClassId>(r.product_id);
+        d.product_reported = d.product != ProductClassId::Unknown;
         d.firmware      = (int)r.software_version;
         d.provenance    = Provenance::BacnetBroadcast;
 
@@ -64,6 +65,11 @@ namespace t5000::discovery
         // replace its repair list - including with an empty one when the
         // problem has been fixed since the last scan.
         d.observation_complete = true;
+
+        // Whether it is in its bootloader, as it says now. A merge takes
+        // this from every scan response, false included.
+        d.bootloader_state_known = true;
+        d.in_bootloader          = r.in_bootloader;
 
         // It answered, so it is demonstrably there - even if it answered from
         // its bootloader.

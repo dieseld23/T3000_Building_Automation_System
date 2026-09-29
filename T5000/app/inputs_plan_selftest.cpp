@@ -389,6 +389,31 @@ namespace
         check(!has(inputs_payload(d, plan, read_ok()), "OFFLINE"), "and with none, nothing is said");
     }
 
+    void test_the_settings_are_handed_back()
+    {
+        section("a planned read hands back the settings it read");
+
+        const DeviceRecord seen = scanned(ProductClassId::Cm5);
+        std::vector<uint8_t> block(t5000::wire::kSettingsWireSize, 0);
+        for (int i = 0; i < 4; i++)
+            block[t5000::wire::settings_at::serial_number + i] = (uint8_t)(seen.serial_number >> (8 * i));
+        block[t5000::wire::settings_at::bootloader_rev] = 63;
+
+        FakeTransport t;
+        t.respond = [&block](const FakeTransport::Sent& s, size_t, FakeTransport& tr)
+        {
+            if (s.request.command == t5000::bacnet::ReadCommand::Settings)
+                tr.reply(ack(s.request, s.invoke_id, block));
+            else
+                tr.reply(refusal(s.invoke_id));
+        };
+        uint8_t invoke = 0;
+        PanelRead panel;
+        read_planned_inputs(seen, plan_inputs_read(seen), t, instant(), invoke, &panel);
+        check(panel.settings_known && panel.settings.serial_number == seen.serial_number, "the settings");
+        check_eq((int)panel.settings.bootloader_rev, 63, "  with the bootloader's version");
+    }
+
     void test_the_read_is_held_to_the_plans_identity()
     {
         section("a planned read is held to the plan's identity, not one chosen where it is carried out");
@@ -437,6 +462,7 @@ int run_inputs_plan_tests()
     test_the_payload_for_a_device_seen_this_session();
     test_the_payload_for_a_restored_device();
     test_the_read_is_held_to_the_plans_identity();
+    test_the_settings_are_handed_back();
     test_offline_changes_are_said_whatever_the_read_gives();
     return 0;
 }

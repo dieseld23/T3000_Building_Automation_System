@@ -10,8 +10,9 @@
 // hand before any scan has found them, looks for a device at an address the
 // operator gives (Find), and reads a selected controller's inputs, outputs
 // and variables. The inputs of a device added by hand can be configured
-// before it is found, and the configuration is kept in the list. It cannot
-// yet change anything on a device.
+// before it is found, and the configuration is kept in the list. The
+// Firmware page checks a firmware file against a device, and sends it
+// nowhere. It cannot yet change anything on a device.
 // The scan and the reads are read-only by construction (see
 // discovery/scanner.h and bacnet/command.h), and problems the scan notices
 // are staged as proposals nobody has agreed to yet. With no device selected,
@@ -27,6 +28,8 @@
 
 #include "app/device_list.h"
 #include "app/find_device.h"
+#include "app/firmware_page.h"
+#include "app/firmware_read.h"
 #include "app/fixture.h"
 #include "app/inputs_plan.h"
 #include "app/inputs_read.h"
@@ -50,6 +53,7 @@
 #include "serial/ports.h"
 #include "store/device_db.h"
 #include "web/devices_page.h"
+#include "web/firmware_page.h"
 #include "web/inputs_page.h"
 #include "web/nav.h"
 #include "web/outputs_page.h"
@@ -239,7 +243,11 @@ namespace
                 d.serial_number, d.address_note, "Nothing was sent. " + error + after, plan.sighting);
         }
 
-        return app::read_planned_inputs(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id);
+        app::PanelRead panel;
+        const std::string json =
+            app::read_planned_inputs(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id, &panel);
+        app::keep_bootloader(g_registry, d.handle, panel, "the Inputs page");
+        return json;
     }
 
     // The same, for its outputs.
@@ -260,7 +268,11 @@ namespace
                 d.serial_number, d.address_note, "Nothing was sent. " + error, plan.sighting);
         }
 
-        return app::read_planned_outputs(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id);
+        app::PanelRead panel;
+        const std::string json =
+            app::read_planned_outputs(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id, &panel);
+        app::keep_bootloader(g_registry, d.handle, panel, "the Outputs page");
+        return json;
     }
 
     // The same, for its variables.
@@ -281,7 +293,58 @@ namespace
                 d.serial_number, d.address_note, "Nothing was sent. " + error, plan.sighting);
         }
 
-        return app::read_planned_variables(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id);
+        app::PanelRead panel;
+        const std::string json =
+            app::read_planned_variables(d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id, &panel);
+        app::keep_bootloader(g_registry, d.handle, panel, "the Variables page");
+        return json;
+    }
+
+    // Reads one device's settings for the Firmware page, for its
+    // bootloader's version, or says why not. Whether a request is sent is
+    // decided in app::plan_firmware_read, which is tested; this only
+    // carries it out.
+    bool read_bootloader_of(t5000::device::Handle handle, std::string& message)
+    {
+        using namespace t5000;
+
+        const device::DeviceRecord* d = nullptr;
+        for (const auto& device : g_registry.devices())
+            if (device.handle == handle)
+                d = &device;
+        if (!d)
+        {
+            message = "That device is no longer in the list. Nothing was sent.";
+            return false;
+        }
+
+        const app::PointsPlan plan = app::plan_firmware_read(*d);
+        if (!plan.can_read)
+        {
+            message = plan.reason;
+            return false;
+        }
+
+        bacnet::UdpReadTransport transport(plan.endpoint);
+        std::string error;
+        if (!transport.open(error))
+        {
+            message = "Nothing was sent. " + error;
+            return false;
+        }
+        return app::read_bootloader(g_registry, *d, plan, transport, bacnet::ReadSettings(), g_next_invoke_id,
+                                    message);
+    }
+
+    // What a Read on the Firmware page answers with: whether it kept a
+    // bootloader's version, what happened, and the page's list as it now is.
+    t5000::http::Response firmware_read_response(bool ok, const std::string& message)
+    {
+        std::string body = "{\"ok\":";
+        body += ok ? "true" : "false";
+        body += ",\"message\":\"" + t5000::app::json_escape(message) + "\"";
+        body += ",\"list\":" + t5000::app::firmware_list_json(g_registry) + "}";
+        return t5000::http::Response::json(body);
     }
 }
 
@@ -338,6 +401,11 @@ int main(int argc, char** argv)
 
     server.route("/variables", [](const http::Request&) {
         static const std::string page = web::with_nav(web::kVariablesPage, "/variables");
+        return http::Response::html(page);
+    });
+
+    server.route("/firmware", [](const http::Request&) {
+        static const std::string page = web::with_nav(web::kFirmwarePage, "/firmware");
         return http::Response::html(page);
     });
 
@@ -794,6 +862,52 @@ int main(int argc, char** argv)
     // What the tool knows about products. Served so the capability table is
     // inspectable rather than implicit - "this device is not supported" is a
     // much more useful message when the reason is one request away.
+    // The Firmware page (F1b, docs/t5000-firmware-plan.md): the devices,
+    // with what a check needs of each.
+    server.route("/api/firmware", [](const http::Request&) {
+        return http::Response::json(app::firmware_list_json(g_registry));
+    });
+
+    // Reads one panel's settings, for its bootloader's version: one
+    // request, READ_SETTING_COMMAND, sent only now, when Read is clicked,
+    // and only where the points pages would send one
+    // (app/firmware_read.h). Synchronous, like the reads.
+    server.route("/api/firmware/read", [](const http::Request& req) {
+        if (req.method != "POST")
+            return bad_request("A panel's settings are read with POST.");
+
+        device::Handle handle = device::kNoHandle;
+        std::string message;
+        if (!app::read_firmware_read_request(req.body, handle, message))
+            return bad_request(message);
+
+        const bool ok = read_bootloader_of(handle, message);
+        return firmware_read_response(ok, message);
+    });
+
+    // Checks a firmware file, the request's body, against a device: read
+    // as ISP would read it on the device's path, and what ISP and T5000
+    // make of it (app/firmware_page.h). Nothing is sent to any device.
+    //
+    // The file is the raw body, not base64 in JSON as a .prog file is: a
+    // firmware file can be megabytes, and base64 adds a third. So this
+    // route takes up to kLargestFirmwareRequest (http::body_limit), and
+    // the handle and the file's name come in the query.
+    server.route(
+        "/api/firmware/check",
+        [](const http::Request& req) {
+            if (req.method != "POST")
+                return bad_request("A firmware file is checked with POST.");
+
+            app::FirmwareCheckRequest request;
+            std::string message;
+            if (!app::read_firmware_check_request(req.query, request, message))
+                return bad_request(message);
+
+            return http::Response::json(app::check_firmware_json(g_registry, request, req.body));
+        },
+        app::kLargestFirmwareRequest);
+
     server.route("/api/products", [](const http::Request&) {
         return http::Response::json(app::build_products_json());
     });
@@ -873,6 +987,7 @@ int main(int argc, char** argv)
     printf("  scanning  read-only - no device is written to\n");
     printf("  points    read-only, from the selected device over BACnet/IP;\n");
     printf("            sample data only when no device is selected\n");
+    printf("  firmware  checking only - no file is sent to any device\n");
     printf("  bind      loopback only\n\n");
     printf("Ctrl-C to stop.\n");
 

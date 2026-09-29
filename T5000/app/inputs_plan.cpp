@@ -186,13 +186,15 @@ namespace t5000::app
 
     std::string read_planned_inputs(const device::DeviceRecord& d, const InputsPlan& plan,
                                     bacnet::ReadTransport& transport, const bacnet::ReadSettings& settings,
-                                    uint8_t& next_invoke_id)
+                                    uint8_t& next_invoke_id, PanelRead* panel)
     {
         // The plan says how sure T5000 already is of the panel at the
         // address; the read holds a device known only from the saved list to
         // the stricter rule. See Identity.
         const InputsPageRead read = read_inputs_page(transport, plan.endpoint, d.product, d.serial_number,
                                                      plan.identity, settings, next_invoke_id);
+        if (panel)
+            *panel = read.panel;
         return inputs_payload(d, plan, read);
     }
 }

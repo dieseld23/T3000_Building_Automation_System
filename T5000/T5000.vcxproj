@@ -105,6 +105,10 @@
     <ClCompile Include="app\inputs_read.cpp" />
     <ClCompile Include="app\inputs_read_selftest.cpp" />
     <ClCompile Include="app\find_device.cpp" />
+    <ClCompile Include="app\firmware_page.cpp" />
+    <ClCompile Include="app\firmware_page_selftest.cpp" />
+    <ClCompile Include="app\firmware_read.cpp" />
+    <ClCompile Include="app\firmware_read_selftest.cpp" />
     <ClCompile Include="app\find_device_selftest.cpp" />
     <ClCompile Include="app\offline_inputs.cpp" />
     <ClCompile Include="app\offline_inputs_selftest.cpp" />
@@ -199,6 +203,8 @@
     <ClInclude Include="app\outputs_plan.h" />
     <ClInclude Include="app\inputs_read.h" />
     <ClInclude Include="app\find_device.h" />
+    <ClInclude Include="app\firmware_page.h" />
+    <ClInclude Include="app\firmware_read.h" />
     <ClInclude Include="app\offline_inputs.h" />
     <ClInclude Include="firmware\firmware_check.h" />
     <ClInclude Include="firmware\firmware_file.h" />
@@ -249,6 +255,7 @@
     <ClInclude Include="testing\fake_serial_line.h" />
     <ClInclude Include="testing\temp_file.h" />
     <ClInclude Include="web\devices_page.h" />
+    <ClInclude Include="web\firmware_page.h" />
     <ClInclude Include="web\inputs_page.h" />
     <ClInclude Include="web\outputs_page.h" />
     <ClInclude Include="web\variables_page.h" />

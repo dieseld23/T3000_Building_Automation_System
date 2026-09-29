@@ -20,40 +20,38 @@ namespace t5000::http
             case 400: return "Bad Request";
             case 403: return "Forbidden";
             case 404: return "Not Found";
+            case 413: return "Payload Too Large";
             case 500: return "Internal Server Error";
             default:  return "OK";
             }
         }
 
-        size_t header_value_size(const std::string& head, const char* name)
+        // A Content-Length: decimal digits only, at most 18 of them, so
+        // the sum cannot overflow. A length past what a size_t holds is the
+        // most it holds, which no route takes.
+        bool decimal_length(const std::string& text, size_t& out)
         {
-            // Header names are case-insensitive, and browsers do not agree on
-            // the casing of Content-Length, so compare lowercased.
-            std::string lowered;
-            lowered.reserve(head.size());
-            for (char c : head)
-                lowered += (char)tolower((unsigned char)c);
-
-            const size_t at = lowered.find(name);
-            if (at == std::string::npos)
-                return 0;
-
-            const size_t colon = lowered.find(':', at);
-            if (colon == std::string::npos)
-                return 0;
-
-            return (size_t)strtoul(head.c_str() + colon + 1, nullptr, 10);
+            if (text.empty() || text.size() > 18)
+                return false;
+            unsigned long long n = 0;
+            for (const char c : text)
+            {
+                if (c < '0' || c > '9')
+                    return false;
+                n = n * 10 + (unsigned long long)(c - '0');
+            }
+            const size_t most = static_cast<size_t>(-1);
+            out = n > (unsigned long long)most ? most : (size_t)n;
+            return true;
         }
 
-        // Reads the head, then whatever body Content-Length declares. Chunked
-        // encoding is not handled: nothing here asks for it, and fetch() with a
-        // string body always sends a length.
-        bool read_request(SOCKET client, std::string& out)
+        // Reads up to the end of the head, and whatever of the body came with
+        // it. `head_end` is where the blank line starts.
+        bool read_head(SOCKET client, std::string& out, size_t& head_end)
         {
             char buffer[4096];
             out.clear();
 
-            size_t head_end = std::string::npos;
             while ((head_end = out.find("\r\n\r\n")) == std::string::npos)
             {
                 const int n = recv(client, buffer, (int)sizeof(buffer), 0);
@@ -66,16 +64,15 @@ namespace t5000::http
                 if (out.size() > 64 * 1024)
                     return false;
             }
+            return true;
+        }
 
-            const size_t body_start = head_end + 4;
-            const size_t declared   = header_value_size(out.substr(0, head_end), "content-length");
-
-            // Bounded deliberately. This accepts a small JSON settings object
-            // and nothing else, so a large declared length is a reason to stop
-            // rather than something to allocate for.
-            if (declared > 256 * 1024)
-                return false;
-
+        // Then the rest of the body Content-Length declares, which body_limit
+        // has already allowed. Chunked encoding is not handled: nothing here
+        // asks for it, and fetch() always sends a length.
+        bool read_body(SOCKET client, std::string& out, size_t body_start, size_t declared)
+        {
+            char buffer[4096];
             while (out.size() - body_start < declared)
             {
                 const int n = recv(client, buffer, (int)sizeof(buffer), 0);
@@ -147,9 +144,11 @@ namespace t5000::http
         const size_t head_stop = head_end == std::string::npos ? raw.size() : head_end;
 
         // Header lines, one at a time, matched on the whole name. Only the
-        // two from_this_tool needs are kept.
+        // two from_this_tool needs are kept, and the body's length.
         req.host.clear();
         req.origin.clear();
+        req.content_length = 0;
+        bool have_length   = false;
         size_t at = line_end + 2;
         while (at < head_stop)
         {
@@ -167,6 +166,12 @@ namespace t5000::http
                     req.host = value;
                 else if (name == "origin")
                     req.origin = value;
+                else if (name == "content-length")
+                {
+                    if (have_length || !decimal_length(value, req.content_length))
+                        return false;
+                    have_length = true;
+                }
             }
             at = end + 2;
         }
@@ -198,6 +203,33 @@ namespace t5000::http
                 return false;
             }
         }
+        return true;
+    }
+
+    size_t body_limit(const Request& head, unsigned short port, const std::vector<Route>& routes)
+    {
+        // Bounded deliberately: a large declared length is a reason to stop,
+        // not something to allocate for, unless the route asked for it and
+        // the request is from T5000's own page.
+        std::string why;
+        if (head.method != "POST" || !from_this_tool(head, port, why))
+            return kMaxBody;
+        for (const auto& r : routes)
+            if (r.path == head.path)
+                return r.max_body > kMaxBody ? r.max_body : kMaxBody;
+        return kMaxBody;
+    }
+
+    bool body_refused(const Request& head, size_t declared, unsigned short port, const std::vector<Route>& routes,
+                      Response& refused)
+    {
+        const size_t limit = body_limit(head, port, routes);
+        if (declared <= limit)
+            return false;
+        refused        = Response();
+        refused.status = 413;
+        refused.body   = "The request carries " + std::to_string(declared) + " bytes; it may carry " +
+                         std::to_string(limit) + ".";
         return true;
     }
 
@@ -234,9 +266,13 @@ namespace t5000::http
         WSACleanup();
     }
 
-    void Server::route(const std::string& path, Handler handler)
+    void Server::route(const std::string& path, Handler handler, size_t max_body)
     {
-        m_routes.emplace_back(path, std::move(handler));
+        Route r;
+        r.path     = path;
+        r.handler  = std::move(handler);
+        r.max_body = max_body;
+        m_routes.push_back(std::move(r));
     }
 
     bool Server::serve_forever(const std::function<void()>& on_ready)
@@ -296,8 +332,26 @@ namespace t5000::http
             Request req;
             Response res;
 
+            // The head first: how much body may follow is decided from it,
+            // before any of the body is read.
             std::string why;
-            if (!read_request(client, raw) || !parse_request(raw, req))
+            size_t head_end = 0;
+            size_t declared = 0;
+            const bool head_ok = read_head(client, raw, head_end) && parse_request(raw.substr(0, head_end + 4), req);
+            if (head_ok)
+                declared = req.content_length;
+
+            if (!head_ok)
+            {
+                res.status = 400;
+                res.body   = "Bad request";
+            }
+            else if (body_refused(req, declared, m_port, m_routes, res))
+            {
+                // res is the 413. Nothing of the body is read: the
+                // connection is closed with the rest unread.
+            }
+            else if (!read_body(client, raw, head_end + 4, declared) || !parse_request(raw, req))
             {
                 res.status = 400;
                 res.body   = "Bad request";
@@ -313,9 +367,9 @@ namespace t5000::http
                 res = Response::not_found();
                 for (const auto& r : m_routes)
                 {
-                    if (r.first == req.path)
+                    if (r.path == req.path)
                     {
-                        res = r.second(req);
+                        res = r.handler(req);
                         break;
                     }
                 }

@@ -307,6 +307,33 @@ namespace t5000::device
         // there once.
         int answered_scan = 0;
 
+        // --- This session only, and never saved. -------------------------
+        // Whether the device was in its bootloader, as the last network scan
+        // response it gave this session said (scan_response.h). Only such a
+        // response says either way: a serial scan does not, and a device
+        // restored from the saved list has not said since T5000 started.
+        // in_bootloader means nothing unless bootloader_state_known.
+        bool bootloader_state_known = false;
+        bool in_bootloader          = false;
+
+        // Whether a scan this session has reported its product: a network
+        // scan response, or a serial scan's registers, that gave one, not 0.
+        // Only the scanners set it. Find reads no product, and the saved
+        // list's may be the model an entry was added by hand as, which a
+        // merge keeps when a scan gives product 0. A merge only ever sets it,
+        // and only with a product.
+        bool product_reported = false;
+
+        // The bootloader's version, from settings read this session whose
+        // serial is this device's (Registry::note_bootloader), and where it
+        // came from, in words: "its settings, read at 14:02". Not saved: a
+        // number from an earlier session may name a bootloader that has been
+        // replaced since, and a firmware file is checked against what the
+        // device says now.
+        bool        bootloader_known = false;
+        int         bootloader       = 0;
+        std::string bootloader_from;
+
         // A device with no usable serial cannot be keyed on one. Reported
         // rather than worked around, because every alternative key (IP,
         // Modbus id) is something a person can change.
@@ -366,6 +393,19 @@ namespace t5000::device
         // caller decides whether the device is one whose panel type is
         // chosen rather than read (app::place_device).
         bool set_mini_type(Handle handle, int mini_type);
+
+        // Keeps the bootloader's version a panel's settings gave, for the
+        // device with this handle, when the settings' serial is the
+        // device's own. Settings that gave another serial, or 0, were
+        // another panel's, or no panel's, whatever the read made of them:
+        // a read the scan vouched for goes on without its serial confirmed
+        // (app/panel_read.h), and that must not put a number on this
+        // device. Every settings read keeps its number through here -
+        // Find, the points pages and the Firmware page (app/firmware_page.h)
+        // - so the rule is in one place. False, and nothing kept, when the
+        // handle resolves to nothing, the device is virtual or has no
+        // serial of its own, or the serials differ.
+        bool note_bootloader(Handle handle, uint32_t settings_serial, int bootloader, const std::string& from);
 
         // --- Scans. -------------------------------------------------------
         // Starts a scan and returns its number, to be put in answered_scan on

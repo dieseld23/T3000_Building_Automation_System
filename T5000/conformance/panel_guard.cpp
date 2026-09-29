@@ -47,6 +47,7 @@ namespace
     SETTINGS_FIELD_AT(max_master, w::settings_at::max_master);
     SETTINGS_FIELD_AT(pro_info.firmware0_rev_main, w::settings_at::firmware_main);
     SETTINGS_FIELD_AT(pro_info.firmware0_rev_sub, w::settings_at::firmware_sub);
+    SETTINGS_FIELD_AT(pro_info.bootloader_rev, w::settings_at::bootloader_rev);
     SETTINGS_FIELD_AT(panel_name, w::settings_at::panel_name);
     SETTINGS_FIELD_AT(panel_number, w::settings_at::panel_number);
     SETTINGS_FIELD_AT(n_serial_number, w::settings_at::serial_number);

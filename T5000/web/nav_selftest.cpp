@@ -6,6 +6,7 @@
 
 #include "nav.h"
 #include "devices_page.h"
+#include "firmware_page.h"
 #include "inputs_page.h"
 #include "outputs_page.h"
 #include "variables_page.h"
@@ -28,13 +29,13 @@ namespace
 
     void test_the_pages_are_t3000s_in_its_order()
     {
-        section("the bar holds T3000's screens in its toolbar's order, less Graphics");
+        section("the bar holds T3000's screens in its toolbar's order, less Graphics, then Firmware");
 
         const auto& pages = nav_pages();
         const char* const names[] = { "Devices", "Inputs", "Outputs", "Variables", "Programs", "Loops",
                                       "Schedules", "Holidays", "Trend Logs", "Alarms", "Remote Points",
-                                      "Configuration" };
-        if (!require(pages.size() == sizeof(names) / sizeof(names[0]), "twelve screens"))
+                                      "Configuration", "Firmware" };
+        if (!require(pages.size() == sizeof(names) / sizeof(names[0]), "twelve screens and Firmware"))
             return;
         for (size_t i = 0; i < pages.size(); i++)
             check_streq(pages[i].name, names[i], "in order");
@@ -45,7 +46,9 @@ namespace
         int built = 0;
         for (const NavPage& p : pages)
             built += p.path != nullptr;
-        check_eq(built, 4, "four are built: Devices, Inputs, Outputs and Variables");
+        check_eq(built, 5, "five are built: Devices, Inputs, Outputs, Variables and Firmware");
+        check_streq(pages.back().path, "/firmware", "Firmware, at /firmware");
+        check_eq((int)pages.back().key, 0, "  with no Alt shortcut: T3000's menu item has none");
     }
 
     void test_built_pages_are_links_and_the_rest_are_not()
@@ -57,7 +60,8 @@ namespace
         check(bar.find("<a href=\"/variables\"") != std::string::npos, "Variables is a link");
         check(bar.find("<span title=\"Not in T5000 yet\">Programs</span>") != std::string::npos,
               "Programs is named, not linked");
-        check_eq(count(bar, "<a "), 4, "four links");
+        check_eq(count(bar, "<a "), 5, "five links");
+        check(bar.find("<a href=\"/firmware\">Firmware</a>") != std::string::npos, "Firmware is a link");
         check_eq(count(bar, "<span "), 8, "eight not built");
     }
 
@@ -106,6 +110,7 @@ namespace
             { kInputsPage, "/inputs", "Inputs" },
             { kOutputsPage, "/outputs", "Outputs" },
             { kVariablesPage, "/variables", "Variables" },
+            { kFirmwarePage, "/firmware", "Firmware" },
         };
 
         for (const auto& s : served)

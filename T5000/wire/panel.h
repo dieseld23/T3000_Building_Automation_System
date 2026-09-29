@@ -56,6 +56,7 @@ namespace t5000::wire
         inline constexpr size_t mini_type         = 19;
         inline constexpr size_t firmware_main     = 22;    // pro_info.firmware0_rev_main
         inline constexpr size_t firmware_sub      = 23;    // pro_info.firmware0_rev_sub
+        inline constexpr size_t bootloader_rev    = 27;    // pro_info.bootloader_rev
         inline constexpr size_t com0_config       = 38;    // what each serial port runs; 0 is NOUSE
         inline constexpr size_t com1_config       = 39;
         inline constexpr size_t com2_config       = 40;
@@ -111,6 +112,14 @@ namespace t5000::wire
         uint8_t  mini_type_byte  = 0;    // as sent; the top two bits are the chip
         uint8_t  firmware_main   = 0;
         uint8_t  firmware_sub    = 0;
+
+        // The bootloader's version, as the panel gives it in its settings
+        // (Str_Pro_Info, ud_str.h:796). ISP reads the bootloader's version
+        // as the larger of Modbus registers 11 and 14; whether this is the
+        // same number is the owner's check on a bench panel
+        // (docs/t5000-firmware-plan.md).
+        uint8_t  bootloader_rev  = 0;
+
         uint8_t  panel_name[settings_at::panel_name_length] = {};
         uint8_t  panel_number    = 0;
         uint32_t serial_number   = 0;
