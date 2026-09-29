@@ -146,8 +146,43 @@ namespace
     }
 }
 
+namespace
+{
+    void test_the_length_is_the_header_by_name()
+    {
+        section("a request's length is its Content-Length header, by the whole name, and only a plain number");
+
+        Request r;
+        check(parse_request("POST /api/firmware/check?handle=3&name=content-length.hex HTTP/1.1\r\n"
+                            "Host: 127.0.0.1:8730\r\nContent-Length: 5000\r\n\r\n",
+                            r) &&
+                  r.content_length == 5000,
+              "the header, though the file's name in the address says content-length");
+        check(parse_request("POST /x HTTP/1.1\r\nX-Note: content-length: 1\r\ncontent-LENGTH:  70 \r\n\r\n", r) &&
+                  r.content_length == 70,
+              "  and though another header's value says it; in any case, spaces trimmed");
+        check(parse_request("GET / HTTP/1.1\r\nHost: localhost:8730\r\n\r\n", r) && r.content_length == 0,
+              "none: 0");
+        check(parse_request("POST /x HTTP/1.1\r\nContent-Length: 999999999999999999\r\n\r\n", r) &&
+                  r.content_length >= 4294967295u,
+              "one past what a size holds: the most it holds, for the limit to refuse");
+
+        const char* refused[] = {
+            "-1", "+5", "1 2", "0x10", "", "12a", "1.5", "9999999999999999999",
+        };
+        for (const char* length : refused)
+        {
+            check(!parse_request(std::string("POST /x HTTP/1.1\r\nContent-Length: ") + length + "\r\n\r\n", r),
+                  (std::string("  refused: \"") + length + "\"").c_str());
+        }
+        check(!parse_request("POST /x HTTP/1.1\r\nContent-Length: 5\r\nContent-Length: 5\r\n\r\n", r),
+              "  refused: given twice, even alike");
+    }
+}
+
 int run_http_server_tests()
 {
+    test_the_length_is_the_header_by_name();
     test_headers_are_read_by_name();
     test_only_this_tool_may_ask();
     test_only_a_route_that_asks_takes_more();

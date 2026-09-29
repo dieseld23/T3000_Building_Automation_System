@@ -158,7 +158,9 @@ namespace
         static const std::regex angled(R"re(#\s*include\s*<([^>]+)>)re");
         for (std::sregex_iterator it(f.text.begin(), f.text.end(), angled), end; it != end; ++it)
         {
-            const std::string inc = (*it)[1].str();
+            std::string inc = (*it)[1].str();
+            for (char& c : inc)
+                c = (char)tolower((unsigned char)c);
             for (const char* os : kOsHeaders)
             {
                 if (inc == os)
@@ -208,7 +210,8 @@ namespace
     {
         std::vector<std::string> parts;
         const size_t slash = from.rfind('/');
-        const std::string joined = (slash == std::string::npos ? std::string() : from.substr(0, slash + 1)) + inc;
+        std::string joined = (slash == std::string::npos ? std::string() : from.substr(0, slash + 1)) + inc;
+        std::replace(joined.begin(), joined.end(), '\\', '/');   // the compiler takes either
         size_t start = 0;
         while (start <= joined.size())
         {
@@ -263,9 +266,13 @@ namespace
     {
         for (const std::string& r : include_closure(files, f.relative))
         {
+            // Windows opens Bacnet/ as bacnet/.
+            std::string lower = r;
+            for (char& c : lower)
+                c = (char)tolower((unsigned char)c);
             for (const char* dir : { "bacnet/", "serial/", "discovery/", "net/", "http/", "store/", "(outside" })
             {
-                if (starts_with(r, dir))
+                if (starts_with(lower, dir))
                 {
                     what = "reaches " + r;
                     return true;
@@ -431,7 +438,15 @@ namespace
               "  and a call it names itself");
         planted[0].text = "#include \"../../elsewhere.h\"\n";
         check(firmware_page_reaches_out(planted, planted[0], what), "  and a header from outside T5000");
+        planted[0].text = "#include \"..\\bacnet\\point_read.h\"\n";
+        check(firmware_page_reaches_out(planted, planted[0], what) && what == "reaches bacnet/point_read.h",
+              "  and one spelled with backslashes");
+        planted[0].text = "#include \"../Bacnet/point_read.h\"\n";
+        check(firmware_page_reaches_out(planted, planted[0], what), "  or in another case");
+        planted[2].text = "#include <WinSock2.h>\n";
         planted[0].text = "#include \"points_json.h\"\n";
+        check(firmware_page_reaches_out(planted, planted[0], what), "  and an OS header in another case");
+        planted[2].text = "";
         check(!firmware_page_reaches_out(planted, planted[0], what), "  while what reaches nothing passes");
 
         section("the Firmware routes in main.cpp");

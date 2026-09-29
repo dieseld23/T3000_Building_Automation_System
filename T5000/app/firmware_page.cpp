@@ -169,6 +169,16 @@ namespace t5000::app
                 out.push_back("It has not answered a scan, or Find, since T5000 started. T5000 flashes a device "
                               "only once one has reached it this session, so that its address is the device's now.");
         }
+        else if (d.answered_scan == 0)
+        {
+            // Reached by Find, which reads the settings, and they carry no
+            // product: the product stays the entry's (app/find_device.h),
+            // which for an entry added by hand is the model the operator
+            // chose, and stays so in the saved list. Only a scan reports it.
+            out.push_back("No scan has reported its product since T5000 started: Find reached it, but reads no "
+                          "product, so the one in the list may be the one it was added as. ISP checks a file against "
+                          "the product the device reports, so T5000 would send one only once a scan has reported it.");
+        }
         return out;
     }
 
@@ -356,9 +366,12 @@ namespace t5000::app
         const bool read = firmware::read_firmware(request.name, reinterpret_cast<const uint8_t*>(file.data()),
                                                   file.size(), path, f, why);
 
+        // What the check is told, as it is now: the page's list may be
+        // older, when a read on another page has since kept a version.
+        const firmware::DeviceFacts facts = device_facts(*d);
         firmware::Verdict verdict;
         if (read)
-            verdict = firmware::check_firmware(f, device_facts(*d));
+            verdict = firmware::check_firmware(f, facts);
         const bool ok = read && verdict.ok && own.empty();
 
         std::string message;
@@ -378,6 +391,17 @@ namespace t5000::app
         text(out, "message", message);                 out += ',';
         text(out, "path", path_key(path));             out += ',';
         text(out, "pathText", path_text(path));        out += ',';
+
+        key(out, "device");
+        out += '{';
+        number(out, "productId", facts.product);                                           out += ',';
+        text(out, "productName", std::string(device::capabilities(d->product).name));     out += ',';
+        key(out, "bootloader");
+        out += '{';
+        flag(out, "known", facts.bootloader_known);                                        out += ',';
+        number(out, "version", facts.bootloader_known ? facts.bootloader : 0);             out += ',';
+        text(out, "from", facts.bootloader_known ? facts.bootloader_from : std::string());
+        out += "}},";
 
         key(out, "file");
         out += '{';

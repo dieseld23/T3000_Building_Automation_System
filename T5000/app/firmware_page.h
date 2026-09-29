@@ -23,10 +23,14 @@
 namespace t5000::app
 {
     // The largest request that may carry a firmware file (http::body_limit).
-    // ISP takes a file of any size and stops at its buffer: 0x3FFFFF bytes
-    // for a .bin, and for a .hex whose sixteen-byte records fill that, about
-    // 11.5 MB of text. 16 MiB takes either. A larger request is refused
-    // without being read, and the page says so before it sends one.
+    // ISP's largest buffer is 0x3FFFFF bytes. It copies a .bin of any length
+    // into it, past its end (BinFileParser.cpp:82-83), where T5000 refuses a
+    // .bin longer than the buffer (firmware/firmware_file.cpp); it refuses a
+    // .hex of linear address records whose addresses run past it
+    // (HexFileParser.cpp:566-569). A .hex of sixteen-byte records that
+    // fills it is about 11.5 MB of text. 16 MiB takes that and the largest
+    // .bin. A larger request is refused without being read, and the page
+    // says so before it sends one.
     inline constexpr size_t kLargestFirmwareRequest = 16u * 1024 * 1024;
 
     // Which of ISP's paths a file for this device would go on, as T3000
@@ -61,8 +65,10 @@ namespace t5000::app
     // whatever the file: the ones docs/t5000-firmware-plan.md lists under
     // "T5000's own checks before anything is sent" that can be decided now.
     // A virtual device is never flashed; a device is flashed only once it
-    // has answered a scan or Find this session. Empty when there are none.
-    // Kept apart from ISP's reasons, which are firmware::Verdict's.
+    // has answered a scan or Find this session, and only once a scan this
+    // session has reported its product, which Find does not read. Empty
+    // when there are none. Kept apart from the file's check,
+    // firmware::Verdict, whose reasons are ISP's and T5000's stricter ones.
     std::vector<std::string> own_refusals(const device::DeviceRecord& d);
 
     // Whether a device is in its bootloader, as the page shows it:

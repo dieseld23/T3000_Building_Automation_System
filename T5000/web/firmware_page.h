@@ -143,7 +143,7 @@ namespace t5000::web
   </table>
 </div>
 
-<footer id="status">Nothing is sent to a device but a panel's settings, one request, when Read is clicked.</footer>
+<footer id="status">Nothing is sent to a device but a panel's settings, one request (sent once more if nothing answers), when Read is clicked.</footer>
 
 <input type="file" id="file" accept=".hex,.bin" hidden>
 
@@ -214,7 +214,7 @@ namespace t5000::web
         '<td class="opt">' + stateCell(d) + "</td>" +
         '<td class="actions">' +
           '<button data-read="' + esc(d.handle) + '"' + (d.canRead ? "" : " disabled") +
-            ' title="' + esc(d.canRead ? "Read its settings, one request, for its bootloader's version" : d.readWhy) +
+            ' title="' + esc(d.canRead ? "Read its settings, one request (sent once more if nothing answers), for its bootloader's version" : d.readWhy) +
             '">Read</button> ' +
           '<button data-check="' + esc(d.handle) + '">Check a file&hellip;</button>' +
         "</td></tr>";
@@ -260,18 +260,26 @@ namespace t5000::web
     return value === "" || value == null ? "" : "<dt>" + esc(label) + "</dt><dd>" + esc(value) + "</dd>";
   }
 
-  function showCheck(device, data) {
+  function showCheck(device, data, sent) {
     const f = data.file || {};
     const v = data.verdict;
+    // The device as the check was told it, which a read on another page
+    // may have changed since the list was loaded; the list's otherwise.
+    const told = data.device || device;
+    const boot = told.bootloader || device.bootloader;
     const formats = { hex: ".hex", bin: ".bin" };
     const chips = { asix: "ASIX", arm32k: "ARM, header at 0x8200", arm64k: "ARM, header at 0x10200" };
     let html = '<p class="verdict ' + (data.ok ? "ok" : "bad") + '">' + esc(data.message) + "</p>";
+    if (f.size != null && f.size !== sent) {
+      html += '<p class="verdict bad">' + esc("T5000 received " + sizeText(f.size) + " of the file's " + sizeText(sent) +
+              ": this is a check of what it received, not of the whole file.") + "</p>";
+    }
 
     html += "<h3>Device</h3><dl>" +
       row("Device", (device.name || device.panelName || "") + " serial " + device.serialNumber) +
-      row("Product", device.productName + " (" + device.productId + ")") +
+      row("Product", told.productName + " (" + told.productId + ")") +
       row("Path", data.pathText || "") +
-      row("Bootloader", device.bootloader.known ? device.bootloader.version + ", " + device.bootloader.from : "not known") +
+      row("Bootloader", boot.known ? boot.version + ", " + boot.from : "not known") +
       "</dl>";
 
     html += "<h3>File</h3><dl>" +
@@ -290,7 +298,7 @@ namespace t5000::web
     html += "</dl>";
 
     if (v) {
-      html += "<h3>As ISP checks it</h3><dl>" +
+      html += "<h3>The check, on the route ISP would take it</h3><dl>" +
         row("Route", v.route) +
         row("Device, as named", v.deviceName) +
         row("File, as named", v.fileName) +
@@ -320,7 +328,7 @@ namespace t5000::web
       const data = await res.json();
       banner("", "");
       if (res.status !== 200) { banner("bad", data.message || "T5000 refused the check."); return; }
-      showCheck(device, data);
+      showCheck(device, data, file.size);
     } catch (e) {
       banner("bad", "T5000 did not answer the check: " + e.message);
     }

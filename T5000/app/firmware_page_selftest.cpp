@@ -141,7 +141,8 @@ namespace
         d.answered_scan = 0;
         d.provenance    = Provenance::BacnetUnicast;
         check(reached_this_session(d), "found by Find this session: reached");
-        check(own_refusals(d).empty(), "  and nothing against it");
+        check(own_refusals(d).size() == 1 && any_has(own_refusals(d), "No scan has reported its product"),
+              "  but its product is the list's, which no scan has reported: said so");
 
         d.provenance = Provenance::Restored;
         check(!reached_this_session(d), "only from the saved list: not reached this session");
@@ -242,39 +243,43 @@ namespace
         check(read_firmware_check_request("name=a%26b.hex&handle=12", r, message), "in either order");
         check(r.handle == to_handle(12) && r.name == "a&b.hex", "  an & in the name stays in it");
 
-        const char* refused[] = {
-            "",
-            "handle=3",
-            "name=a.hex",
-            "handle=3&name=a.hex&x=1",
-            "handle=3&handle=4&name=a.hex",
-            "handle=3&name=a.hex&name=b.hex",
-            "handle=0&name=a.hex",
-            "handle=-1&name=a.hex",
-            "handle=3x&name=a.hex",
-            "handle=&name=a.hex",
-            "handle=3&name=",
-            "handle=3&name=a%0A.hex",
-            "handle=3&name=a%7F.hex",
-            "handle=3&name=a%2.hex",
-            "handle=3&name",
-            "handle=3&&name=a.hex",
+        // Each refused, with the reason for it: a field missing, or one it
+        // does not take, is told the form, not a rule about what a field
+        // holds.
+        const std::string form = "The address must end ?handle=<the device's handle>&name=<the file's name>.";
+        struct Refused
+        {
+            const char* query;
+            const char* why;
         };
-        for (const char* q : refused)
+        const Refused refused[] = {
+            { "", "The address must end" },
+            { "handle=3", "The address must end" },
+            { "name=a.hex", "The address must end" },
+            { "handle=3&name=a.hex&x=1", "The address must end" },
+            { "handle=3&handle=4&name=a.hex", "handle must be" },
+            { "handle=3&name=a.hex&name=b.hex", "name must be" },
+            { "handle=0&name=a.hex", "handle must be" },
+            { "handle=-1&name=a.hex", "handle must be" },
+            { "handle=3x&name=a.hex", "handle must be" },
+            { "handle=&name=a.hex", "handle must be" },
+            { "handle=3&name=", "1 to 255 bytes" },
+            { "handle=3&name=a%0A.hex", "control character" },
+            { "handle=3&name=a%7F.hex", "control character" },
+            { "handle=3&name=a%2.hex", "name must be" },
+            { "handle=3&name", "The address must end" },
+            { "handle=3&&name=a.hex", "The address must end" },
+        };
+        for (const Refused& q : refused)
         {
             FirmwareCheckRequest kept;
             kept.handle = to_handle(99);
-            const bool ok = read_firmware_check_request(q, kept, message);
-            check(!ok && !message.empty() && kept.handle == to_handle(99), q);
-        }
-
-        // A field missing, or one it does not take, is told the form, not
-        // a rule about what a field holds.
-        const std::string form = "The address must end ?handle=<the device's handle>&name=<the file's name>.";
-        for (const char* q : { "", "handle=3", "name=a.hex", "handle=3&name=a.hex&x=1", "handle=3&name" })
-        {
-            check(!read_firmware_check_request(q, r, message) && message == form,
-                  (std::string("  \"") + q + "\" is told the form").c_str());
+            message.clear();
+            const bool ok = read_firmware_check_request(q.query, kept, message);
+            check(!ok && has(message, q.why) && kept.handle == to_handle(99),
+                  (std::string("\"") + q.query + "\": " + q.why).c_str());
+            if (has(q.why, "The address must end"))
+                check(message == form, "  the form, whole");
         }
 
         const std::string longest(255, 'a');
@@ -319,8 +324,11 @@ namespace
         check(has(j, "\"version\":6100"), "  its version");
         check(has(j, "\"route\":\"network\""), "the route ISP checks it on");
         check(has(j, "\"needsNewBootloader\":true"), "marked as needing the newer bootloader");
-        check(has(j, "\"refusals\":[]"), "no reason of ISP's against it");
+        check(has(j, "\"refusals\":[]"), "no reason against the file");
         check(has(j, "\"own\":[]"), "none of T5000's own");
+        check(has(j, "\"device\":{\"productId\":74,\"productName\":\"") &&
+                  has(j, "\"bootloader\":{\"known\":true,\"version\":62,\"from\":\"its settings, read by Find\"}}"),
+              "the device as the check was told it, bootloader included");
     }
 
     void test_a_file_the_bootloader_refuses()
@@ -390,6 +398,31 @@ namespace
         check(has(j, "\"verdict\":{\"ok\":true"), "  though ISP would take it");
         check(has(j, "since T5000 started"), "  for T5000's own reason");
         check(has(j, "but T5000 would not send it yet"), "the message says both");
+
+        DeviceRecord found = scanned(1902);
+        found.answered_scan = 0;
+        found.provenance    = Provenance::BacnetUnicast;
+        Bench f(found);
+        const std::string k = f.checked(bin_file("mini_arm", 5900));
+        check(has(k, "\"ok\":false") && has(k, "\"verdict\":{\"ok\":true"),
+              "found by Find, a file ISP would take for the product in the list: refused");
+        check(has(k, "No scan has reported its product"), "  as no scan has reported that product");
+    }
+
+    void test_the_check_is_told_the_device_as_it_is_now()
+    {
+        section("firmware page: a check uses the device as the list holds it now, and says so");
+
+        Bench b(scanned(1903));
+        const std::string before = b.checked(bin_file("mini_arm", 6100));
+        check(has(before, "\"bootloader\":{\"known\":false,\"version\":0,\"from\":\"\"}}"), "no version known yet");
+        check(has(before, "\"ok\":false"), "  so a file marked for the newer bootloader is refused");
+
+        b.registry.note_bootloader(b.handle, 1903, 62, "its settings, read by the Inputs page");
+        const std::string after = b.checked(bin_file("mini_arm", 6100));
+        check(has(after, "\"version\":62,\"from\":\"its settings, read by the Inputs page\"}}"),
+              "a version kept since, on another page: the check shows the one it used");
+        check(has(after, "\"ok\":true"), "  and used it");
     }
 
     void test_a_virtual_or_a_gone_device()
@@ -446,6 +479,7 @@ int run_firmware_page_tests()
     test_a_file_for_another_product();
     test_a_file_isp_would_not_read();
     test_t5000s_own_reasons_refuse_a_file_isp_takes();
+    test_the_check_is_told_the_device_as_it_is_now();
     test_a_virtual_or_a_gone_device();
     test_the_path_decides_the_route();
     return 0;

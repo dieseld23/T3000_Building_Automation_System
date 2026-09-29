@@ -48,7 +48,7 @@ namespace
             built += p.path != nullptr;
         check_eq(built, 5, "five are built: Devices, Inputs, Outputs, Variables and Firmware");
         check_streq(pages.back().path, "/firmware", "Firmware, at /firmware");
-        check_eq((int)pages.back().key, 0, "  with no Alt shortcut: T3000's is Ctrl+F2");
+        check_eq((int)pages.back().key, 0, "  with no Alt shortcut: T3000's menu item has none");
     }
 
     void test_built_pages_are_links_and_the_rest_are_not()

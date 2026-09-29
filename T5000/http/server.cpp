@@ -26,24 +26,23 @@ namespace t5000::http
             }
         }
 
-        size_t header_value_size(const std::string& head, const char* name)
+        // A Content-Length: decimal digits only, at most 18 of them, so
+        // the sum cannot overflow. A length past what a size_t holds is the
+        // most it holds, which no route takes.
+        bool decimal_length(const std::string& text, size_t& out)
         {
-            // Header names are case-insensitive, and browsers do not agree on
-            // the casing of Content-Length, so compare lowercased.
-            std::string lowered;
-            lowered.reserve(head.size());
-            for (char c : head)
-                lowered += (char)tolower((unsigned char)c);
-
-            const size_t at = lowered.find(name);
-            if (at == std::string::npos)
-                return 0;
-
-            const size_t colon = lowered.find(':', at);
-            if (colon == std::string::npos)
-                return 0;
-
-            return (size_t)strtoul(head.c_str() + colon + 1, nullptr, 10);
+            if (text.empty() || text.size() > 18)
+                return false;
+            unsigned long long n = 0;
+            for (const char c : text)
+            {
+                if (c < '0' || c > '9')
+                    return false;
+                n = n * 10 + (unsigned long long)(c - '0');
+            }
+            const size_t most = static_cast<size_t>(-1);
+            out = n > (unsigned long long)most ? most : (size_t)n;
+            return true;
         }
 
         // Reads up to the end of the head, and whatever of the body came with
@@ -145,9 +144,11 @@ namespace t5000::http
         const size_t head_stop = head_end == std::string::npos ? raw.size() : head_end;
 
         // Header lines, one at a time, matched on the whole name. Only the
-        // two from_this_tool needs are kept.
+        // two from_this_tool needs are kept, and the body's length.
         req.host.clear();
         req.origin.clear();
+        req.content_length = 0;
+        bool have_length   = false;
         size_t at = line_end + 2;
         while (at < head_stop)
         {
@@ -165,6 +166,12 @@ namespace t5000::http
                     req.host = value;
                 else if (name == "origin")
                     req.origin = value;
+                else if (name == "content-length")
+                {
+                    if (have_length || !decimal_length(value, req.content_length))
+                        return false;
+                    have_length = true;
+                }
             }
             at = end + 2;
         }
@@ -332,7 +339,7 @@ namespace t5000::http
             size_t declared = 0;
             const bool head_ok = read_head(client, raw, head_end) && parse_request(raw.substr(0, head_end + 4), req);
             if (head_ok)
-                declared = header_value_size(raw.substr(0, head_end), "content-length");
+                declared = req.content_length;
 
             if (!head_ok)
             {

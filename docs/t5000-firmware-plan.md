@@ -260,24 +260,35 @@ check is held the same way, with what it includes (S7).
   name, product and version, pins the rest as text, and reads the
   repository's own `.hex` files.
 - **F1b, the page** (built). `/firmware`, last in the bar of pages: T3000
-  has it in its Tools menu, on Ctrl+F2 (`T3000.rc:11530`). It lists each
+  has it in its Tools menu (`T3000.rc:11530`), and opens it on Ctrl+R
+  (`MainFrm.cpp:6827`); the Ctrl+F2 its menu shows offers to reset a
+  device to its factory defaults (`:6785`). It lists each
   device with its product, firmware version, the path ISP would take to
   it (serial, the network, or behind a controller), its bootloader's
   version and where that came from, and whether the last scan found it
   in its bootloader. **Read** asks a panel for its settings, one request
-  and only where the points pages would send one, for its
+  (sent once more if nothing answers) and only where the points pages
+  would send one, for its
   `bootloader_rev`; Find and the Inputs, Outputs and Variables pages keep
   it too, from the settings they read. It is kept for the session, not
   saved, and only when the settings give the device's own serial.
   **Check a file...** sends a `.hex` or `.bin` from disk to T5000 itself,
   as the body of `POST /api/firmware/check`, the one route that takes up
-  to 16 MiB, and only from T5000's own page; every other request stays at
-  256 KB, and a larger one is refused before it is read. ISP takes a file
-  of any size and stops at its buffer, which the largest `.hex` to fill
-  it, about 11.5 MB, fits under. T5000 reads the file as ISP would on
-  the device's path and shows what ISP and T5000 make of it. Nothing is
-  sent to any device. The separation guard holds `app/firmware_page.*`,
-  which does the checking, to reaching no transport at any depth (S7).
+  to 16 MiB, and only from T5000's own page or a local program that
+  names no other page; every other request stays at 256 KB, and a larger
+  one is refused before it is read. ISP copies a `.bin` of any length
+  into its 0x3FFFFF-byte buffer, past its end, and refuses a linear
+  `.hex` whose addresses run past it; T5000 refuses a `.bin` longer than
+  the buffer, and 16 MiB takes the `.hex` of sixteen-byte records that
+  fills it, about 11.5 MB. T5000 reads the file as ISP would on the
+  device's path and shows what ISP and T5000 make of it, and the device
+  as the check was told it. Nothing is sent to any device. The separation
+  guard holds `app/firmware_page.*`, which does the checking, to reaching
+  no transport at any depth (S7).
+
+  A device Find reached, and no scan has, is not sent a file: Find reads
+  no product, so the one in the list may be the model it was added by
+  hand as, and ISP checks a file against the product the device reports.
 
 **F2. Synthetic bootloaders.** Test code only: a serial Modbus bootloader
 on com0com's CNCB0 (T5000 opens CNCA0, and never any other port), a TFTP

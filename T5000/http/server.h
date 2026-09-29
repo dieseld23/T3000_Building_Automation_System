@@ -32,9 +32,17 @@ namespace t5000::http
         // from_this_tool below for what they are for.
         std::string host;
         std::string origin;
+
+        // Its Content-Length header, matched on the whole name like the two
+        // above: 0 when it carried none. A length past what a size_t holds
+        // is the most it holds, which body_limit then refuses.
+        size_t content_length = 0;
     };
 
-    // The request line, the Host and Origin headers, and the body.
+    // The request line, the Host, Origin and Content-Length headers, and
+    // the body. False for a Content-Length that is not a plain decimal
+    // number, or is given twice: read one way here and another by whatever
+    // sent it, it would split the body in the wrong place.
     bool parse_request(const std::string& raw, Request& req);
 
     // Whether a request came from this tool's own page, or from a script
