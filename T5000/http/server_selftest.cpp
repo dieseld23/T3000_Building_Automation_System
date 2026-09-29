@@ -165,8 +165,15 @@ namespace
             return e;
         }
 
+        // Once the client is done it closes its sending side, as a client
+        // that gives up would. So a server that waits with no limit at all
+        // still comes to the end of each test, and fails it, rather than
+        // hanging the build.
         std::atomic<bool> done{ false };
-        std::thread browser([&]() { client(client_end, done); });
+        std::thread browser([&]() {
+            client(client_end, done);
+            ::shutdown(client_end, SD_SEND);
+        });
 
         const Clock::time_point started = Clock::now();
         server.answer((uintptr_t)server_end, budget_ms);
