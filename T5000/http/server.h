@@ -9,11 +9,15 @@
 // on purpose.
 //
 // Single-threaded and blocking. One technician configuring one controller does
-// not need more, and the device layer underneath serialises anyway.
+// not need more, and the device layer underneath serialises anyway. The cost is
+// that a connection being read holds up every other, so each request has to
+// arrive within kRequestBudgetMs of its connection being accepted; a client
+// that stalls, or connects and sends nothing, is dropped then.
 //
 // No framework: a dependency here would be the largest thing in the project, and
 // what is needed is a few hundred lines of request line, headers, and a body.
 
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <utility>
@@ -55,6 +59,20 @@ namespace t5000::http
     // False with the reason in `why`, and the server answers 403.
     bool from_this_tool(const Request& req, unsigned short port, std::string& why);
 
+    // How long one request may take to arrive, head and body together,
+    // counted from when its connection is accepted. The server reads one
+    // connection at a time, so a client that stops part way through holds
+    // up every other request, and this is for how long at most. Several
+    // such clients cost this much each.
+    inline constexpr unsigned kRequestBudgetMs = 5000;
+
+    // What is left of a request's budget `elapsed_ms` after its connection
+    // was accepted: at least 1 while any is left, and 0 once it is spent.
+    // The server sets SO_RCVTIMEO to this before each recv, so the budget
+    // bounds the whole request rather than each recv. SO_RCVTIMEO takes 0
+    // to mean no limit, so a spent budget is never set: it ends the read.
+    unsigned long budget_left_ms(unsigned long long elapsed_ms, unsigned budget_ms);
+
     struct Response
     {
         int         status = 200;
@@ -88,6 +106,14 @@ namespace t5000::http
         // browser beforehand means a failed bind still launches a tab, pointing
         // at a URL this process is not serving.
         bool serve_forever(const std::function<void()>& on_ready = nullptr);
+
+        // One connection, start to finish: its request read within
+        // `budget_ms`, checked, routed and answered, and the connection
+        // closed. serve_forever calls this for each connection it accepts;
+        // the self-test calls it directly, over a socket on loopback.
+        // `client` is the accepted SOCKET, kept opaque to the header as the
+        // listener is.
+        void answer(uintptr_t client, unsigned budget_ms = kRequestBudgetMs);
 
         const std::string& last_error() const { return m_error; }
         unsigned short port() const { return m_port; }
