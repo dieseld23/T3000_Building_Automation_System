@@ -43,6 +43,7 @@ namespace
         d.provenance           = Provenance::BacnetBroadcast;
         d.reached              = true;
         d.answered_scan        = 1;
+        d.product_reported     = true;
         d.connection.transport = Transport::BacnetIp;
         d.connection.host      = "192.168.1.50";
         d.connection.udp_port  = 47808;
@@ -97,6 +98,15 @@ namespace
         d = scanned(kFirstVirtualSerial);
         d.provenance = Provenance::Virtual;
         check(!firmware_path(d, p), "a virtual device has no path");
+        check(has(no_path_text(d), "never flashed"), "  and says why");
+
+        d = scanned(1003);
+        d.connection.host.clear();
+        d.provenance    = Provenance::ManuallyAdded;
+        d.answered_scan = 0;
+        check(!firmware_path(d, p), "no address, on the network or a port: no path, not the network");
+        check(has(no_path_text(d), "no address") && has(no_path_text(d), "serial port"),
+              "  and says why, as T3000 hands such a device to ISP");
 
         check_streq(path_key(fw::Path::Network), "network", "the page's words: network");
         check_streq(path_key(fw::Path::Serial), "serial", "  serial");
@@ -138,13 +148,21 @@ namespace
         check(reached_this_session(d), "answered a scan this session: reached");
         check(own_refusals(d).empty(), "  and nothing of T5000's own against it");
 
-        d.answered_scan = 0;
-        d.provenance    = Provenance::BacnetUnicast;
+        d.answered_scan    = 0;
+        d.provenance       = Provenance::BacnetUnicast;
+        d.product_reported = false;
         check(reached_this_session(d), "found by Find this session: reached");
         check(own_refusals(d).size() == 1 && any_has(own_refusals(d), "No scan has reported its product"),
               "  but its product is the list's, which no scan has reported: said so");
 
-        d.provenance = Provenance::Restored;
+        d.answered_scan    = 1;
+        d.provenance       = Provenance::BacnetBroadcast;
+        d.product_reported = false;
+        check(own_refusals(d).size() == 1 && any_has(own_refusals(d), "a scan that gives 0 says none"),
+              "answered a scan that gave product 0: its product is not reported either");
+
+        d.answered_scan = 0;
+        d.provenance    = Provenance::Restored;
         check(!reached_this_session(d), "only from the saved list: not reached this session");
         check(own_refusals(d).size() == 1 && any_has(own_refusals(d), "since T5000 started"), "  and said so");
 
@@ -316,6 +334,8 @@ namespace
         const std::string j = b.checked(bin_file("mini_arm", 6100));
         check(has(j, "\"ok\":true"), "ok");
         check(has(j, "Nothing was sent"), "  and nothing was sent");
+        check(has(j, "As far as T5000 can tell, ISP would take this file"),
+              "  said as far as T5000 can tell: on the network, ISP checks the bootloader's name when it flashes");
         check(has(j, "\"path\":\"network\""), "on the network");
         check(has(j, "\"read\":true,\"kind\":\"bin\""), "the file read, as a .bin");
         check(has(j, "\"headerAt\":256"), "  its header at 0x100");
@@ -400,8 +420,9 @@ namespace
         check(has(j, "but T5000 would not send it yet"), "the message says both");
 
         DeviceRecord found = scanned(1902);
-        found.answered_scan = 0;
-        found.provenance    = Provenance::BacnetUnicast;
+        found.answered_scan    = 0;
+        found.provenance       = Provenance::BacnetUnicast;
+        found.product_reported = false;
         Bench f(found);
         const std::string k = f.checked(bin_file("mini_arm", 5900));
         check(has(k, "\"ok\":false") && has(k, "\"verdict\":{\"ok\":true"),
@@ -453,6 +474,8 @@ namespace
         Bench serial(s);
         const std::string j = serial.checked(bin_file("mini_arm", 5900));
         check(has(j, "\"path\":\"serial\""), "a serial device: on its serial port");
+        check(has(j, "\"message\":\"ISP would take this file for this device, and so would T5000."),
+              "  where no note qualifies it, ISP's verdict is said outright");
         check(has(j, "\"route\":\"serial, a .hex of linear address records or a .bin\""),
               "  a .bin checked on the extended route");
 
@@ -462,6 +485,16 @@ namespace
         const std::string k = controller.checked(bin_file("mini_arm", 5900));
         check(has(k, "\"path\":\"controller\""), "a device on a controller's bus: through it");
         check(has(k, "\"ok\":false") && has(k, "\"read\":false"), "  where ISP reads no .bin");
+
+        DeviceRecord n = scanned(2003);
+        n.connection.host.clear();
+        n.provenance    = Provenance::ManuallyAdded;
+        n.answered_scan = 0;
+        Bench nowhere(n);
+        const std::string m = nowhere.checked(bin_file("mini_arm", 5900));
+        check(has(m, "\"ok\":false") && has(m, "knows no address for this device") && !has(m, "\"file\""),
+              "a device with no address: no path, and the file not read");
+        check(has(m, "\"pathText\":\"No path yet"), "  with the reason there is none");
     }
 }
 

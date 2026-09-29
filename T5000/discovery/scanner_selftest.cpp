@@ -333,6 +333,12 @@ namespace
         r.object_instance = 123456;
         check_eq(to_record(r).connection.device_instance, 123456, "instance carried through");
 
+        ScanResponse named = r;
+        named.product_id = 74;
+        check(to_record(named).product_reported, "a response giving a product reports it");
+        named.product_id = 0;
+        check(!to_record(named).product_reported, "  and one giving 0 does not");
+
         // And a rescan that does not report one does not erase it.
         Registry reg;
         reg.add_or_merge(to_record(r));

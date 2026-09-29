@@ -57,20 +57,30 @@ namespace t5000::app
         // ones are for a page that reads on, which this does not.
         static const PageWords kWords = { "Firmware", "settings", "", 0 };
 
+        // A device the last scan found in its bootloader answers a scan,
+        // and ISP, but not a read. That state may be old, so the read is
+        // still sent, and its failure names it as the likely reason.
+        const std::string in_bootloader =
+            d.bootloader_state_known && d.in_bootloader
+                ? " Its last scan response said it is in its bootloader, which answers a scan but not a read: that is "
+                  "the likely reason. Scan again if it has left it since."
+                : "";
+
         PanelRead panel;
         std::string error;
         int sent = 0;
         if (!read_panel_settings(transport, plan.endpoint, d.product, d.serial_number, plan.identity, settings,
                                  next_invoke_id, kWords, panel, error, sent))
         {
-            message = error;
+            message = error + in_bootloader;
             return false;
         }
 
         const std::string where = "The panel at " + plan.endpoint.text();
         if (!panel.settings_known)
         {
-            message = where + " did not give settings T5000 could use, so its bootloader's version is not known.";
+            message = where + " did not give settings T5000 could use, so its bootloader's version is not known." +
+                      in_bootloader;
             return false;
         }
 

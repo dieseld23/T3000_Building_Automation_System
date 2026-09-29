@@ -170,6 +170,27 @@ namespace
         }
     }
 
+    void test_a_device_in_its_bootloader_is_told_the_likely_reason()
+    {
+        section("firmware read: a device the last scan found in its bootloader is still read, and told why it fails");
+
+        DeviceRecord boot = scanned();
+        boot.bootloader_state_known = true;
+        boot.in_bootloader          = true;
+        Bench b(boot);
+        FakeTransport silent;
+        std::string message;
+        check(!b.read(silent, message), "a silent panel: nothing kept");
+        check_eq((long)silent.sent.size(), 2, "  after one request, sent once more when nothing answered");
+        check(has(message, "said it is in its bootloader") && has(message, "Scan again"),
+              "  and the message names its bootloader as the likely reason");
+
+        Bench r(scanned());
+        FakeTransport quiet;
+        check(!r.read(quiet, message) && !has(message, "bootloader, which"),
+              "a device not known to be in its bootloader: no such reason");
+    }
+
     void test_only_where_the_points_pages_would_read()
     {
         section("firmware read: nothing is sent where the points pages would send nothing");
@@ -260,6 +281,7 @@ int run_firmware_read_tests()
 {
     test_one_request_for_the_settings();
     test_settings_that_are_not_its_own_keep_nothing();
+    test_a_device_in_its_bootloader_is_told_the_likely_reason();
     test_only_where_the_points_pages_would_read();
     test_the_request();
     test_the_list();

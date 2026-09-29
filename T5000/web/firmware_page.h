@@ -94,6 +94,7 @@ namespace t5000::web
   .verdict{padding:8px 10px;border-radius:6px;margin:0 0 12px;font-weight:600}
   .verdict.ok{background:var(--ok-bg);color:var(--ok)}
   .verdict.bad{background:var(--bad-bg);color:var(--bad)}
+  .verdict.warn{background:var(--warn-bg);color:var(--warn)}
   .dlg h3{font-size:12px;font-weight:600;margin:14px 0 6px;color:var(--dim);
           text-transform:uppercase;letter-spacing:.04em}
   dl{display:grid;grid-template-columns:max-content 1fr;gap:3px 14px;margin:0;font-size:12.5px}
@@ -209,7 +210,7 @@ namespace t5000::web
         "<td>" + esc(d.productName) + '<span class="sub">product ' + esc(d.productId) + "</span></td>" +
         '<td class="num opt">' + (d.firmware ? esc(d.firmware) : '<span class="dim">&mdash;</span>') + "</td>" +
         '<td class="opt">' + (d.path ? '<span title="' + esc(d.pathText) + '">' + esc(d.path) + "</span>"
-                                     : '<span class="dim">none</span>') + "</td>" +
+                                     : '<span class="dim" title="' + esc(d.pathText) + '">none</span>') + "</td>" +
         "<td>" + bootloaderCell(d) + "</td>" +
         '<td class="opt">' + stateCell(d) + "</td>" +
         '<td class="actions">' +
@@ -269,7 +270,9 @@ namespace t5000::web
     const boot = told.bootloader || device.bootloader;
     const formats = { hex: ".hex", bin: ".bin" };
     const chips = { asix: "ASIX", arm32k: "ARM, header at 0x8200", arm64k: "ARM, header at 0x10200" };
-    let html = '<p class="verdict ' + (data.ok ? "ok" : "bad") + '">' + esc(data.message) + "</p>";
+    // Ok, but with notes on what ISP checks only when it flashes: amber.
+    const cls = !data.ok ? "bad" : v && v.notes && v.notes.length ? "warn" : "ok";
+    let html = '<p class="verdict ' + cls + '">' + esc(data.message) + "</p>";
     if (f.size != null && f.size !== sent) {
       html += '<p class="verdict bad">' + esc("T5000 received " + sizeText(f.size) + " of the file's " + sizeText(sent) +
               ": this is a check of what it received, not of the whole file.") + "</p>";

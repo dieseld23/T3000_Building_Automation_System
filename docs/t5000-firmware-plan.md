@@ -277,9 +277,10 @@ check is held the same way, with what it includes (S7).
   to 16 MiB, and only from T5000's own page or a local program that
   names no other page; every other request stays at 256 KB, and a larger
   one is refused before it is read. ISP copies a `.bin` of any length
-  into its 0x3FFFFF-byte buffer, past its end, and refuses a linear
-  `.hex` whose addresses run past it; T5000 refuses a `.bin` longer than
-  the buffer, and 16 MiB takes the `.hex` of sixteen-byte records that
+  into its 0x3FFFFF-byte buffer, past its end; of a linear `.hex`, it
+  refuses a record that starts past the buffer and writes one that starts
+  inside it past its end. T5000 refuses all three, and 16 MiB takes the
+  `.hex` of sixteen-byte records that
   fills it, about 11.5 MB. T5000 reads the file as ISP would on the
   device's path and shows what ISP and T5000 make of it, and the device
   as the check was told it. Nothing is sent to any device. The separation
@@ -311,6 +312,11 @@ between devices.
 - The device answered a read in this session: a scan or Find reached it. A
   device added by hand and never reached, or a virtual device, is not
   flashed.
+- A scan in this session reported its product. Find reads no product, and
+  a scan that gives product 0 reports none, so a device only those reached
+  may still carry the model it was added by hand as.
+- T5000 knows an address for it: T3000 hands a device with no IP address
+  to ISP as on a serial port, and one with neither has no path.
 - The file passes every check above for that device, on the path it would
   go on.
 - The operator has confirmed a summary: the device, its address or port,

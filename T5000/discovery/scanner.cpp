@@ -57,6 +57,7 @@ namespace t5000::discovery
         DeviceRecord d;
         d.serial_number = r.serial_number;
         d.product       = static_cast<ProductClassId>(r.product_id);
+        d.product_reported = d.product != ProductClassId::Unknown;
         d.firmware      = (int)r.software_version;
         d.provenance    = Provenance::BacnetBroadcast;
 

@@ -25,9 +25,11 @@ namespace t5000::app
     // The largest request that may carry a firmware file (http::body_limit).
     // ISP's largest buffer is 0x3FFFFF bytes. It copies a .bin of any length
     // into it, past its end (BinFileParser.cpp:82-83), where T5000 refuses a
-    // .bin longer than the buffer (firmware/firmware_file.cpp); it refuses a
-    // .hex of linear address records whose addresses run past it
-    // (HexFileParser.cpp:566-569). A .hex of sixteen-byte records that
+    // .bin longer than the buffer (firmware/firmware_file.cpp). Of a
+    // .hex of linear address records, it refuses a record that starts past
+    // it and writes one that starts inside it past its end
+    // (HexFileParser.cpp:566-569); T5000 refuses both. A .hex of
+    // sixteen-byte records that
     // fills it is about 11.5 MB of text. 16 MiB takes that and the largest
     // .bin. A larger request is refused without being read, and the page
     // says so before it sends one.
@@ -37,8 +39,14 @@ namespace t5000::app
     // hands a device to ISP (Dowmloadfile.cpp, COM_OR_NET and Subnote;
     // ISPDlg.cpp:1124-1147): through its controller when it is on one's
     // RS485 bus, by its serial port when it is reached over one, and on the
-    // network otherwise. False for a virtual device, which has none.
+    // network when it has an address there. False for a virtual device,
+    // which has none, and for a device with no address: T3000 hands one
+    // with no IP address to ISP as on a serial port (Dowmloadfile.cpp:234),
+    // and it has no port either.
     bool firmware_path(const device::DeviceRecord& d, firmware::Path& path);
+
+    // Why a device has no path, in a sentence, for the page.
+    std::string no_path_text(const device::DeviceRecord& d);
 
     // The path as the page names it: "network", "serial", "controller".
     const char* path_key(firmware::Path path);
@@ -66,7 +74,8 @@ namespace t5000::app
     // "T5000's own checks before anything is sent" that can be decided now.
     // A virtual device is never flashed; a device is flashed only once it
     // has answered a scan or Find this session, and only once a scan this
-    // session has reported its product, which Find does not read. Empty
+    // session has reported its product (DeviceRecord::product_reported),
+    // which Find does not read. Empty
     // when there are none. Kept apart from the file's check,
     // firmware::Verdict, whose reasons are ISP's and T5000's stricter ones.
     std::vector<std::string> own_refusals(const device::DeviceRecord& d);

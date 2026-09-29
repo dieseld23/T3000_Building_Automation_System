@@ -46,6 +46,8 @@ namespace t5000::device
                 // rescan that reaches a device over a different transport
                 // should not blank the fields it did not happen to read.
                 if (device.product != ProductClassId::Unknown) existing.product = device.product;
+                if (device.product_reported && device.product != ProductClassId::Unknown)
+                    existing.product_reported = true;
                 if (device.mini_type != 0)                     existing.mini_type = device.mini_type;
                 if (device.firmware != 0)                      existing.firmware = device.firmware;
                 if (!device.address_note.empty())              existing.address_note = device.address_note;
@@ -211,6 +213,7 @@ namespace t5000::device
         m_devices.back().bootloader_known = false;
         m_devices.back().bootloader       = 0;
         m_devices.back().bootloader_from.clear();
+        m_devices.back().product_reported = device.product_reported && device.product != ProductClassId::Unknown;
 
         // The handle is the registry's to give, never the caller's. A record
         // arriving with one set - copied from an older list, say - would

@@ -103,9 +103,19 @@ namespace t5000::app
             path = firmware::Path::Controller;
         else if (device::transport_is_serial(d.connection.transport))
             path = firmware::Path::Serial;
-        else
+        else if (!d.connection.host.empty())
             path = firmware::Path::Network;
+        else
+            return false;
         return true;
+    }
+
+    std::string no_path_text(const DeviceRecord& d)
+    {
+        if (d.is_virtual())
+            return "A virtual device has no path: it is never flashed.";
+        return "No path yet: T5000 knows no address for it. T3000 hands a device with no IP address to ISP as "
+               "on a serial port, and it has none of those either.";
     }
 
     const char* path_key(firmware::Path path)
@@ -169,15 +179,17 @@ namespace t5000::app
                 out.push_back("It has not answered a scan, or Find, since T5000 started. T5000 flashes a device "
                               "only once one has reached it this session, so that its address is the device's now.");
         }
-        else if (d.answered_scan == 0)
+        else if (!d.product_reported)
         {
             // Reached by Find, which reads the settings, and they carry no
             // product: the product stays the entry's (app/find_device.h),
             // which for an entry added by hand is the model the operator
-            // chose, and stays so in the saved list. Only a scan reports it.
-            out.push_back("No scan has reported its product since T5000 started: Find reached it, but reads no "
-                          "product, so the one in the list may be the one it was added as. ISP checks a file against "
-                          "the product the device reports, so T5000 would send one only once a scan has reported it.");
+            // chose, and stays so in the saved list. So does a scan that
+            // gives product 0. Only a scan that gives one reports it.
+            out.push_back("No scan has reported its product since T5000 started: Find reads no product, and a scan "
+                          "that gives 0 says none, so the one in the list may be the one it was added as. ISP checks "
+                          "a file against the product the device reports, so T5000 would send one only once a scan "
+                          "has reported it.");
         }
         return out;
     }
@@ -222,7 +234,7 @@ namespace t5000::app
         firmware::Path path = firmware::Path::Network;
         const bool has_path = firmware_path(d, path);
         text(out, "path", has_path ? path_key(path) : "");                    out += ',';
-        text(out, "pathText", has_path ? path_text(path) : std::string());    out += ',';
+        text(out, "pathText", has_path ? path_text(path) : no_path_text(d));  out += ',';
 
         text(out, "state", bootloader_state_key(d));                          out += ',';
         text(out, "stateText", bootloader_state_text(d));                     out += ',';
@@ -354,8 +366,11 @@ namespace t5000::app
         if (!firmware_path(*d, path))
         {
             flag(out, "ok", false);                                                                out += ',';
-            text(out, "message", "A virtual device is never flashed, so the file was not read." +
+            text(out, "message", (d->is_virtual() ? "A virtual device is never flashed, so the file was not read."
+                                                  : "T5000 knows no address for this device, so there is no path to "
+                                                    "check the file for, and it was not read.") +
                                      std::string(kNothingSent));                                   out += ',';
+            text(out, "pathText", no_path_text(*d));                                              out += ',';
             sentences(out, "own", own);
             out += '}';
             return out;
@@ -374,15 +389,20 @@ namespace t5000::app
             verdict = firmware::check_firmware(f, facts);
         const bool ok = read && verdict.ok && own.empty();
 
+        // What ISP would do is said outright only when no note says it
+        // checks something T5000 has not: the bootloader's name on the
+        // network, a TStat's chip on serial.
+        const std::string isp = verdict.notes.empty()
+                                    ? "ISP would take this file for this device"
+                                    : "As far as T5000 can tell, ISP would take this file for this device (see the notes "
+                                      "for what it checks only when it flashes)";
         std::string message;
         if (!read)
             message = why + kNothingSent;
         else if (ok)
-            message = "ISP would take this file for this device, and so would T5000. Nothing was sent: T5000 does "
-                      "not flash firmware yet.";
+            message = isp + ", and so would T5000. Nothing was sent: T5000 does not flash firmware yet.";
         else if (verdict.ok)
-            message = "ISP would take this file for this device, but T5000 would not send it yet, for the reasons "
-                      "below." + std::string(kNothingSent);
+            message = isp + ", but T5000 would not send it yet, for the reasons below." + std::string(kNothingSent);
         else
             message = "T5000 would not send this file to this device, for the reasons below." +
                       std::string(kNothingSent);

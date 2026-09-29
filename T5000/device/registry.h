@@ -316,6 +316,14 @@ namespace t5000::device
         bool bootloader_state_known = false;
         bool in_bootloader          = false;
 
+        // Whether a scan this session has reported its product: a network
+        // scan response, or a serial scan's registers, that gave one, not 0.
+        // Only the scanners set it. Find reads no product, and the saved
+        // list's may be the model an entry was added by hand as, which a
+        // merge keeps when a scan gives product 0. A merge only ever sets it,
+        // and only with a product.
+        bool product_reported = false;
+
         // The bootloader's version, from settings read this session whose
         // serial is this device's (Registry::note_bootloader), and where it
         // came from, in words: "its settings, read at 14:02". Not saved: a

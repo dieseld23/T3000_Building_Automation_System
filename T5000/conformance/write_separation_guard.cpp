@@ -109,6 +109,19 @@ namespace
         return slash == std::string::npos ? relative : relative.substr(slash + 1);
     }
 
+    std::string lowered(std::string s)
+    {
+        for (char& c : s)
+            c = (char)tolower((unsigned char)c);
+        return s;
+    }
+
+    // Windows opens App/Firmware_Read.h as app/firmware_read.h.
+    bool same_file(const std::string& a, const std::string& b)
+    {
+        return lowered(a) == lowered(b);
+    }
+
     bool is_selftest(const std::string& relative)
     {
         return relative.size() > 13 && relative.compare(relative.size() - 13, 13, "_selftest.cpp") == 0;
@@ -155,18 +168,25 @@ namespace
 
     bool includes_an_os_header(const SourceFile& f, std::string& what)
     {
+        // In quotes too: "winsock2.h" finds the system's when T5000 has no
+        // file of that name. And in any case, as Windows opens it.
         static const std::regex angled(R"re(#\s*include\s*<([^>]+)>)re");
-        for (std::sregex_iterator it(f.text.begin(), f.text.end(), angled), end; it != end; ++it)
+        static const std::regex quoted(R"re(#\s*include\s*"([^"]+)")re");
+        for (const std::regex* form : { &angled, &quoted })
         {
-            std::string inc = (*it)[1].str();
-            for (char& c : inc)
-                c = (char)tolower((unsigned char)c);
-            for (const char* os : kOsHeaders)
+            for (std::sregex_iterator it(f.text.begin(), f.text.end(), *form), end; it != end; ++it)
             {
-                if (inc == os)
+                std::string name = (*it)[1].str();
+                std::replace(name.begin(), name.end(), '\\', '/');
+                const std::string inc = lowered(base_name(name));
+                for (const char* os : kOsHeaders)
                 {
-                    what = "includes <" + inc + ">";
-                    return true;
+                    if (inc == os)
+                    {
+                        what = form == &angled ? "includes <" + (*it)[1].str() + ">"
+                                               : "includes \"" + (*it)[1].str() + "\"";
+                        return true;
+                    }
                 }
             }
         }
@@ -245,7 +265,7 @@ namespace
         for (size_t i = 0; i < seen.size(); i++)
         {
             const auto f = std::find_if(files.begin(), files.end(),
-                                        [&](const SourceFile& s) { return s.relative == seen[i]; });
+                                        [&](const SourceFile& s) { return same_file(s.relative, seen[i]); });
             if (f == files.end())
                 continue;
             for (std::sregex_iterator it(f->text.begin(), f->text.end(), quoted), end; it != end; ++it)
@@ -253,7 +273,7 @@ namespace
                 std::string next = resolve(f->relative, (*it)[1].str());
                 if (next.empty())
                     next = "(outside T5000) " + (*it)[1].str();
-                if (std::find(seen.begin(), seen.end(), next) == seen.end())
+                if (std::none_of(seen.begin(), seen.end(), [&](const std::string& s) { return same_file(s, next); }))
                     seen.push_back(next);
             }
         }
@@ -267,9 +287,7 @@ namespace
         for (const std::string& r : include_closure(files, f.relative))
         {
             // Windows opens Bacnet/ as bacnet/.
-            std::string lower = r;
-            for (char& c : lower)
-                c = (char)tolower((unsigned char)c);
+            const std::string lower = lowered(r);
             for (const char* dir : { "bacnet/", "serial/", "discovery/", "net/", "http/", "store/", "(outside" })
             {
                 if (starts_with(lower, dir))
@@ -279,7 +297,7 @@ namespace
                 }
             }
             const auto g = std::find_if(files.begin(), files.end(),
-                                        [&](const SourceFile& s) { return s.relative == r; });
+                                        [&](const SourceFile& s) { return same_file(s.relative, r); });
             std::string how;
             if (g != files.end() && includes_an_os_header(*g, how))
             {
@@ -447,6 +465,15 @@ namespace
         planted[0].text = "#include \"points_json.h\"\n";
         check(firmware_page_reaches_out(planted, planted[0], what), "  and an OS header in another case");
         planted[2].text = "";
+        planted[0].text = "#include \"winsock2.h\"\n";
+        check(firmware_page_reaches_out(planted, planted[0], what) && what == "reaches app/firmware_page.cpp, which includes \"winsock2.h\"",
+              "  and an OS header in quotes");
+        std::vector<SourceFile> cased = { { "app/firmware_page.cpp", "#include \"../App/Firmware_Read.h\"\n" },
+                                          { "app/firmware_read.h", "#include \"../bacnet/point_read.h\"\n" },
+                                          { "bacnet/point_read.h", "" } };
+        check(firmware_page_reaches_out(cased, cased[0], what) && what == "reaches bacnet/point_read.h",
+              "  and a transport reached through a header named in another case");
+        planted[0].text = "#include \"points_json.h\"\n";
         check(!firmware_page_reaches_out(planted, planted[0], what), "  while what reaches nothing passes");
 
         section("the Firmware routes in main.cpp");

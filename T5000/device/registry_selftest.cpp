@@ -862,6 +862,52 @@ namespace
         }
     }
 
+    void test_a_product_is_reported_only_by_a_scan_that_gives_one()
+    {
+        section("a product counts as reported only when a scan this session gave one");
+
+        Registry reg;
+        DeviceRecord typed;
+        typed.serial_number = 777001;
+        typed.product       = ProductClassId::MiniPanelArm;
+        typed.provenance    = Provenance::ManuallyAdded;
+        const size_t i = (size_t)reg.add_or_merge(typed);
+        check(!reg.devices()[i].product_reported, "an entry added by hand: its product is the operator's");
+
+        DeviceRecord zero;
+        zero.serial_number        = 777001;
+        zero.product              = ProductClassId::Unknown;
+        zero.provenance           = Provenance::BacnetBroadcast;
+        zero.observation_complete = true;
+        reg.add_or_merge(zero);
+        check(reg.devices()[i].product == ProductClassId::MiniPanelArm && !reg.devices()[i].product_reported,
+              "a scan giving product 0 leaves the operator's, still not reported");
+
+        DeviceRecord claims = zero;
+        claims.product_reported = true;
+        reg.add_or_merge(claims);
+        check(!reg.devices()[i].product_reported, "  and a record claiming it with no product is not believed");
+
+        DeviceRecord gives = zero;
+        gives.product          = ProductClassId::Tstat10;
+        gives.product_reported = true;
+        reg.add_or_merge(gives);
+        check(reg.devices()[i].product == ProductClassId::Tstat10 && reg.devices()[i].product_reported,
+              "a scan giving one: reported, in place of the operator's");
+
+        DeviceRecord found = gives;
+        found.provenance       = Provenance::BacnetUnicast;
+        found.product_reported = false;
+        reg.add_or_merge(found);
+        check(reg.devices()[i].product_reported, "  and a later Find does not unsay it");
+
+        DeviceRecord fresh = zero;
+        fresh.serial_number    = 777002;
+        fresh.product_reported = true;
+        const size_t j = (size_t)reg.add_or_merge(fresh);
+        check(!reg.devices()[j].product_reported, "a new record claiming it with no product is not believed either");
+    }
+
     void test_in_bootloader_follows_the_latest_scan()
     {
         section("whether a device is in its bootloader is what the latest network scan response said");
@@ -994,6 +1040,7 @@ int run_registry_tests()
     test_an_id_is_shared_only_on_one_bus();
     test_the_latest_sighting_decides_how_a_device_is_reached();
     test_in_bootloader_follows_the_latest_scan();
+    test_a_product_is_reported_only_by_a_scan_that_gives_one();
     test_a_bootloader_number_is_kept_only_for_its_own_serial();
     return 0;
 }
