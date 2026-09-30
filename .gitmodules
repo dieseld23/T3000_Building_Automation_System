@@ -5,5 +5,5 @@
 	path = PartsAndVendors
 	url = https://github.com/temcocontrols/PartsAndVendors.git
 [submodule "T3000Webview"]
-	path = T3000Webview
+	path = T3000/T3000Webview
 	url = https://github.com/temcocontrols/T3000Webview.git
