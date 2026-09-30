@@ -6,6 +6,8 @@
 #include <ctype.h>
 #include <stdio.h>
 
+#include <chrono>
+
 #pragma comment(lib, "Ws2_32.lib")
 
 namespace t5000::http
@@ -45,20 +47,51 @@ namespace t5000::http
             return true;
         }
 
+        // When a connection was accepted, and how long its request may take
+        // to arrive from then: one clock for the head and the body together.
+        struct Deadline
+        {
+            std::chrono::steady_clock::time_point started;
+            unsigned                              budget_ms;
+        };
+
+        // Receives more of the request into `out`, within what is left of
+        // its budget. False once the budget is spent, or when the client
+        // closed the connection or it failed.
+        bool receive_more(SOCKET client, std::string& out, const Deadline& deadline)
+        {
+            const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - deadline.started);
+            const DWORD left = budget_left_ms((unsigned long long)elapsed.count(), deadline.budget_ms);
+            if (left == 0)
+                return false;
+
+            // SO_RCVTIMEO bounds one recv. Set to what is left before each,
+            // it bounds the whole request: at a fixed value, a client sending
+            // a byte at a time just inside it could hold the server as long as
+            // it liked.
+            if (setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, (const char*)&left, (int)sizeof(left)) == SOCKET_ERROR)
+                return false;
+
+            char buffer[4096];
+            const int n = recv(client, buffer, (int)sizeof(buffer), 0);
+            if (n <= 0)
+                return false;
+
+            out.append(buffer, (size_t)n);
+            return true;
+        }
+
         // Reads up to the end of the head, and whatever of the body came with
         // it. `head_end` is where the blank line starts.
-        bool read_head(SOCKET client, std::string& out, size_t& head_end)
+        bool read_head(SOCKET client, std::string& out, size_t& head_end, const Deadline& deadline)
         {
-            char buffer[4096];
             out.clear();
 
             while ((head_end = out.find("\r\n\r\n")) == std::string::npos)
             {
-                const int n = recv(client, buffer, (int)sizeof(buffer), 0);
-                if (n <= 0)
+                if (!receive_more(client, out, deadline))
                     return false;
-
-                out.append(buffer, (size_t)n);
 
                 // A request head this large is not something a browser sends.
                 if (out.size() > 64 * 1024)
@@ -67,18 +100,15 @@ namespace t5000::http
             return true;
         }
 
-        // Then the rest of the body Content-Length declares, which body_limit
-        // has already allowed. Chunked encoding is not handled: nothing here
-        // asks for it, and fetch() always sends a length.
-        bool read_body(SOCKET client, std::string& out, size_t body_start, size_t declared)
+        // Then the rest of the body Content-Length declares, which
+        // body_refused has already allowed. Chunked encoding is not handled:
+        // nothing here asks for it, and fetch() always sends a length.
+        bool read_body(SOCKET client, std::string& out, size_t body_start, size_t declared, const Deadline& deadline)
         {
-            char buffer[4096];
             while (out.size() - body_start < declared)
             {
-                const int n = recv(client, buffer, (int)sizeof(buffer), 0);
-                if (n <= 0)
+                if (!receive_more(client, out, deadline))
                     return false;
-                out.append(buffer, (size_t)n);
             }
             return true;
         }
@@ -206,6 +236,13 @@ namespace t5000::http
         return true;
     }
 
+    unsigned long budget_left_ms(unsigned long long elapsed_ms, unsigned budget_ms)
+    {
+        if (elapsed_ms >= budget_ms)
+            return 0;
+        return (unsigned long)(budget_ms - elapsed_ms);
+    }
+
     size_t body_limit(const Request& head, unsigned short port, const std::vector<Route>& routes)
     {
         // Bounded deliberately: a large declared length is a reason to stop,
@@ -328,70 +365,93 @@ namespace t5000::http
             if (client == INVALID_SOCKET)
                 continue;
 
-            std::string raw;
-            Request req;
-            Response res;
+            answer((uintptr_t)client);
+        }
+    }
 
-            // The head first: how much body may follow is decided from it,
-            // before any of the body is read.
-            std::string why;
-            size_t head_end = 0;
-            size_t declared = 0;
-            const bool head_ok = read_head(client, raw, head_end) && parse_request(raw.substr(0, head_end + 4), req);
-            if (head_ok)
-                declared = req.content_length;
+    void Server::answer(uintptr_t client_handle, unsigned budget_ms)
+    {
+        const SOCKET   client = (SOCKET)client_handle;
+        const Deadline deadline{ std::chrono::steady_clock::now(), budget_ms };
 
-            if (!head_ok)
+        std::string raw;
+        Request req;
+        Response res;
+
+        // The head first, and from it alone whether to wait for a body: a
+        // request refused on its head is refused without waiting for one.
+        std::string why;
+        size_t head_end = 0;
+        size_t declared = 0;
+        const bool head_ok = read_head(client, raw, head_end, deadline) &&
+                             parse_request(raw.substr(0, head_end + 4), req);
+        if (head_ok)
+            declared = req.content_length;
+
+        if (!head_ok && raw.empty())
+        {
+            // Nothing arrived: a connection a browser opened ahead of need
+            // and did not use within the budget, or one closed without
+            // asking anything. Nothing was asked, so nothing is answered.
+            closesocket(client);
+            return;
+        }
+
+        if (!head_ok)
+        {
+            // A head that is malformed, too large, or not all there when the
+            // budget ran out.
+            res.status = 400;
+            res.body   = "Bad request";
+        }
+        else if (body_refused(req, declared, m_port, m_routes, res))
+        {
+            // res is the 413. Nothing of the body is read: the connection
+            // is closed with the rest unread.
+        }
+        else if (!from_this_tool(req, m_port, why))
+        {
+            // Before any route runs, so no handler can forget to check; and
+            // before any body is waited for, so a page that is not T5000's
+            // cannot hold the server by declaring a body and not sending it.
+            res.status = 403;
+            res.body   = why;
+        }
+        else if (!read_body(client, raw, head_end + 4, declared, deadline) || !parse_request(raw, req))
+        {
+            // Less body than Content-Length declares when the budget ran out.
+            res.status = 400;
+            res.body   = "Bad request";
+        }
+        else
+        {
+            res = Response::not_found();
+            for (const auto& r : m_routes)
             {
-                res.status = 400;
-                res.body   = "Bad request";
-            }
-            else if (body_refused(req, declared, m_port, m_routes, res))
-            {
-                // res is the 413. Nothing of the body is read: the
-                // connection is closed with the rest unread.
-            }
-            else if (!read_body(client, raw, head_end + 4, declared) || !parse_request(raw, req))
-            {
-                res.status = 400;
-                res.body   = "Bad request";
-            }
-            else if (!from_this_tool(req, m_port, why))
-            {
-                // Before any route runs, so no handler can forget to check.
-                res.status = 403;
-                res.body   = why;
-            }
-            else
-            {
-                res = Response::not_found();
-                for (const auto& r : m_routes)
+                if (r.path == req.path)
                 {
-                    if (r.path == req.path)
-                    {
-                        res = r.handler(req);
-                        break;
-                    }
+                    res = r.handler(req);
+                    break;
                 }
             }
-
-            char head[512];
-            const int head_len = snprintf(head, sizeof(head),
-                "HTTP/1.1 %d %s\r\n"
-                "Content-Type: %s\r\n"
-                "Content-Length: %zu\r\n"
-                "Cache-Control: no-store\r\n"
-                "Connection: close\r\n"
-                "\r\n",
-                res.status, reason_phrase(res.status),
-                res.content_type.c_str(), res.body.size());
-
-            send_all(client, std::string(head, (size_t)head_len));
-            if (req.method != "HEAD")
-                send_all(client, res.body);
-
-            shutdown(client, SD_SEND);
-            closesocket(client);
         }
+
+        char head[512];
+        const int head_len = snprintf(head, sizeof(head),
+            "HTTP/1.1 %d %s\r\n"
+            "Content-Type: %s\r\n"
+            "Content-Length: %zu\r\n"
+            "Cache-Control: no-store\r\n"
+            "Connection: close\r\n"
+            "\r\n",
+            res.status, reason_phrase(res.status),
+            res.content_type.c_str(), res.body.size());
+
+        send_all(client, std::string(head, (size_t)head_len));
+        if (req.method != "HEAD")
+            send_all(client, res.body);
+
+        shutdown(client, SD_SEND);
+        closesocket(client);
     }
 }

@@ -90,7 +90,11 @@ of its settings. A virtual device is sent nothing, ever.
   out but not other web pages, so a request whose `Origin` is not T5000's,
   or whose `Host` is not 127.0.0.1 or localhost, is refused before any route
   runs (`from_this_tool`, `http/server.h`). Remote access is a later decision
-  that will come with authentication.
+  that will come with authentication. The server reads one connection at a
+  time, so each request has 5 s from its connection being accepted to arrive
+  in full (`kRequestBudgetMs`): a client that stalls holds up the others for
+  that long at most, and another site's page is refused on its head, without
+  waiting for a body it declares.
 - **Test against loopback synthetic devices, never real ones.** Selecting a
   device and opening Inputs, Outputs or Variables sends it real requests, and that includes a
   device from the saved list, at its saved address: at least the settings
@@ -122,6 +126,11 @@ since a running server locks the exe.
 
 The self-test also runs after every build, and a failing check fails the
 build.
+
+`tools/check_request_budget.ps1` checks the running server instead, on
+loopback: that a request behind a stalled client is answered once that
+client's budget is spent. It starts its own T5000 on port 8730 with a scratch
+`--db`, so stop any other first.
 
 **The checks against T3000 are in `conformance/`**, a separate project that
 `T3000 - VS2019.sln` builds and runs, not T5000's own build. They hold
@@ -163,6 +172,7 @@ T3000 until those run. Build
 | `offline/` | The rules a change to an input of a device configured offline follows, ported from T3000's Inputs grid. No transport: nothing here can reach a device |
 | `store/` | The saved device list and the offline configurations, on the SQLite that ships with Windows |
 | `testing/` | The check macros, a scripted transport, and temporary files for the tests |
+| `tools/` | Checks of a running T5000 on loopback, run by hand |
 | `web/` | The pages, embedded as strings |
 | `wire/` | The struct layouts from `T3000/CM5/ud_str.h`, each offset T5000 uses guarded by `conformance/` |
 
