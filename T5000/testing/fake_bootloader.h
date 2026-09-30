@@ -124,7 +124,8 @@ namespace t5000::testing
         bool garble = false;
     };
 
-    // A fault, matched against each frame the device hears.
+    // A fault, matched against each frame the device hears. The first in the
+    // list that matches a frame applies to it; the others do not count it.
     struct ModbusFault
     {
         enum class Kind

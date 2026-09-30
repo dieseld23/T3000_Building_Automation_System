@@ -54,6 +54,8 @@ int run_firmware_read_tests();
 int run_http_server_tests();
 int run_nav_tests();
 int run_fake_bootloader_tests();
+int run_fake_modbus_controller_tests();
+int run_fake_tftp_bootloader_tests();
 
 int run_selftests(int, char**)
 {
@@ -146,6 +148,10 @@ int run_selftests(int, char**)
     run_nav_tests();
     printf("\n");
     run_fake_bootloader_tests();
+    printf("\n");
+    run_fake_modbus_controller_tests();
+    printf("\n");
+    run_fake_tftp_bootloader_tests();
 
     const int failures = t5000::testing::g_failures;
     const int checks   = t5000::testing::g_checks;
