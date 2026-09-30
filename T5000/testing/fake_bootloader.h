@@ -57,7 +57,9 @@
 //     255 asks.
 //   - A block after a resume is kept where it was sent. ISP's ARM thread
 //     sends a resumed section's blocks from address 0 (:2910, 1096-1121);
-//     whether the device adds its own offset is not known.
+//     whether the device adds its own offset is not known. flash_a_tstat
+//     sends an ESP32's from 1991 * 128 (:885, 976-981). Either is taken for
+//     the session's first block only; a later section starts at 0.
 //
 // Time is the caller's: every frame comes with now_ms. A test passes a clock
 // of its own and never waits; a host passes the real one.
@@ -119,8 +121,9 @@ namespace t5000::testing
         // How long after the request it comes.
         int delay_ms = 0;
 
-        // The framing damages it: a bad CRC on a serial line, the wrong unit
-        // behind a controller.
+        // The line damages it: a bad CRC on a serial line. Behind a
+        // controller it is dropped on the bus, and never reaches the client;
+        // WrongId is the wrong unit there.
         bool garble = false;
     };
 
@@ -473,6 +476,7 @@ namespace t5000::testing
         // This bootloader session: from the jump, or from power_on.
         bool m_session = false;
         bool m_began_interrupted = false;
+        bool m_resume_pending = false;  // a resumed session's first block, not yet heard
         bool m_seen_init   = false;
         bool m_seen_start  = false;
         bool m_seen_erase  = false;
@@ -490,6 +494,7 @@ namespace t5000::testing
         {
             m_session           = true;
             m_began_interrupted = status == kStatusInterrupted || status == kStatusInterrupted2;
+            m_resume_pending    = m_began_interrupted;
             m_seen_init   = false;
             m_seen_start  = false;
             m_seen_erase  = false;
@@ -768,7 +773,8 @@ namespace t5000::testing
         Bytes block(const Bytes& f, std::string& not_isp, bool& reply)
         {
             // ISP's block: address, 00 80, 80, 128 bytes (common.cpp:4225-4241).
-            const bool framed = f.size() == 7 + (size_t)kBlockBytes && f[4] == 0x00 && f[5] == 0x80 && f[6] == 0x80;
+            const bool framed = f.size() == 7 + (size_t)kBlockBytes && f[4] == (uint8_t)(kBlockBytes >> 8)
+                             && f[5] == (uint8_t)(kBlockBytes & 0xFF) && f[6] == (uint8_t)kBlockBytes;
             if (!framed)
             {
                 not_isp = "a block not framed as ISP's: 00 80, 80 and 128 bytes";
@@ -790,7 +796,10 @@ namespace t5000::testing
                 not_isp = "a block at " + hex4(address) + ", not a multiple of 128";
             else if (m_new_section || m_last_address < 0)
             {
-                const bool resuming = m_began_interrupted && !m_seen_erase;
+                // Only a resume's first block may start past 0, and only
+                // where 1991 says (:885, 976-981).
+                const bool resuming = m_resume_pending && !m_seen_erase
+                                   && address == (uint16_t)(packets() * kBlockBytes);
                 if (address != 0 && !resuming)
                     not_isp = "a first block at " + hex4(address) + ", not 0";
             }
@@ -804,12 +813,13 @@ namespace t5000::testing
             b.data.assign(f.begin() + 7, f.end());
             blocks.push_back(b);
 
-            m_new_section  = false;
-            m_last_address = address;
-            m_seen_blocks  = true;
+            m_new_section    = false;
+            m_resume_pending = false;
+            m_last_address   = address;
+            m_seen_blocks    = true;
             m_packets.insert({ m_bank, address });
 
-            return { f[0], 0x10, f[2], f[3], 0x00, 0x80 };
+            return { f[0], 0x10, f[2], f[3], f[4], f[5] };
         }
     };
 }

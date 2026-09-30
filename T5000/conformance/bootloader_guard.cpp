@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -166,12 +167,40 @@ namespace
               "and the controller's are the same numbers");
         pin(w, "mudbus_write_one(" + std::to_string(kControllerUnit) + "," + std::to_string(kRegShutdown) + ",F_START_SHUTDOWN,10)",
             "99 = 1 to the controller, unit 255", 2);
+        pin(w, "intfirmware_ver=temp_register[5]*10+temp_register[4];if(firmware_ver>=" + std::to_string(kQuietFromFirmware) + ")",
+            "only from firmware 63.6, register 5 * 10 + register 4");
 
         // The block's framing: the count field is the byte count, on the
         // line and over TCP, where the length field stays 6.
         pin(c, "data_to_write[5]=length;data_to_write[6]=length;", "on the line, the count field is the byte count");
         pin(c, "data_to_write[5]=6;data_to_write[6]=device_var;data_to_write[7]=0x10;", "over TCP, the length field is 6");
         pin(c, "data_to_write[11]=length;data_to_write[12]=length;", "and the count field the byte count");
+    }
+
+    void test_the_controllers_asked_to_quiet()
+    {
+        section("bootloader guard: the controllers ISP asks to quiet their bus (ComWriter.cpp, ProductModel.h)");
+        std::string writer, models, error;
+        if (!require(read_source("ISP\\ComWriter.cpp", writer, error) && read_source("T3000\\ProductModel.h", models, error),
+                     "ISP's source and its model numbers are read"))
+        {
+            printf("  %s\n", error.c_str());
+            return;
+        }
+        const std::string w = code_only(writer);
+        const std::string m = code_only(models);
+
+        // In the fake's order.
+        const char* names[] = { "PM_MINIPANEL", "PM_TSTAT10", "PM_MINIPANEL_ARM", "PM_ESP32_T3_SERIES" };
+        static_assert(std::size(names) == std::size(kQuietedModels), "a name for each model");
+        std::string models_asked;
+        for (size_t i = 0; i < std::size(names); i++)
+        {
+            pin(m, std::string("#define") + names[i] + std::to_string(kQuietedModels[i]),
+                (std::string("model ") + std::to_string(kQuietedModels[i]) + " is " + names[i]).c_str());
+            models_asked += std::string(i ? "||" : "") + "(temp_register[7]==" + names[i] + ")";
+        }
+        pin(w, "if(" + models_asked + ")", "those four models, and only them, register 7 of the controller");
     }
 }
 
@@ -180,5 +209,6 @@ int run_bootloader_guard_tests()
     test_the_guard_reads_code_only();
     test_the_network_constants();
     test_the_modbus_constants();
+    test_the_controllers_asked_to_quiet();
     return 0;
 }

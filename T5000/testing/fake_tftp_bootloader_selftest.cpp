@@ -366,6 +366,25 @@ namespace
         {
             FakeTftpBootloader d;
             d.mode = FakeTftpBootloader::Mode::Bootloader;
+            FakeTftpBootloader::AckFault drop;
+            drop.block = 2;
+            drop.drop  = 11;
+            d.ack_faults = { drop };
+            Isp isp{ d };
+            isp.send(hello());
+            isp.send(data(1, file), 2);
+            int silent = 0;
+            for (int i = 0; i < 11; i++)
+                silent += isp.send(data(2, file), 2).empty() ? 1 : 0;
+            check_eq(silent, 11, "block 2 unACKed eleven times: ISP's flash fails (TFTPServer.cpp:1548-1605)");
+            check_eq((long)isp.send(hello()).size(), 1, "with no power cut, a new handshake is answered");
+            check_eq(isp.blocks(file), 4, "and the file taken again from block 1");
+            check_eq(d.frames_not_isp(), 0, "a flash begun again after one that failed is ISP's (:1084)");
+            check(isp.send(kFlashDone).size() == 1 && d.image() == file, "and it ends with the file");
+        }
+        {
+            FakeTftpBootloader d;
+            d.mode = FakeTftpBootloader::Mode::Bootloader;
             d.five_bytes_at_block = 2;
             Isp isp{ d };
             isp.send(hello());

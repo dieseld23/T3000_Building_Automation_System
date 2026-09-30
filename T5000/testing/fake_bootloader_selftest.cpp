@@ -416,6 +416,45 @@ namespace
         check_eq(bus.devices[0].frames_not_isp(), 0, "a resume from 0x0180 with no erase is ISP's");
     }
 
+    void test_only_a_resumes_first_block_starts_past_0()
+    {
+        section("synthetic bootloader: only a resume's first block starts past 0, where 1991 says");
+        // Back in its bootloader after a flash cut short, 1991 reading 2.
+        const auto resumed = [](uint16_t product) {
+            FakeBootloader d = device(product);
+            d.mode   = FakeBootloader::Mode::Bootloader;
+            d.status = kStatusInterrupted;
+            d.packets_override = 2;
+            return d;
+        };
+        const Bytes file = file_of(4 * 128, 6);
+        {
+            FakeRtuBus bus = bus_with(resumed(88));
+            Isp isp{ bus };
+            check_eq(send_blocks(isp, 1, file, 256, 128, 0x0100), 1, "flash_a_tstat's first block at 2 * 128 is taken");
+            check_eq(bus.devices[0].frames_not_isp(), 0, "and is ISP's (:885, 976-981)");
+            isp.ask(kSection2);
+            send_blocks(isp, 1, file, 0, 128, 0x0100);
+            check_eq(bus.devices[0].frames_not_isp(), 1,
+                     "a later section's first block at 0x0100 is judged: ISP starts each from 0 (:1070-1096)");
+        }
+        {
+            FakeRtuBus bus = bus_with(resumed(88));
+            Isp isp{ bus };
+            send_blocks(isp, 1, file, 128, 128, 0x0080);
+            check_eq(bus.devices[0].frames_not_isp(), 1, "a resume's first block neither at 0 nor at 1991 * 128 is judged");
+        }
+        {
+            FakeRtuBus bus = bus_with(resumed(74));
+            Isp isp{ bus };
+            isp.ask(kSection1);
+            send_blocks(isp, 1, file, 256, 256);
+            isp.ask(kSection2);
+            send_blocks(isp, 1, file, 0, 128);
+            check_eq(bus.devices[0].frames_not_isp(), 0, "the ARM thread's resume, each section from 0, is ISP's (:2910, 1096-1121)");
+        }
+    }
+
     // --- what ISP would not send ------------------------------------------
 
     void test_frames_isp_would_not_send_are_judged()
@@ -800,6 +839,7 @@ int run_fake_bootloader_tests()
     test_isp_flashes_an_arm_hex();
     test_a_cut_arm_flash_resumes();
     test_a_first_thread_resume();
+    test_only_a_resumes_first_block_starts_past_0();
     test_frames_isp_would_not_send_are_judged();
     test_faults_on_reads_and_writes();
     test_faults_on_blocks();

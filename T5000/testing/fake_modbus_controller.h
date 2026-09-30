@@ -25,8 +25,11 @@
 // A reply is one piece, as ISP reads it with one recv (common.cpp:1900,
 // 2993, 4357, 9341); a fault can split it, send it late, or reset or close
 // the connection. After a reset the controller hears nothing until the
-// client connects again, and the devices stay as they were: ISP never sends
-// the request again on the new connection.
+// client connects again, and the devices stay as they were. What comes next
+// is ISP's to choose: on a reset its write reconnects and returns -1
+// (common.cpp:4360-4366). flash_a_tstat_RAM, an ARM .hex, retries it,
+// sending the block again on the new connection (ComWriter.cpp:1116-1132);
+// flash_a_tstat, a data .hex, takes it as done and goes on (:1003-1021).
 //
 // The controller judges what is sent to it, as the devices do, and
 // frames_not_isp() counts both. What a real controller does with a device's
@@ -34,6 +37,8 @@
 
 #include <stdint.h>
 
+#include <algorithm>
+#include <iterator>
 #include <map>
 #include <string>
 #include <vector>
@@ -50,6 +55,12 @@ namespace t5000::testing
     inline constexpr uint16_t kShutdownTimeout = 3;
 
     inline constexpr uint8_t kControllerUnit = 255;
+
+    // The controllers ISP asks to quiet their bus, by register 7: a
+    // MiniPanel, a TStat10, a MiniPanel ARM and an ESP32 T3; and the firmware
+    // they must have, register 5 * 10 + register 4 (ComWriter.cpp:2423-2431).
+    inline constexpr uint16_t kQuietedModels[] = { 35, 10, 74, 88 };
+    inline constexpr int kQuietFromFirmware    = 636;
 
     class FakeModbusController
     {
@@ -309,6 +320,15 @@ namespace t5000::testing
             return r == registers.end() ? 0 : r->second;
         }
 
+        int firmware() { return read_own(5) * 10 + read_own(4); }
+
+        bool asked_to_quiet()
+        {
+            const uint16_t model = read_own(7);
+            return std::find(std::begin(kQuietedModels), std::end(kQuietedModels), model) != std::end(kQuietedModels) &&
+                   firmware() >= kQuietFromFirmware;
+        }
+
         // Unit 255: the reads ISP makes of the controller are 0-99 (:2419),
         // 99 (:2298) and 1, the wake-up before a block's last tries (:1013);
         // its one write is 99 = 1 (:2287).
@@ -343,6 +363,9 @@ namespace t5000::testing
             {
                 if (!(reg == kRegShutdown && val == kShutdownStart) && not_isp.empty())
                     not_isp = "ISP writes only 99 = 1 to the controller";
+                else if (!asked_to_quiet() && not_isp.empty())
+                    not_isp = "99 = 1 to a controller ISP does not ask to quiet its bus: model " +
+                              std::to_string(read_own(7)) + ", firmware " + std::to_string(firmware());
                 if (reg == kRegShutdown && !echoes_shutdown)
                     return a;
                 if (reg == kRegShutdown && val == kShutdownStart)

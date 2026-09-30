@@ -271,13 +271,11 @@ namespace t5000::testing
                 h.what = "Temcocontrols";
                 hellos++;
                 h.not_isp = hello_not_isp(b);
-                if (m_done_seen)
-                {
-                    // A new flash.
-                    m_last_block = 0;
-                    m_short_seen = false;
-                    m_done_seen  = false;
-                }
+                // A new flash, after one that ended or one that failed: ISP
+                // sends this only before its first block (TFTPServer.cpp:1084).
+                m_last_block = 0;
+                m_short_seen = false;
+                m_done_seen  = false;
                 const int n = m_hellos_heard++;
                 const bool answer = listening && n >= hello_silent && !(answers_first_hello_only && m_greeted);
                 if (answer)

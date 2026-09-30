@@ -111,13 +111,16 @@ namespace
         return c;
     }
 
-    void test_isp_flashes_an_arm_hex_through_a_controller()
+    void test_isp_flashes_an_arm_hex_through_a_controller(bool handshake)
     {
-        section("synthetic controller: flow A, an ARM .hex through a controller");
+        section(handshake ? "synthetic controller: flow A, an ARM .hex through a controller at 63.6"
+                          : "synthetic controller: flow A through a controller at 63.5, with no handshake");
         FakeBootloader d = device(5, 74);
         d.echoes_init_and_erase = false;
         FakeModbusController c = controller_with({ d });
         c.shutdown_polls_busy = 1;
+        if (!handshake)
+            c.registers[4] = 5;
         Isp isp{ c };
         const Bytes one = file_of(2 * 128, 3);
 
@@ -129,18 +132,22 @@ namespace
             check(r.bytes[0] == 0x00 && r.bytes[1] == 0x01, "with the request's transaction id");
             check(r.bytes[4] == 0x00 && r.bytes[5] == 0xCB, "and a length of 203");
             check(r.bytes[6] == 0xFF && r.bytes[7] == 0x03 && r.bytes[8] == 0xC8, "unit 255, fc 3, 200 bytes, as ISP checks");
-            check(reg_in(r.bytes, 7) == 74 && reg_in(r.bytes, 5) * 10 + reg_in(r.bytes, 4) >= 636,
-                  "a MiniPanel ARM at 63.6 or later, which ISP asks to quiet its bus (:2423-2431)");
+            check(reg_in(r.bytes, 7) == 74 && (reg_in(r.bytes, 5) * 10 + reg_in(r.bytes, 4) >= 636) == handshake,
+                  handshake ? "a MiniPanel ARM at 63.6 or later, which ISP asks to quiet its bus (:2423-2431)"
+                            : "a MiniPanel ARM before 63.6, which ISP does not ask (:2428-2429)");
         }
 
         // Register 99 (:2278-2332).
-        check(isp.ask({ 0xFF, 0x06, 0x00, 0x63, 0x00, 0x01 }) == kShutdown, "99 = 1 is echoed");
-        check(c.heard[1].request == kShutdown, "as ISP sent it");
-        Bytes p = isp.ask({ 0xFF, 0x03, 0x00, 0x63, 0x00, 0x01 });
-        check(c.heard[2].request == kShutdownPoll, "ISP's poll, byte for byte");
-        check(p.size() == 11 && reg_in(p, 0) == kShutdownStart, "the first poll says 1, still working");
-        p = isp.read(0xFF, 99, 1);
-        check(p.size() == 11 && reg_in(p, 0) == kShutdownSuccess, "the second, 2: done");
+        if (handshake)
+        {
+            check(isp.ask({ 0xFF, 0x06, 0x00, 0x63, 0x00, 0x01 }) == kShutdown, "99 = 1 is echoed");
+            check(c.heard[1].request == kShutdown, "as ISP sent it");
+            Bytes p = isp.ask({ 0xFF, 0x03, 0x00, 0x63, 0x00, 0x01 });
+            check(c.heard[2].request == kShutdownPoll, "ISP's poll, byte for byte");
+            check(p.size() == 11 && reg_in(p, 0) == kShutdownStart, "the first poll says 1, still working");
+            p = isp.read(0xFF, 99, 1);
+            check(p.size() == 11 && reg_in(p, 0) == kShutdownSuccess, "the second, 2: done");
+        }
 
         // The device, unit 5 (:1983-2136, 2526-2564).
         const Bytes id = isp.read(5, 0, 18);
@@ -282,6 +289,24 @@ namespace
             check_eq(c.shutdown_state(), kShutdownInitial, "and not acted on");
             check_eq(reg_in(isp.read(0xFF, 99, 1), 0), 0, "99 reads 0");
         }
+
+        // Whom ISP asks: a MiniPanel, TStat10, MiniPanel ARM or ESP32 T3, at
+        // 63.6 or later (ComWriter.cpp:2423-2431; ProductModel.h).
+        const auto judged = [](uint16_t model, uint16_t major, uint16_t minor) {
+            FakeModbusController c;
+            c.registers[7] = model;
+            c.registers[5] = major;
+            c.registers[4] = minor;
+            Isp isp{ c };
+            isp.write(0xFF, 99, 1);
+            return c.frames_not_isp();
+        };
+        check_eq(judged(35, 63, 6) + judged(10, 63, 6) + judged(74, 63, 6) + judged(88, 63, 6), 0,
+                 "99 = 1 to each of the four models at 63.6 is ISP's");
+        check_eq(judged(74, 64, 0), 0, "and at 64.0");
+        check_eq(judged(74, 63, 5), 1, "at 63.5 it is judged");
+        check_eq(judged(9, 63, 6), 1, "and to a TStat8, which ISP never asks");
+        check_eq(judged(36, 70, 0), 1, "or to model 36");
     }
 
     void test_faults_on_the_connection()
@@ -359,7 +384,8 @@ namespace
 
 int run_fake_modbus_controller_tests()
 {
-    test_isp_flashes_an_arm_hex_through_a_controller();
+    test_isp_flashes_an_arm_hex_through_a_controller(true);
+    test_isp_flashes_an_arm_hex_through_a_controller(false);
     test_isp_flashes_a_data_hex_through_a_controller();
     test_requests_isp_would_not_send();
     test_the_shutdown_register();
