@@ -14,17 +14,21 @@ those surveys, made by opening the files.
 **Nothing in T5000 has yet touched a live controller.** Every claim here is
 source-against-source, except the struct sizes, which the compiler asserts.
 
-**Where it stands, 2026-09-27:** Stage 0 is done, and the device list is
+**Where it stands, 2026-09-30:** Stage 0 is done, and the device list is
 saved between runs, as T3000's building database is ([The device
 list](#the-device-list-and-virtual-devices)). A device added by hand can have
 its inputs configured before a scan finds it, kept in the device list and sent
 nowhere, and so can a virtual device, a configuration with no device behind
-it. A device no scan reaches can be found at an address the operator gives
-([part 2](#the-device-list-and-virtual-devices)). In Stage 1, Inputs,
+it, and their inputs are imported from and exported to T3000's `.prog`
+files. A device no scan reaches can be found at an address the operator
+gives ([part 2](#the-device-list-and-virtual-devices)). In Stage 1, Inputs,
 Outputs and Variables are read and shown as T3000 shows them, after each
 panel's settings and custom range names (#17). The Panel and Type columns are
 still to do. Stage 2 has started: a write of inputs can be encoded, and a
 panel's answer classified, but nothing can send one yet ([Writes](#writes)).
+The Firmware page checks a file against a device and sends it nowhere, and
+the synthetic bootloaders a flash will be tested against are built ([the
+firmware plan](t5000-firmware-plan.md)).
 The stage table below has each stage's state, and [Next](#next) is the list of
 what comes after. [`README.md`](../README.md) describes the tool as
 it is today.
@@ -182,7 +186,7 @@ would check each before acting on it.
 
 Each ships on its own. Ordered by dependency, not by difficulty.
 
-| Stage | Delivers | Changed by all-products? | State, 2026-09-27 |
+| Stage | Delivers | Changed by all-products? | State, 2026-09-30 |
 |---|---|---|---|
 | **0** | Discovery, selection, firmware detection, **product-identity model** | **Larger** — two id axes, capability table | Done (#9, #12, #13, #15). The device list is saved between runs (#19), and takes devices added by hand (#22, #24), whose inputs can be configured offline (#29), and devices found at an address (#31) |
 | **1** | Inputs + Outputs + Variables read | Unchanged — one shared layout | Inputs done (#14, #16, #17), except the Panel and Type columns. Outputs done (#27), except those and Product Name. Variables done (#28) |
