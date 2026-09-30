@@ -60,6 +60,11 @@
 //     whether the device adds its own offset is not known. flash_a_tstat
 //     sends an ESP32's from 1991 * 128 (:885, 976-981). Either is taken for
 //     the session's first block only; a later section starts at 0.
+//   - A first block past 0 after an erase is judged, though ISP can send
+//     one. An ESP32 found in its bootloader with a matching MD5 and 1994
+//     past 0 (:1434-1463), whose 0xEE10 then reads neither 0x40 nor 0x1F, is
+//     erased (:919-958) and sent from 1994 * 128 (:976-981), its start left
+//     unwritten. T5000 should not do that.
 //
 // Time is the caller's: every frame comes with now_ms. A test passes a clock
 // of its own and never waits; a host passes the real one.
