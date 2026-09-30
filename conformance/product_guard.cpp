@@ -14,7 +14,7 @@
 // here as it is.
 
 #include "../device/product.h"
-#include "../../T3000/ProductModel.h"
+#include "../T3000/T3000/ProductModel.h"
 
 namespace
 {

@@ -36,12 +36,12 @@
 //                                  against ISP's source as text, and ISP's
 //                                  own repair files read as ISP reads them
 //
-// Built by "T3000 - VS2019.sln", which also builds the stack, and run by its
-// post-build step, so a change on either side that breaks the other fails
-// that build. T5000/T5000.sln does not build this: T5000 has to build, run and
+// Built by "T3000\T3000 - VS2019.sln", which also builds the stack, and run by
+// its post-build step, so a change on either side that breaks the other fails
+// that build. T5000.sln does not build this: T5000 has to build, run and
 // pass its own tests with nothing of T3000's present.
 //
-// Usage: T5000Conformance.exe --source-root <repository root>
+// Usage: T5000Conformance.exe --source-root <repository>\T3000
 
 #include <stdio.h>
 #include <string.h>
@@ -74,7 +74,7 @@ int main(int argc, char** argv)
     }
     if (t5000::conformance::g_source_root.empty())
     {
-        printf("usage: T5000Conformance.exe --source-root <repository root>\n");
+        printf("usage: T5000Conformance.exe --source-root <repository>\\T3000\n");
         return 2;
     }
 

@@ -1,11 +1,12 @@
-# T3000: "T3000 - VS2019.sln", everything in it, built by hand.
+# T3000: "T3000\T3000 - VS2019.sln", everything in it, built by hand.
 #
 # It no longer runs on pushes or pull requests. T5000's checks are T5000.yml,
 # which runs on its own and does not wait on this. Run this one from the
 # Actions tab (Run workflow) when you want to know that T3000 still builds.
 #
-# That includes T5000/conformance, which is built here as part of the
-# solution; T5000.yml builds it on its own, with only the BACnet stack.
+# That includes conformance/, T5000's checks against T3000, which is built
+# here as part of the solution; T5000.yml builds it on its own, with only the
+# BACnet stack.
 
 name: T3000 (run by hand)
 
@@ -109,4 +110,4 @@ jobs:
 
       - name: Build Solution
         run: |
-          msbuild "T3000 - VS2019.sln" /p:Platform=x86 /p:Configuration=Release /p:ProjectVersion=20230804
+          msbuild "T3000\T3000 - VS2019.sln" /p:Platform=x86 /p:Configuration=Release /p:ProjectVersion=20230804

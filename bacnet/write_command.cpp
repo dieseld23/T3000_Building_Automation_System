@@ -1,7 +1,7 @@
 #include "write_command.h"
 
 // The checks on the write lists that need nothing of T3000's, so they hold in
-// T5000's own build and in CI's selftest job, which checks out T5000/ alone.
+// T5000's own build and in CI's selftest job, which leaves T3000/ out.
 // conformance/write_command_guard.cpp adds the ones that need the header: that
 // each number is the CM5 name beside it, and that the lists cover the header.
 

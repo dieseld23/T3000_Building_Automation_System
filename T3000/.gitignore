@@ -5,9 +5,6 @@
 
 /T3000 Output
 /T3000 Output_VS2015
-# T5000 builds into its own folders (T5000.vcxproj, conformance/T5000Conformance.vcxproj)
-/T5000/bin/
-/T5000/obj/
 # /.vs  <Need .vs in the repo for changes to the Visual Studio project files. 
 **/Thumbs.db
 
@@ -107,7 +104,6 @@ BacnetExplore/CodeExamples/Xamarin/YabeStack/bin/Release/YabeStack.dll
 /T3000Controls/bin/Release/T3000Controls.pdb
 /T3000Controls/obj/Release/T3000Controls.dll
 /T3000Controls/obj/Release/T3000Controls.csproj.FileListAbsolute.txt
-/.github/workflows/T3000Controls.yml
 /BacNetDllforVc/CMakeLists.txt
 /Database/Buildings/Default_Building/Default_Building.mdb
 /Database/Buildings/Default_Building/image/Screen.png

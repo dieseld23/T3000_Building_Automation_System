@@ -3,16 +3,17 @@
     Runs the GitHub "T5000" check locally, against a clean checkout.
 
 .DESCRIPTION
+    T5000 is the repository root, and T3000 is under T3000\.
     .github/workflows/T5000.yml has two jobs:
 
-      selftest     T5000/T5000.sln, from a checkout of the T5000 folder alone.
-                   It proves T5000 builds and passes its self-test with nothing
-                   else from the repository present.
-      conformance  T5000/conformance, which checks T5000 against T3000's
-                   headers, tables and BACnet stack, and runs those checks. It
-                   is built through "T3000 - VS2019.sln" with
-                   -t:T5000Conformance, which builds that project and the BACnet
-                   stack it links, and nothing else of T3000's.
+      selftest     T5000.sln, from a checkout of everything but T3000\. It
+                   proves T5000 builds and passes its self-test with nothing of
+                   T3000's present.
+      conformance  conformance\, which checks T5000 against T3000's headers,
+                   tables and BACnet stack, and runs those checks. It is built
+                   through "T3000\T3000 - VS2019.sln" with -t:T5000Conformance,
+                   which builds that project and the BACnet stack it links, and
+                   nothing else of T3000's.
 
     Both run by default. -Only T3000 instead builds the whole T3000 solution, as
     .github/workflows/T3000.yml does when it is run by hand. That one is no longer
@@ -29,10 +30,10 @@
     file that was never "git add"ed fails there and not in your working tree. That
     is the part worth reproducing, and it is what this script does - it builds a
     throwaway git worktree at a given ref, never the working tree itself. For the
-    selftest job it copies that checkout's T5000 folder somewhere with nothing
-    else beside it, as CI's sparse checkout has nothing else beside it.
+    selftest job it copies that checkout, less T3000\ and .git, somewhere with
+    nothing else beside it, as CI's sparse checkout leaves out T3000/.
 
-    Submodules are deliberately NOT initialised. No project in "T3000 - VS2019.sln"
+    Submodules are deliberately NOT initialised. No project in "T3000\T3000 - VS2019.sln"
     lives under, or references, T3000_CrossPlatform, PartsAndVendors or
     T3000Webview, so cloning them would cost minutes and change nothing. If that
     ever stops being true this script stops being equivalent to CI, so it re-checks
@@ -54,7 +55,7 @@ param(
     # build hits MAX_PATH when rooted somewhere long like a temp directory.
     [string] $WorktreePath = 'C:\t3000-ci',
 
-    # Where the T5000 folder is copied to be built on its own.
+    # Where T5000, the checkout less T3000\, is copied to be built on its own.
     [string] $T5000Path = 'C:\t5000-ci',
 
     # All is both of T5000.yml's jobs. T5000 (the selftest job) alone takes
@@ -149,7 +150,7 @@ if (-not (Test-Path $WorktreePath)) { throw "git worktree add failed." }
 Ok "checked out clean, no submodules"
 
 # Re-checks the assumption that lets this script skip "submodules: recursive".
-$sln = Join-Path $WorktreePath 'T3000 - VS2019.sln'
+$sln = Join-Path $WorktreePath 'T3000\T3000 - VS2019.sln'
 $slnText = Get-Content $sln -Raw
 foreach ($sub in 'T3000_CrossPlatform', 'PartsAndVendors', 'T3000Webview') {
     if ($slnText.Contains($sub)) {
@@ -190,18 +191,20 @@ if ($runT5000) {
     Step "Job selftest: T5000 on its own, at $T5000Path"
     if (Test-Path $T5000Path) { Remove-Item $T5000Path -Recurse -Force }
     New-Item -ItemType Directory $T5000Path | Out-Null
-    Copy-Item (Join-Path $WorktreePath 'T5000') (Join-Path $T5000Path 'T5000') -Recurse
-    Ok "only T5000\ copied, as CI checks out only T5000/"
-    $results += Build 'selftest' (Join-Path $T5000Path 'T5000\T5000.sln') @() (Join-Path $env:TEMP 't5000-ci.log')
+    Get-ChildItem $WorktreePath -Force | Where-Object { $_.Name -notin 'T3000', '.git' } |
+        Copy-Item -Destination $T5000Path -Recurse
+    if (Test-Path (Join-Path $T5000Path 'T3000')) { throw "T3000\ was copied; the selftest job must build without it." }
+    Ok "everything but T3000\ copied, as CI checks out everything but T3000/"
+    $results += Build 'selftest' (Join-Path $T5000Path 'T5000.sln') @() (Join-Path $env:TEMP 't5000-ci.log')
 }
 
 if ($runConformance) {
-    Step "Job conformance: T5000Conformance, through T3000 - VS2019.sln"
+    Step "Job conformance: T5000Conformance, through T3000\T3000 - VS2019.sln"
     $results += Build 'conformance' $sln @('-t:T5000Conformance') (Join-Path $env:TEMP 't5000-conformance-ci.log')
 }
 
 if ($runT3000) {
-    Step "T3000.yml, run by hand: all of T3000 - VS2019.sln"
+    Step "T3000.yml, run by hand: all of T3000\T3000 - VS2019.sln"
     $results += Build 'T3000' $sln @('/p:ProjectVersion=20230804') (Join-Path $env:TEMP 't3000-ci.log')
 }
 
@@ -227,11 +230,11 @@ foreach ($r in $results) {
 }
 
 if ($runT5000 -and -not $failed) {
-    $exe = Join-Path $T5000Path 'T5000\bin\Release\T5000.exe'
+    $exe = Join-Path $T5000Path 'bin\Release\T5000.exe'
     if (Test-Path $exe) { Ok "T5000.exe - $([math]::Round((Get-Item $exe).Length / 1MB, 1)) MB" }
 }
 if ($runT3000 -and -not $failed) {
-    $exe = Join-Path $WorktreePath 'T3000 Output\release\T3000.exe'
+    $exe = Join-Path $WorktreePath 'T3000\T3000 Output\release\T3000.exe'
     if (Test-Path $exe) { Ok "T3000.exe - $([math]::Round((Get-Item $exe).Length / 1MB, 1)) MB" }
 }
 

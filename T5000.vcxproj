@@ -8,11 +8,11 @@
     self-test mode that the post-build event below runs, so a failing check
     fails the build.
 
-    It builds from T5000.sln, beside this file, with nothing else in the
-    repository present: every file it compiles is under this folder, and it
-    links only Windows libraries. The checks that hold it to T3000's headers,
-    tables and BACnet stack are conformance/T5000Conformance.vcxproj, which
-    "T3000 - VS2019.sln" builds.
+    It builds from T5000.sln, beside this file, with nothing of T3000's
+    present: every file it compiles is T5000's own, none under T3000\, and
+    it links only Windows libraries. The checks that hold it to T3000's
+    headers, tables and BACnet stack are conformance/T5000Conformance.vcxproj,
+    which "T3000\T3000 - VS2019.sln" builds.
   -->
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">

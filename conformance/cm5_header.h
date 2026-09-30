@@ -36,4 +36,4 @@ typedef unsigned short WORD;    // ud_str.h:499, normally from windef.h
 // one, and nothing here depends on it; the placeholder just lets the file parse.
 struct CString { void* opaque; };
 
-#include "../../T3000/CM5/ud_str.h"
+#include "../T3000/T3000/CM5/ud_str.h"

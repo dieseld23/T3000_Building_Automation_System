@@ -1,0 +1,12 @@
+# T5000's. T3000's rules are in T3000/.gitignore, and apply under T3000/.
+
+# The build: T5000.vcxproj and conformance/T5000Conformance.vcxproj
+/bin/
+/obj/
+
+# Visual Studio's own files for T5000.sln
+/.vs/
+*.user
+
+# Upstream's, kept from the root .gitignore T3000 had
+/.github/workflows/T3000Controls.yml
