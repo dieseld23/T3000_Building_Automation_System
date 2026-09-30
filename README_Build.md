@@ -114,3 +114,5 @@ git merge -X subtree=T3000 upstream/master
 ```
 
 A plain `git merge upstream/master` leaves git to guess each file's move from its content, and conflicts wherever upstream renamed or regenerated a file, such as the hashed webview assets. With `-X subtree=T3000`, a trial merge of upstream's two newest commits (422 files) on 2026-09-30 had no conflicts, and every file landed under `T3000/`.
+
+Upstream's `.github/`, `.gitmodules`, `.gitattributes` and `LICENSE.txt` are at the root here, not under `T3000/`, and the trial's commits changed none of them, so how such a change merges is untested. After a merge that brings one, look for new files under `T3000/` (`T3000/.github/`, `T3000/.gitmodules`) or a conflict in the root's copy, and settle the root's copy by hand.
