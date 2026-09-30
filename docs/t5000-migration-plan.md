@@ -26,14 +26,20 @@ panel's settings and custom range names (#17). The Panel and Type columns are
 still to do. Stage 2 has started: a write of inputs can be encoded, and a
 panel's answer classified, but nothing can send one yet ([Writes](#writes)).
 The stage table below has each stage's state, and [Next](#next) is the list of
-what comes after. [`T5000/README.md`](../T5000/README.md) describes the tool as
+what comes after. [`README.md`](../README.md) describes the tool as
 it is today.
 
-T5000 builds on its own, from `T5000/T5000.sln`: it compiles nothing of
-T3000's, links only Windows libraries, and CI builds it from a checkout of
-its folder alone. What it copies from T3000 - layouts, codes, tables - is
-checked against the originals by `T5000/conformance/`, which
-`T3000 - VS2019.sln` builds with T3000's BACnet stack and runs.
+T5000 is the repository root, and T3000 is under `T3000/`. T5000 builds on
+its own, from `T5000.sln`: it compiles nothing of T3000's, links only
+Windows libraries, and CI builds it from a checkout of everything but
+`T3000/`. What it copies from T3000 - layouts, codes, tables - is checked
+against the originals by `conformance/`, which T3000's solution,
+`T3000/T3000 - VS2019.sln`, builds with T3000's BACnet stack and runs.
+
+T3000's source is cited as T3000's own repository names it, relative to
+`T3000/` here: `ISP/ComWriter.cpp` is `T3000/ISP/ComWriter.cpp`, and
+`T3000/global_define.h` is `T3000/T3000/global_define.h`. T5000's files
+are named from the repository root.
 
 ---
 
@@ -44,9 +50,9 @@ It does not.
 
 **There is one point-struct layout.** Every product that uses the struct path
 uses the same `Str_in_point` / `Str_out_point` / `Str_variable_point`. All
-three are copied in `T5000/wire/` and guarded field-by-field against
-`CM5/ud_str.h` by `T5000/conformance/`, compiler-enforced when
-`T3000 - VS2019.sln` builds:
+three are copied in `wire/` and guarded field-by-field against
+`CM5/ud_str.h` by `conformance/`, compiler-enforced when
+`T3000/T3000 - VS2019.sln` builds:
 
 | Struct | Size | Guarded |
 |---|---|---|
@@ -203,7 +209,7 @@ That is the source-side `CString` cost, and it lands here, not later.
 
 *Done for Inputs.* The grid itself, `BacnetInput.cpp:951-1237`, turned out to
 be the thing to port rather than the two label helpers. It is in
-`T5000/display/input_text.cpp`, with the tables in `display/tables.h`, checked
+`display/input_text.cpp`, with the tables in `display/tables.h`, checked
 against `global_define.h` by `conformance/tables_guard.cpp` on every build of
 T3000's solution. `Device_Basic_Setting` is read too
 (`READ_SETTING_COMMAND`, `app/inputs_read.cpp`), and so are the custom range
@@ -321,7 +327,7 @@ list and the file and does nothing to the device.
 
 - The storage is the SQLite that ships with Windows (`winsqlite3.dll`), not
   the repository's `SQLiteDriver`, which is SQLite 3.4.0 from 2007 behind an
-  MFC wrapper. `T5000/store/sqlite.h` says what that rules out.
+  MFC wrapper. `store/sqlite.h` says what that rules out.
 - A device known only from the saved list takes no part in the
   duplicate-Modbus-id check. The list spans buildings and months, so two
   devices on id 5 in it are not a conflict until both answer.
@@ -1163,7 +1169,7 @@ Loopback keeps other machines out, not other web pages: any page open in the
 technician's browser can send a request to 127.0.0.1:8730. So the server
 refuses, before any route runs, a request whose `Origin` is not its own page
 or whose `Host` is not 127.0.0.1 or localhost on its port (#19,
-`from_this_tool` in `T5000/http/server.h`). Every write route will depend on
+`from_this_tool` in `http/server.h`). Every write route will depend on
 that check.
 
 ---

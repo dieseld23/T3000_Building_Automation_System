@@ -367,7 +367,7 @@ as the firmware split, are checked against T3000's source by
 **Not yet:** the Panel and Type columns, on Inputs and Outputs, and Outputs'
 Product Name. Path 2 (Modbus registers) and the
 PTP tunnel are not implemented, and nor is reading a sub-device through its
-controller. The migration plan's [Next](../docs/t5000-migration-plan.md#next)
+controller. The migration plan's [Next](docs/t5000-migration-plan.md#next)
 list has the order.
 
 **None of this has touched hardware.** The synthetic devices used to test it

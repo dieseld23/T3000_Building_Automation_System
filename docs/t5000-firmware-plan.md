@@ -1,9 +1,14 @@
 # Firmware updates in T5000: plan
 
-This is a plan. Its first step (F1) is built: `T5000/firmware/` reads a
+This is a plan. Its first step (F1) is built: `firmware/` reads a
 file and says whether ISP would take it for a device, and the Firmware
 page checks a file from disk against a device in the list. Nothing in
 T5000 can send firmware to a device.
+
+T3000's source is cited as T3000's own repository names it, relative to
+`T3000/` here: `ISP/ComWriter.cpp` is `T3000/ISP/ComWriter.cpp`, and
+`T3000/global_define.h` is `T3000/T3000/global_define.h`. T5000's files
+are named from the repository root.
 
 ## What the owner decided (2026-09-27)
 
@@ -264,7 +269,7 @@ check is held the same way, with what it includes (S7).
 
 **F1. The Firmware page, checking only,** in two PRs.
 
-- **F1a, the checks** (built). `T5000/firmware/` reads a file as ISP reads
+- **F1a, the checks** (built). `firmware/` reads a file as ISP reads
   it on each path, and checks it against a device by everything in *What
   ISP checks, and what T5000 checks instead*. Its self-tests build files to trip each rule;
   `conformance/firmware_guard.cpp` parses ISP's name tables, alias chains,
@@ -308,7 +313,7 @@ check is held the same way, with what it includes (S7).
 sent, and can stop answering, drop a block or cut off, so the tests can
 check the retries and the resume.
 
-- **F2a (built):** in the self-test, `T5000/testing/`: a serial Modbus
+- **F2a (built):** in the self-test, `testing/`: a serial Modbus
   bootloader, several to a line (`fake_bootloader.h`, `fake_rtu_bus.h`), a
   Modbus TCP controller with them on its bus (`fake_modbus_controller.h`),
   and a TFTP bootloader (`fake_tftp_bootloader.h`). Each judges what it

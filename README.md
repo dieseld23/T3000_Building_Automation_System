@@ -1,3 +1,5 @@
+![T5000](https://github.com/dieseld23/T3000_Building_Automation_System/actions/workflows/T5000.yml/badge.svg)
+
 # T5000
 
 A standalone configuration tool for Temco controllers, replacing T3000's MFC
@@ -13,15 +15,52 @@ are in:
 - [`READ_PATH.md`](READ_PATH.md): how a point is read. What goes on the wire,
   where it is sent, what is read before the inputs, and how each value is
   shown.
-- [`docs/t5000-migration-plan.md`](../docs/t5000-migration-plan.md): the plan
+- [`docs/t5000-migration-plan.md`](docs/t5000-migration-plan.md): the plan
   for bringing T3000's screens across, stage by stage, with what is done and
   what is next.
-- [`README_Build.md`](../README_Build.md): building the solution, T5000
-  included.
+- [`README_Build.md`](README_Build.md): building T5000, its checks against
+  T3000, CI, and taking T3000's changes from upstream.
+- [`docs/t5000-firmware-plan.md`](docs/t5000-firmware-plan.md): bringing
+  ISP's firmware updates across.
+
+## This repository
+
+T5000 is the repository root. T3000, the application it replaces, is under
+[`T3000/`](T3000/README.md), as a fork of
+[temcocontrols/T3000_Building_Automation_System](https://github.com/temcocontrols/T3000_Building_Automation_System)
+has it at its root: T3000's own project is `T3000/T3000/`, ISP is
+`T3000/ISP/`, and T3000's solution is `T3000/T3000 - VS2019.sln`. T5000
+builds with nothing of T3000's present; only `conformance/` reads T3000,
+to hold T5000's copies to it. T3000's source is cited as T3000's own
+repository names it, relative to `T3000/`: `ISP/ComWriter.cpp:885` is
+`T3000/ISP/ComWriter.cpp`, and `T3000/global_define.h` is
+`T3000/T3000/global_define.h`. [`README_Build.md`](README_Build.md) says
+how to take T3000's changes from upstream into `T3000/`.
+
+## What it looks like
+
+These screenshots are of T5000 on loopback against synthetic panels, not
+real equipment.
+
+![T5000 device list](screenshots/devices.png "T5000 device list")
+
+*The device list, grouped by building, floor and room. The last device was added by hand, and no scan has found it yet.*
+
+![Adding a device by hand](screenshots/add-device.png "Adding a device by hand")
+
+*Adding a device that no scan has found.*
+
+![Inputs read from a panel](screenshots/inputs.png "Inputs read from a panel")
+
+*A panel's inputs, read over BACnet/IP, with the panel's own custom range names.*
+
+![Inputs of a device added by hand](screenshots/inputs-added-by-hand.png "Inputs of a device added by hand")
+
+*A device added by hand has nothing to read, and nothing is sent to it.*
 
 ## Where it stands
 
-As of 2026-09-28. **Nothing in T5000 has been run against a real controller
+As of 2026-09-30. **Nothing in T5000 has been run against a real controller
 yet.** Everything below is checked against T3000's source and against
 synthetic devices on loopback.
 
@@ -37,7 +76,7 @@ synthetic devices on loopback.
 | Inputs | Done for the five BACnet private-data products (CM5, MiniPanel, MiniPanel ARM, ESP32 T3, TSTAT10) over BACnet/IP. The grid matches T3000's column by column, including the panel's own custom range names and its row count per model. The Panel and Type columns are not done. |
 | Outputs | Done for the same five products over BACnet/IP. The grid matches T3000's column by column: the HOA Switch column and the rows it marks, each model's row count, the panel's custom digital range names, and outputs on T3 expansion modules. The Panel, Type and Product Name columns are not done. |
 | Variables | Done for the same five products over BACnet/IP. The grid matches T3000's column by column: every variable the panel has, three decimals, times, the fixed and the panel's own state pairs, the panel's own units, and names from its multi-state tables. |
-| Firmware | Checking only; nothing is sent. The Firmware page, last in the bar (T3000's Tools menu, Load firmware for a single device, which T3000 opens on Ctrl+R; the Ctrl+F2 its menu shows is T3000's factory reset), lists each device with its product, firmware, the path ISP would take to it, its bootloader's version and whether the last scan found it in its bootloader. A `.hex` or `.bin` picked from disk is read as ISP would read it on that path, up to 16 MiB, and checked against the device by ISP's rules and T5000's stricter ones, with the reasons. Read asks a panel for its settings, one request (sent once more if nothing answers), for its bootloader's version, which Find and the points pages keep too. Sending the file comes with the synthetic bootloaders; see [the firmware plan](../docs/t5000-firmware-plan.md). |
+| Firmware | Checking only; nothing is sent. The Firmware page, last in the bar (T3000's Tools menu, Load firmware for a single device, which T3000 opens on Ctrl+R; the Ctrl+F2 its menu shows is T3000's factory reset), lists each device with its product, firmware, the path ISP would take to it, its bootloader's version and whether the last scan found it in its bootloader. A `.hex` or `.bin` picked from disk is read as ISP would read it on that path, up to 16 MiB, and checked against the device by ISP's rules and T5000's stricter ones, with the reasons. Read asks a panel for its settings, one request (sent once more if nothing answers), for its bootloader's version, which Find and the points pages keep too. The synthetic bootloaders a flash is tested against are built: ISP's three ways of flashing, modelled from the device's side in the self-test. Sending the file is next; see [the firmware plan](docs/t5000-firmware-plan.md). |
 | Every other screen | Not started. The bar across the top of every page names them all in T3000's toolbar order, dimmed until they are built; Alt+I, Alt+O and Alt+V open Inputs, Outputs and Variables, as in T3000. See the migration plan's stages. |
 | Writes | Started. A write of inputs can be encoded, and a panel's answer classified, byte for byte as T3000's BACnet stack does it, but nothing can send one yet. Writing one input's Filter, approved in the page and confirmed by reading it back, is next. See the migration plan's Writes. |
 | Tstats and Modbus modules | Identified in the device list; not read. They need the register path, which does not exist yet. |
@@ -105,15 +144,15 @@ of its settings. A virtual device is sent nothing, ever.
 
 ## Build, run, test
 
-T5000 has its own solution, `T5000.sln`, and builds with nothing else from
-the repository: it compiles only what is in this folder and links only
-Windows libraries. No MFC, no .NET, no T3000 project.
+T5000 has its own solution, `T5000.sln`, and builds with nothing of
+T3000's: it compiles only its own files, none under `T3000/`, and links
+only Windows libraries. No MFC, no .NET, no T3000 project.
 
 ```
-& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" "T5000\T5000.sln" -p:Platform=x86 -p:Configuration=Release
+& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" "T5000.sln" -p:Platform=x86 -p:Configuration=Release
 ```
 
-The exe lands in `T5000\bin\Release\T5000.exe`, and `T5000.db` and
+The exe lands in `bin\Release\T5000.exe`, and `T5000.db` and
 `T5000.connection.json` are kept beside it. Stop any running T5000 first,
 since a running server locks the exe.
 
@@ -133,7 +172,8 @@ client's budget is spent. It starts its own T5000 on port 8730 with a scratch
 `--db`, so stop any other first.
 
 **The checks against T3000 are in `conformance/`**, a separate project that
-`T3000 - VS2019.sln` builds and runs, not T5000's own build. They hold
+T3000's solution, `T3000/T3000 - VS2019.sln`, builds and runs, not T5000's
+own build. They hold
 T5000's copies of T3000 to the originals:
 
 - the point, settings and command layouts against `CM5/ud_str.h`;
@@ -155,7 +195,7 @@ A change to `wire/`, `bacnet/command.h`, `bacnet/write_command.h`,
 `device/product.h`, `display/tables.h`, `offline/` or `firmware/` is not checked against
 T3000 until those run. Build
 `-t:T5000Conformance` or run `scripts/ci-local.ps1` before pushing one.
-[`README_Build.md`](../README_Build.md) has both.
+[`README_Build.md`](README_Build.md) has both.
 
 ## Layout
 
@@ -163,7 +203,7 @@ T3000 until those run. Build
 | --- | --- |
 | `app/` | What the routes serve: the Inputs, Outputs and Variables reads in page order, the device list kept in step with its saved copy, the Firmware page's check and its one read, and the JSON the pages get |
 | `bacnet/` | Private-transfer requests and replies, the read command whitelist, and the write lists and encoder |
-| `conformance/` | The checks against T3000: its headers, its tables and its BACnet stack. A separate project, `T5000Conformance.vcxproj`, built by `T3000 - VS2019.sln` |
+| `conformance/` | The checks against T3000: its headers, its tables and its BACnet stack. A separate project, `T5000Conformance.vcxproj`, built by `T3000/T3000 - VS2019.sln` |
 | `device/` | Product identity (`ProductClassId` and `MiniType`, kept as distinct types), the device registry, read-path choice, row limits, connection settings |
 | `discovery/` | The scan: the query, parsing the responses, the scanner |
 | `display/` | Ports of how T3000 turns a point into grid text, and the tables it uses |
@@ -171,13 +211,17 @@ T3000 until those run. Build
 | `http/`, `json/`, `net/` | A small loopback HTTP server, a JSON reader, local interfaces |
 | `offline/` | The rules a change to an input of a device configured offline follows, ported from T3000's Inputs grid. No transport: nothing here can reach a device |
 | `store/` | The saved device list and the offline configurations, on the SQLite that ships with Windows |
-| `testing/` | The check macros, a scripted transport, and temporary files for the tests |
+| `testing/` | The check macros, a scripted transport, temporary files for the tests, and synthetic devices: panels, serial lines, and the bootloaders a flash is tested against |
 | `tools/` | Checks of a running T5000 on loopback, run by hand |
 | `web/` | The pages, embedded as strings |
-| `wire/` | The struct layouts from `T3000/CM5/ud_str.h`, each offset T5000 uses guarded by `conformance/` |
+| `wire/` | The struct layouts from T3000's `CM5/ud_str.h`, each offset T5000 uses guarded by `conformance/` |
+| `docs/` | The migration plan and the firmware plan |
+| `scripts/` | `ci-local.ps1`, CI's checks run locally against a clean checkout |
+| `screenshots/` | The pictures in this file |
+| `T3000/` | T3000, the application T5000 replaces, and the reference for what it does. See [its README](T3000/README.md) |
 
 New source files go in `T5000.vcxproj`, and must not include anything
-outside this folder: T5000 builds on its own, and CI's `t5000` job checks
-out only this folder to prove it. Only `conformance/` reaches into T3000. MSBuild puts every object file for
+under `T3000/`: T5000 builds on its own, and CI's `selftest` job checks
+out everything but `T3000/` to prove it. Only `conformance/` reaches into T3000. MSBuild puts every object file for
 this project in one directory, so two `.cpp` files with the same name in
 different folders overwrite each other's object; give each a unique name.
