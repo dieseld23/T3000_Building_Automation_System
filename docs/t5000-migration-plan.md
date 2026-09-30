@@ -282,7 +282,8 @@ running the hardware checks. In this order:
 8. **Files and firmware:** loading and saving `.prog` files (item 2's import
    and export, built for inputs), and updating firmware as T3000's ISP
    does. The Firmware page, which checks a file against a device and
-   sends it nowhere, is built (F1); the synthetic bootloaders are next.
+   sends it nowhere, is built (F1), and so are the synthetic bootloaders
+   in the self-test (F2a); their hosts on com0com and loopback are next.
    The firmware steps, and what waits for the owner, are in [the
    firmware plan](t5000-firmware-plan.md).
 
