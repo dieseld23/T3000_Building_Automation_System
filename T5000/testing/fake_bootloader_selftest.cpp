@@ -515,6 +515,16 @@ namespace
         check(other.ask(block_frame(1, 0, file, 0)).empty(), "a running application does not answer a block");
         check_eq(app.devices[0].frames_not_isp(), 1, "which is judged");
         check(app.devices[0].blocks.empty(), "and not taken");
+
+        FakeRtuBus count = bus_with(device(74));
+        count.devices[0].mode = FakeBootloader::Mode::Bootloader;
+        Isp third{ count };
+        third.ask(kStart);
+        Bytes bytes7f = { 0x01, 0x10, 0x00, 0x00, 0x00, 0x80, 0x7F };
+        bytes7f.insert(bytes7f.end(), file.begin(), file.begin() + 128);
+        add_line_crc(bytes7f);
+        check(third.ask(bytes7f).empty(), "a block whose byte count alone says 0x7F is not answered");
+        check_eq(count.devices[0].frames_not_isp(), 1, "and is judged: ISP's is 0x80 (common.cpp:4225-4241)");
     }
 
     // --- faults ------------------------------------------------------------
@@ -611,6 +621,7 @@ namespace
             late.kind = Kind::Write;
             late.action = Action::Late;
             late.delay_ms = 600;
+            late.times = 2;
             d.faults = { x, late };
             FakeRtuBus bus = bus_with(d);
             Isp isp{ bus };
@@ -618,6 +629,11 @@ namespace
             check(isp.ask(kReg11).empty() && isp.ask(kReg11).empty(), "then silent twice");
             check(isp.ask(kReg11) == kReg11Is62, "then answered again");
             check(isp.ask(kStart).empty(), "a reply 600 ms late misses ISP's 520");
+            Bytes both = kReg11Is62;
+            both.insert(both.end(), kStart.begin(), kStart.end());
+            check(isp.ask(kReg11) == both,
+                  "asked again at once, it is still on its way when ISP purges, and runs in behind the next reply");
+            check(isp.ask(kStart).empty(), "late again");
             isp.wait(100);
             check(isp.ask(kReg11) == kReg11Is62, "and, arrived by then, is purged before the next request, as PurgeComm does");
         }
@@ -647,6 +663,7 @@ namespace
             check(isp.ask(block_frame(1, 0, file, 0)) == kBlockReply0, "block 0");
             check(isp.ask(block_frame(1, 0x80, file, 128)).empty(), "block 0x80's reply is lost");
             check_eq((long)bus.devices[0].blocks.size(), 2, "though the block was taken");
+            check(isp.ask(kWake).empty(), "the wake-up read to 255 before a last try is heard, not answered (:1013)");
             check(isp.ask(block_frame(1, 0x80, file, 128)) == kBlockReply80, "sent again, it is answered (:1003-1021)");
             check(isp.ask(block_frame(1, 0x100, file, 256)).empty(), "block 0x100 is lost");
             check_eq((long)bus.devices[0].blocks.size(), 3, "and not taken");
@@ -654,7 +671,10 @@ namespace
             const FakeBootloader& dev = bus.devices[0];
             check_eq(dev.packets(), 3, "1991 counts a block sent twice once");
             check(dev.image() == file, "the flash holds the file");
-            check_eq(dev.frames_not_isp(), 0, "a block sent again is ISP's");
+            check_eq(dev.frames_not_isp(), 0, "a block sent again, and the wake-up read, are ISP's");
+            const Bytes wake(kWake.begin(), kWake.end() - 2);
+            check(std::any_of(dev.heard.begin(), dev.heard.end(), [&](const auto& h) { return h.frame == wake; }),
+                  "the wake-up read was heard");
         }
         {
             FakeBootloader d = device(9);
