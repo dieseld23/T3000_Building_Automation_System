@@ -237,7 +237,9 @@ namespace
         // For a slow machine: each failure below is out by seconds.
         const long long slack = 1500;
 
-        Exchange e = exchange(server, budget, [&](SOCKET s, const std::atomic<bool>&) {
+        // This one is about the pieces, not the time: a budget no pause of a
+        // busy machine comes near.
+        Exchange e = exchange(server, 3000, [&](SOCKET s, const std::atomic<bool>&) {
             send_text(s, "POST /echo HTTP/1.1\r\n");
             std::this_thread::sleep_for(std::chrono::milliseconds(40));
             send_text(s, own + "Content-Length: 9\r\n\r\n{\"a\"");
