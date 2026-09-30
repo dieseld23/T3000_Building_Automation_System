@@ -80,7 +80,9 @@ namespace t5000::app
     // plan.endpoint: the read, held to the plan's identity, and the payload
     // from it. Here rather than in main so that the identity reaching the
     // read is tested, not only the read given one.
+    // When `panel` is given, the settings the read left are put there, for
+    // the caller to keep the bootloader's version (keep_bootloader).
     std::string read_planned_inputs(const device::DeviceRecord& device, const InputsPlan& plan,
                                     bacnet::ReadTransport& transport, const bacnet::ReadSettings& settings,
-                                    uint8_t& next_invoke_id);
+                                    uint8_t& next_invoke_id, PanelRead* panel = nullptr);
 }

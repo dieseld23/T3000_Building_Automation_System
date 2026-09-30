@@ -28,7 +28,9 @@ namespace t5000::app
     // Carries out a plan that can_read, over a transport already open to
     // plan.endpoint: the read, held to the plan's identity, and the payload
     // from it.
+    // When `panel` is given, the settings the read left are put there, for
+    // the caller to keep the bootloader's version (keep_bootloader).
     std::string read_planned_variables(const device::DeviceRecord& device, const PointsPlan& plan,
                                        bacnet::ReadTransport& transport, const bacnet::ReadSettings& settings,
-                                       uint8_t& next_invoke_id);
+                                       uint8_t& next_invoke_id, PanelRead* panel = nullptr);
 }

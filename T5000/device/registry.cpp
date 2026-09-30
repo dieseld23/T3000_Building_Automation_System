@@ -46,6 +46,8 @@ namespace t5000::device
                 // rescan that reaches a device over a different transport
                 // should not blank the fields it did not happen to read.
                 if (device.product != ProductClassId::Unknown) existing.product = device.product;
+                if (device.product_reported && device.product != ProductClassId::Unknown)
+                    existing.product_reported = true;
                 if (device.mini_type != 0)                     existing.mini_type = device.mini_type;
                 if (device.firmware != 0)                      existing.firmware = device.firmware;
                 if (!device.address_note.empty())              existing.address_note = device.address_note;
@@ -189,11 +191,29 @@ namespace t5000::device
                 existing.observation_complete =
                     existing.observation_complete || device.observation_complete;
 
+                // A network scan response says whether the device is in its
+                // bootloader, false included: a device that has left it must
+                // stop being shown as in it. Nothing else says either way,
+                // a serial scan's complete look included. The bootloader's
+                // version is not merged: only note_bootloader sets it.
+                if (device.bootloader_state_known)
+                {
+                    existing.bootloader_state_known = true;
+                    existing.in_bootloader          = device.in_bootloader;
+                }
+
                 return (int)i;
             }
         }
 
         m_devices.push_back(device);
+
+        // As for a merge: only note_bootloader gives a device a
+        // bootloader's version.
+        m_devices.back().bootloader_known = false;
+        m_devices.back().bootloader       = 0;
+        m_devices.back().bootloader_from.clear();
+        m_devices.back().product_reported = device.product_reported && device.product != ProductClassId::Unknown;
 
         // The handle is the registry's to give, never the caller's. A record
         // arriving with one set - copied from an older list, say - would
@@ -243,6 +263,22 @@ namespace t5000::device
             return false;
 
         m_devices[i].placement = placement;
+        return true;
+    }
+
+    bool Registry::note_bootloader(Handle handle, uint32_t settings_serial, int bootloader, const std::string& from)
+    {
+        const int i = index_of(handle);
+        if (i < 0)
+            return false;
+
+        DeviceRecord& d = m_devices[i];
+        if (d.is_virtual() || !d.has_stable_identity() || settings_serial != d.serial_number)
+            return false;
+
+        d.bootloader_known = true;
+        d.bootloader       = bootloader;
+        d.bootloader_from  = from;
         return true;
     }
 

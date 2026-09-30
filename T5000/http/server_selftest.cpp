@@ -10,6 +10,8 @@
 // behind it. That is tested over real sockets on loopback, through
 // Server::answer, the part of the server that handles one connection.
 
+// winsock2.h brings in rpcndr.h, which defines `small` as `char`: nothing
+// in this file can be called small.
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
@@ -301,7 +303,7 @@ namespace
             hold(done, 5000);
         });
         check_took(e, 0, 1500, "a body declared larger than 256 KB is refused on the head, before any of it is read");
-        check(answered(e, "400"), "  with a 400");
+        check(answered(e, "413"), "  with a 413");
 
         e = exchange(server, 0, [&](SOCKET s, const std::atomic<bool>& done) {
             send_text(s, "GET / HTTP/1.1\r\n");
@@ -309,12 +311,110 @@ namespace
         });
         check_took(e, 0, 1500, "a spent budget ends the read, rather than being set as SO_RCVTIMEO's 0 for no limit");
     }
+
+    void test_only_a_route_that_asks_takes_more()
+    {
+        section("a request may carry more body only for a route that asks, from T5000's own page");
+
+        std::vector<Route> routes(2);
+        routes[0].path = "/api/devices";
+        routes[1].path     = "/api/firmware/check";
+        routes[1].max_body = 16u * 1024 * 1024;
+
+        const auto head = [](const std::string& line, const std::string& origin) {
+            std::string raw = line + "\r\nHost: 127.0.0.1:8730\r\n";
+            if (!origin.empty())
+                raw += "Origin: " + origin + "\r\n";
+            return parsed(raw + "Content-Length: 9999999\r\n\r\n");
+        };
+        const std::string own = "http://127.0.0.1:8730";
+
+        check_eq((long)kMaxBody, 256L * 1024, "everything else: 256 KB");
+        check_eq((long)body_limit(head("POST /api/firmware/check?handle=3&name=a.hex HTTP/1.1", own), 8730, routes),
+                 16L * 1024 * 1024, "a POST from T5000's page to the route that asks: its own limit");
+        check_eq((long)body_limit(head("POST /api/firmware/check HTTP/1.1", ""), 8730, routes),
+                 16L * 1024 * 1024, "  and from a script with no page");
+        check_eq((long)body_limit(head("GET /api/firmware/check HTTP/1.1", own), 8730, routes), (long)kMaxBody,
+                 "a GET: 256 KB");
+        check_eq((long)body_limit(head("POST /api/devices HTTP/1.1", own), 8730, routes), (long)kMaxBody,
+                 "a route that does not ask: 256 KB");
+        check_eq((long)body_limit(head("POST /api/firmware/checks HTTP/1.1", own), 8730, routes), (long)kMaxBody,
+                 "a path that only starts with it: 256 KB");
+        check_eq((long)body_limit(head("POST /api/firmware/check HTTP/1.1", "https://evil.example"), 8730, routes),
+                 (long)kMaxBody, "another site's page: 256 KB, before any of the body is read");
+
+        Request renamed = head("POST /api/firmware/check HTTP/1.1", own);
+        renamed.host = "evil.example:8730";
+        check_eq((long)body_limit(renamed, 8730, routes), (long)kMaxBody, "a hostile name pointed here: 256 KB");
+
+        std::vector<Route> asks_less(1);
+        asks_less[0].path     = "/api/firmware/check";
+        asks_less[0].max_body = 10;
+        check_eq((long)body_limit(head("POST /api/firmware/check HTTP/1.1", own), 8730, asks_less), (long)kMaxBody,
+                 "a route asking for less than 256 KB still gets 256 KB");
+
+        const size_t big = 16u * 1024 * 1024;
+        Response refused;
+        check(!body_refused(head("POST /api/firmware/check HTTP/1.1", own), big, 8730, routes, refused),
+              "16 MiB to the route that asks, from T5000's page: read");
+        check(body_refused(head("POST /api/firmware/check HTTP/1.1", own), big + 1, 8730, routes, refused),
+              "  a byte more: refused");
+        check_eq(refused.status, 413, "  with 413");
+        check(refused.body == "The request carries 16777217 bytes; it may carry 16777216.",
+              "  saying how much it carries and how much it may");
+        check(!body_refused(head("POST /api/devices HTTP/1.1", own), kMaxBody, 8730, routes, refused),
+              "256 KB to any other route: read");
+        check(body_refused(head("POST /api/devices HTTP/1.1", own), kMaxBody + 1, 8730, routes, refused),
+              "  a byte more: refused");
+        check(body_refused(head("POST /api/firmware/check HTTP/1.1", "https://evil.example"), kMaxBody + 1, 8730,
+                           routes, refused) &&
+                  refused.body == "The request carries 262145 bytes; it may carry 262144.",
+              "another site's page, a byte over 256 KB to the route that asks: refused");
+        check(!body_refused(head("GET /api/firmware/check HTTP/1.1", own), 0, 8730, routes, refused),
+              "no body at all: read");
+    }
+}
+
+namespace
+{
+    void test_the_length_is_the_header_by_name()
+    {
+        section("a request's length is its Content-Length header, by the whole name, and only a plain number");
+
+        Request r;
+        check(parse_request("POST /api/firmware/check?handle=3&name=content-length.hex HTTP/1.1\r\n"
+                            "Host: 127.0.0.1:8730\r\nContent-Length: 5000\r\n\r\n",
+                            r) &&
+                  r.content_length == 5000,
+              "the header, though the file's name in the address says content-length");
+        check(parse_request("POST /x HTTP/1.1\r\nX-Note: content-length: 1\r\ncontent-LENGTH:  70 \r\n\r\n", r) &&
+                  r.content_length == 70,
+              "  and though another header's value says it; in any case, spaces trimmed");
+        check(parse_request("GET / HTTP/1.1\r\nHost: localhost:8730\r\n\r\n", r) && r.content_length == 0,
+              "none: 0");
+        check(parse_request("POST /x HTTP/1.1\r\nContent-Length: 999999999999999999\r\n\r\n", r) &&
+                  r.content_length >= 4294967295u,
+              "one past what a size holds: the most it holds, for the limit to refuse");
+
+        const char* refused[] = {
+            "-1", "+5", "1 2", "0x10", "", "12a", "1.5", "9999999999999999999",
+        };
+        for (const char* length : refused)
+        {
+            check(!parse_request(std::string("POST /x HTTP/1.1\r\nContent-Length: ") + length + "\r\n\r\n", r),
+                  (std::string("  refused: \"") + length + "\"").c_str());
+        }
+        check(!parse_request("POST /x HTTP/1.1\r\nContent-Length: 5\r\nContent-Length: 5\r\n\r\n", r),
+              "  refused: given twice, even alike");
+    }
 }
 
 int run_http_server_tests()
 {
+    test_the_length_is_the_header_by_name();
     test_headers_are_read_by_name();
     test_only_this_tool_may_ask();
+    test_only_a_route_that_asks_takes_more();
     test_budget_left();
     test_a_request_has_a_time_to_arrive();
     return 0;

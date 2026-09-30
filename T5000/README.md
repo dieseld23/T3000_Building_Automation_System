@@ -21,7 +21,7 @@ are in:
 
 ## Where it stands
 
-As of 2026-09-27. **Nothing in T5000 has been run against a real controller
+As of 2026-09-28. **Nothing in T5000 has been run against a real controller
 yet.** Everything below is checked against T3000's source and against
 synthetic devices on loopback.
 
@@ -37,6 +37,7 @@ synthetic devices on loopback.
 | Inputs | Done for the five BACnet private-data products (CM5, MiniPanel, MiniPanel ARM, ESP32 T3, TSTAT10) over BACnet/IP. The grid matches T3000's column by column, including the panel's own custom range names and its row count per model. The Panel and Type columns are not done. |
 | Outputs | Done for the same five products over BACnet/IP. The grid matches T3000's column by column: the HOA Switch column and the rows it marks, each model's row count, the panel's custom digital range names, and outputs on T3 expansion modules. The Panel, Type and Product Name columns are not done. |
 | Variables | Done for the same five products over BACnet/IP. The grid matches T3000's column by column: every variable the panel has, three decimals, times, the fixed and the panel's own state pairs, the panel's own units, and names from its multi-state tables. |
+| Firmware | Checking only; nothing is sent. The Firmware page, last in the bar (T3000's Tools menu, Load firmware for a single device, which T3000 opens on Ctrl+R; the Ctrl+F2 its menu shows is T3000's factory reset), lists each device with its product, firmware, the path ISP would take to it, its bootloader's version and whether the last scan found it in its bootloader. A `.hex` or `.bin` picked from disk is read as ISP would read it on that path, up to 16 MiB, and checked against the device by ISP's rules and T5000's stricter ones, with the reasons. Read asks a panel for its settings, one request (sent once more if nothing answers), for its bootloader's version, which Find and the points pages keep too. Sending the file comes with the synthetic bootloaders; see [the firmware plan](../docs/t5000-firmware-plan.md). |
 | Every other screen | Not started. The bar across the top of every page names them all in T3000's toolbar order, dimmed until they are built; Alt+I, Alt+O and Alt+V open Inputs, Outputs and Variables, as in T3000. See the migration plan's stages. |
 | Writes | Started. A write of inputs can be encoded, and a panel's answer classified, byte for byte as T3000's BACnet stack does it, but nothing can send one yet. Writing one input's Filter, approved in the page and confirmed by reading it back, is next. See the migration plan's Writes. |
 | Tstats and Modbus modules | Identified in the device list; not read. They need the register path, which does not exist yet. |
@@ -74,7 +75,11 @@ of its settings. A virtual device is sent nothing, ever.
   outside `bacnet/`, includes the write code.
 - **Firmware is read and checked, never sent.** `firmware/` reads a file it
   is given and says whether ISP would take it for a device. The separation
-  guard holds it to naming no socket, serial port or file.
+  guard holds it to naming no socket, serial port or file, and holds the
+  Firmware page's check (`app/firmware_page.*`) to reaching no transport
+  through anything it includes. Only `/api/firmware/check` takes a request
+  larger than 256 KB, up to 16 MiB, and only from T5000's own page or a
+  local program that names no other page (`from_this_tool`).
 - **The device list is a file on this machine.** Saving it, naming a device,
   adding one by hand, configuring one offline and forgetting one change
   `T5000.db` and nothing else.
@@ -156,7 +161,7 @@ T3000 until those run. Build
 
 | Folder | Holds |
 | --- | --- |
-| `app/` | What the routes serve: the Inputs, Outputs and Variables reads in page order, the device list kept in step with its saved copy, and the JSON the pages get |
+| `app/` | What the routes serve: the Inputs, Outputs and Variables reads in page order, the device list kept in step with its saved copy, the Firmware page's check and its one read, and the JSON the pages get |
 | `bacnet/` | Private-transfer requests and replies, the read command whitelist, and the write lists and encoder |
 | `conformance/` | The checks against T3000: its headers, its tables and its BACnet stack. A separate project, `T5000Conformance.vcxproj`, built by `T3000 - VS2019.sln` |
 | `device/` | Product identity (`ProductClassId` and `MiniType`, kept as distinct types), the device registry, read-path choice, row limits, connection settings |

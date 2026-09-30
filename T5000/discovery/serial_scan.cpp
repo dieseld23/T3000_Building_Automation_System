@@ -264,6 +264,7 @@ namespace t5000::discovery
         DeviceRecord d;
         d.serial_number = identity.serial;
         d.product       = static_cast<ProductClassId>(identity.product);
+        d.product_reported = d.product != ProductClassId::Unknown;
         d.firmware      = identity.firmware;
         d.provenance    = Provenance::SerialScan;
 

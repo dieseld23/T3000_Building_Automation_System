@@ -862,6 +862,126 @@ namespace
         }
     }
 
+    void test_a_product_is_reported_only_by_a_scan_that_gives_one()
+    {
+        section("a product counts as reported only when a scan this session gave one");
+
+        Registry reg;
+        DeviceRecord typed;
+        typed.serial_number = 777001;
+        typed.product       = ProductClassId::MiniPanelArm;
+        typed.provenance    = Provenance::ManuallyAdded;
+        const size_t i = (size_t)reg.add_or_merge(typed);
+        check(!reg.devices()[i].product_reported, "an entry added by hand: its product is the operator's");
+
+        DeviceRecord zero;
+        zero.serial_number        = 777001;
+        zero.product              = ProductClassId::Unknown;
+        zero.provenance           = Provenance::BacnetBroadcast;
+        zero.observation_complete = true;
+        reg.add_or_merge(zero);
+        check(reg.devices()[i].product == ProductClassId::MiniPanelArm && !reg.devices()[i].product_reported,
+              "a scan giving product 0 leaves the operator's, still not reported");
+
+        DeviceRecord claims = zero;
+        claims.product_reported = true;
+        reg.add_or_merge(claims);
+        check(!reg.devices()[i].product_reported, "  and a record claiming it with no product is not believed");
+
+        DeviceRecord gives = zero;
+        gives.product          = ProductClassId::Tstat10;
+        gives.product_reported = true;
+        reg.add_or_merge(gives);
+        check(reg.devices()[i].product == ProductClassId::Tstat10 && reg.devices()[i].product_reported,
+              "a scan giving one: reported, in place of the operator's");
+
+        DeviceRecord found = gives;
+        found.provenance       = Provenance::BacnetUnicast;
+        found.product_reported = false;
+        reg.add_or_merge(found);
+        check(reg.devices()[i].product_reported, "  and a later Find does not unsay it");
+
+        DeviceRecord fresh = zero;
+        fresh.serial_number    = 777002;
+        fresh.product_reported = true;
+        const size_t j = (size_t)reg.add_or_merge(fresh);
+        check(!reg.devices()[j].product_reported, "a new record claiming it with no product is not believed either");
+    }
+
+    void test_in_bootloader_follows_the_latest_scan()
+    {
+        section("whether a device is in its bootloader is what the latest network scan response said");
+
+        Registry reg;
+        const int s = reg.add_or_merge(a_device(8100));
+        check(!reg.devices()[s].bootloader_state_known, "a device nothing has said it of: not known");
+
+        DeviceRecord stuck = a_device(8101);
+        stuck.observation_complete   = true;
+        stuck.bootloader_state_known = true;
+        stuck.in_bootloader          = true;
+        const int i = reg.add_or_merge(stuck);
+        check(reg.devices()[i].bootloader_state_known && reg.devices()[i].in_bootloader,
+              "a scan response from its bootloader says so");
+
+        DeviceRecord serial = a_device(8101);
+        serial.observation_complete = true;
+        serial.provenance           = Provenance::SerialScan;
+        reg.add_or_merge(serial);
+        check(reg.devices()[i].in_bootloader, "a serial scan's complete look does not say it has left");
+
+        DeviceRecord running = a_device(8101);
+        running.observation_complete   = true;
+        running.bootloader_state_known = true;
+        running.in_bootloader          = false;
+        reg.add_or_merge(running);
+        check(reg.devices()[i].bootloader_state_known && !reg.devices()[i].in_bootloader,
+              "a later scan response from its firmware does");
+    }
+
+    void test_a_bootloader_number_is_kept_only_for_its_own_serial()
+    {
+        section("a bootloader number from settings is kept only when the settings give the device's serial");
+
+        Registry reg;
+        const int i = reg.add_or_merge(a_device(8201));
+        const Handle h = handle_at(reg, i);
+
+        check(!reg.note_bootloader(h, 8202, 62, "its settings"), "settings with another serial are refused");
+        check(!reg.devices()[i].bootloader_known, "... and nothing is kept");
+        check(!reg.note_bootloader(h, 0, 62, "its settings"), "settings with serial 0 are refused");
+        check(!reg.devices()[i].bootloader_known, "... and nothing is kept");
+        check(!reg.note_bootloader(to_handle(999), 8201, 62, "its settings"), "a handle of no device is refused");
+
+        check(reg.note_bootloader(h, 8201, 62, "its settings, read at 14:02"), "its own serial is kept");
+        check(reg.devices()[i].bootloader_known, "... as known");
+        check_eq(reg.devices()[i].bootloader, 62, "... with the number");
+        check(reg.devices()[i].bootloader_from == "its settings, read at 14:02", "... and where it came from");
+
+        DeviceRecord rescan = a_device(8201);
+        rescan.observation_complete = true;
+        rescan.bootloader_known = true;
+        rescan.bootloader = 30;
+        reg.add_or_merge(rescan);
+        check_eq(reg.devices()[i].bootloader, 62, "a merge does not change it");
+
+        DeviceRecord arrives = a_device(8203);
+        arrives.bootloader_known = true;
+        arrives.bootloader = 30;
+        const int j = reg.add_or_merge(arrives);
+        check(!reg.devices()[j].bootloader_known, "nor does a new record bring one");
+
+        DeviceRecord nameless = a_device(0);
+        const int k = reg.add_or_merge(nameless);
+        check(!reg.note_bootloader(handle_at(reg, k), 0, 62, "its settings"), "a device with no serial of its own gets none");
+
+        DeviceRecord made = a_device(kFirstVirtualSerial);
+        made.provenance = Provenance::Virtual;
+        const int v = reg.add_or_merge(made);
+        check(!reg.note_bootloader(handle_at(reg, v), kFirstVirtualSerial, 62, "its settings"),
+              "a virtual device gets none, whatever answers with its serial");
+    }
+
     void test_a_restored_device_takes_no_part_in_duplicates()
     {
         section("a device known only from the saved list is not counted as a duplicate");
@@ -919,5 +1039,8 @@ int run_registry_tests()
     test_a_restored_device_takes_no_part_in_duplicates();
     test_an_id_is_shared_only_on_one_bus();
     test_the_latest_sighting_decides_how_a_device_is_reached();
+    test_in_bootloader_follows_the_latest_scan();
+    test_a_product_is_reported_only_by_a_scan_that_gives_one();
+    test_a_bootloader_number_is_kept_only_for_its_own_serial();
     return 0;
 }
