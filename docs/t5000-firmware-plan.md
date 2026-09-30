@@ -79,11 +79,18 @@ Which way ISP goes depends on how the device is reached, not its product
    mask, to UDP port 10000, both broadcast and to the device
    (`TFTPServer.cpp:511-562`, `:1161`, `:1170`).
 3. The file in 512-byte DATA packets, opcode 3 and a big-endian block
-   number, to the device's port 10000. Each is acknowledged with opcode 4
-   and its block number; each is tried up to 10 times (`:321`, `:1565-1593`,
-   `MySocket.cpp:291-292`). ISP listens on UDP port 69.
-4. The last block is shorter than 512 bytes, and "FLASH DONE" follows. The
-   device says it is done with `0x00 0x04 0xFF 0xFF` (`MySocket.cpp:309`).
+   number from 1, to the device's port 10000, from ISP's UDP port 10001,
+   where the device's replies come (`TFTPServer.h:20-21`,
+   `TFTPServer.cpp:2035-2041`). There is no request for the file: ISP sends,
+   and the device acknowledges each block with opcode 4 and its number.
+   A block is sent up to 11 times, and an acknowledgement of the eleventh
+   still counts as a failure (`:1548-1605`, `MySocket.cpp:286-296`).
+   ISP's port 69 belongs to an older exchange nothing calls
+   (`StartServer_Old_Protocol`, `:2166`).
+4. "FLASH DONE" follows the last block, which is shorter than 512 bytes
+   unless the file is a whole number of blocks: then nothing else marks
+   the end (`:1523-1536`). The device says it is done with
+   `0x00 0x04 0xFF 0xFF` (`MySocket.cpp:309`).
 
 The TFTP broadcast reaches the whole subnet. T5000 sends it only on the
 interface the operator picked for that device, as a scan does.
@@ -127,9 +134,12 @@ the linear type, `ISPDlg.cpp:2542-2545`):
 
 The two name lists differ only for product 10, `TStat10` to one and
 `PID10` to the other. On the network, the device's bootloader names
-itself in the handshake, and ISP compares that name with the file's in
-three places, each with aliases of its own (`MySocket.cpp:130-185` and
-`:213-270`, `TFTPServer.cpp:1249-1300`).
+itself in the handshake, and ISP compares that name with the file's in up
+to three places, each with aliases of its own, and the file must pass each
+it meets (`MySocket.cpp:130-185` and `:213-270`,
+`TFTPServer.cpp:1249-1300`). A device already in its bootloader meets all
+three. A running one, whose first reply carries no name, meets only the
+second (`TFTPServer.cpp:1195-1304`).
 
 What ISP lets through, which T5000 does not:
 
@@ -144,9 +154,11 @@ What ISP lets through, which T5000 does not:
 - **Another product,** when `Check_Temco_Firmware=0` in ISP's `Setting.ini`
   (`ComWriter.cpp:1867`, `:1985`), or when the device reports product 0 or
   255 (`:1871`, `:2020`). On the network, a HUMNET, CO2NET or PSNET file
-  for any device (`MySocket.cpp:159-161`, `:246-248`), and any file for a
-  device naming itself HUMNET, CO2NET, CO2 or PSNET
-  (`TFTPServer.cpp:1284-1287`).
+  for a running device of any product (`MySocket.cpp:246-248`). For a
+  device already in its bootloader, the third check refuses it unless the
+  device names itself HUMNET, CO2NET, CO2 or PSNET
+  (`TFTPServer.cpp:1284-1287`), and that check has no
+  `Check_Temco_Firmware` to turn it off.
 - **A file needing a newer bootloader, on the data route,** which does not
   look at the bootloader.
 
@@ -292,17 +304,29 @@ check is held the same way, with what it includes (S7).
   no product, so the one in the list may be the model it was added by
   hand as, and ISP checks a file against the product the device reports.
 
-**F2. Synthetic bootloaders.** Test code only: a serial Modbus bootloader
-on com0com's CNCB0 (T5000 opens CNCA0, and never any other port), a TFTP
-bootloader and a Modbus TCP controller on loopback ports. Each records what
-it was sent, and can stop answering, drop a block or cut off, so the tests
-can check the retries and the resume.
+**F2. Synthetic bootloaders.** Test code only. Each records what it was
+sent, and can stop answering, drop a block or cut off, so the tests can
+check the retries and the resume.
+
+- **F2a (built):** in the self-test, `T5000/testing/`: a serial Modbus
+  bootloader, several to a line (`fake_bootloader.h`, `fake_rtu_bus.h`), a
+  Modbus TCP controller with them on its bus (`fake_modbus_controller.h`),
+  and a TFTP bootloader (`fake_tftp_bootloader.h`). Each judges what it
+  hears against what ISP sends at that point of a flash, so a test can say
+  T5000 sent nothing ISP would not. Where ISP's source does not say what a
+  real device does, each makes a named choice, listed in its header.
+  T5000Conformance pins their numbers to ISP's source
+  (`conformance/bootloader_guard.cpp`).
+- **F2b:** the same fakes as programs, a serial bootloader on com0com's
+  CNCB0 (T5000 opens CNCA0, and never any other port), and the TFTP
+  bootloader and the controller on loopback ports, for F3-F5 end to end.
 
 **F3. Serial Modbus RTU.** Register 16, the wait on register 11, the
 128-byte blocks, the MD5 and the resume, against F2's bootloader. Then the
 owner flashes a device of their choosing.
 
 **F4. TFTP,** then **F5. Modbus TCP behind a controller,** each the same way.
+F4 checks the bootloader's name as ISP does on each path (above).
 
 **F6. Several devices,** one after another, as `Flash_Multy.cpp` does. Each
 is checked before the first is sent anything, and the operator can stop
@@ -327,9 +351,8 @@ between devices.
 
 ## Testing without hardware
 
-- F2's synthetic bootloaders, in the style of the synthetic panels the read
-  and write paths are tested against. The tests compare what each was sent
-  with the file.
+- F2's synthetic bootloaders. The tests compare what each was sent with the
+  file, and count what it heard that ISP would not have sent.
 - T5000Conformance holds each ported transport, and each check, to ISP's
   source as text, as it holds the grid's rules to T3000's now.
 - Only a real device shows its bootloader's real timing, a noisy serial

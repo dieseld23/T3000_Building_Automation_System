@@ -21,54 +21,17 @@
 #include <string.h>
 
 #include <algorithm>
-#include <array>
 #include <map>
 #include <string>
 #include <vector>
 
 #include "../discovery/serial_scan.h"
+#include "modbus_crc.h"
 
 namespace t5000::testing
 {
-    using SerialBytes = std::vector<uint8_t>;
-
-    // CRC-16/MODBUS, table-driven where serial::crc16 works bit by bit, so the
-    // two cannot share a mistake. The self-test checks this one against the
-    // standard's check value.
-    inline uint16_t line_crc(const uint8_t* data, size_t length)
-    {
-        static const std::array<uint16_t, 256> table = [] {
-            std::array<uint16_t, 256> t{};
-            for (int i = 0; i < 256; i++)
-            {
-                uint16_t c = (uint16_t)i;
-                for (int k = 0; k < 8; k++)
-                    c = (c & 1) ? (uint16_t)((c >> 1) ^ 0xA001) : (uint16_t)(c >> 1);
-                t[i] = c;
-            }
-            return t;
-        }();
-
-        uint16_t crc = 0xFFFF;
-        for (size_t i = 0; i < length; i++)
-            crc = (uint16_t)((crc >> 8) ^ table[(crc ^ data[i]) & 0xFF]);
-        return crc;
-    }
-
-    inline void add_line_crc(SerialBytes& b)
-    {
-        const uint16_t crc = line_crc(b.data(), b.size());
-        b.push_back((uint8_t)(crc & 0xFF));
-        b.push_back((uint8_t)(crc >> 8));
-    }
-
-    inline bool line_crc_ok(const SerialBytes& b)
-    {
-        if (b.size() < 3)
-            return false;
-        const uint16_t crc = line_crc(b.data(), b.size() - 2);
-        return b[b.size() - 2] == (uint8_t)(crc & 0xFF) && b[b.size() - 1] == (uint8_t)(crc >> 8);
-    }
+    // The CRC, line_crc, is in modbus_crc.h, which the synthetic bootloaders
+    // share.
 
     // True when the bytes are one of the two frames a serial scan may send,
     // judged from the bytes alone:

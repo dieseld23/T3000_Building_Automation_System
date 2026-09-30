@@ -63,6 +63,7 @@ int run_prog_file_guard_tests();
 int run_firmware_guard_tests();
 int run_write_command_guard_tests();
 int run_write_separation_guard_tests();
+int run_bootloader_guard_tests();
 
 int main(int argc, char** argv)
 {
@@ -98,6 +99,8 @@ int main(int argc, char** argv)
     run_write_command_guard_tests();
     printf("\n");
     run_write_separation_guard_tests();
+    printf("\n");
+    run_bootloader_guard_tests();
     printf("\n");
     run_private_transfer_oracle_tests();
     printf("\n");

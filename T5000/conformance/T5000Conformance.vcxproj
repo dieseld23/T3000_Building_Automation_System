@@ -94,6 +94,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="bootloader_guard.cpp" />
     <ClCompile Include="command_guard.cpp" />
     <ClCompile Include="firmware_guard.cpp" />
     <ClCompile Include="input_cells_guard.cpp" />
