@@ -35,7 +35,8 @@
 //     the header
 //   - the Inputs grid writes the one row it changed
 //
-// Uses std::filesystem to list T5000's files under --source-root.
+// Uses std::filesystem to list T5000's files: the repository root, the
+// folder that holds T3000's tree, less that tree and the build's output.
 
 #include <algorithm>
 #include <filesystem>
@@ -67,15 +68,26 @@ namespace
     std::vector<SourceFile> t5000_sources(std::string& error)
     {
         std::vector<SourceFile> files;
-        const fs::path root = fs::path(t5000::conformance::g_source_root) / "T5000";
+        const fs::path root = t5000::conformance::t5000_root();
         std::error_code ec;
-        if (!fs::is_directory(root, ec))
+        if (!fs::is_regular_file(root / "T5000.sln", ec))
         {
-            error = "no T5000 folder under " + t5000::conformance::g_source_root;
+            error = "no T5000.sln in " + root.string() + ", the folder that holds --source-root";
             return files;
         }
         for (fs::recursive_directory_iterator it(root, ec), end; it != end && !ec; it.increment(ec))
         {
+            // Not T5000's: T3000's tree, the build's output, and .git, .vs
+            // and the like.
+            if (it.depth() == 0 && it->is_directory())
+            {
+                const std::string name = it->path().filename().string();
+                if (name == "T3000" || name == "bin" || name == "obj" || name[0] == '.')
+                {
+                    it.disable_recursion_pending();
+                    continue;
+                }
+            }
             if (!it->is_regular_file())
                 continue;
             const std::string ext = it->path().extension().string();
@@ -224,7 +236,7 @@ namespace
         return includes_an_os_header(f, what) || names_a_reaching_call(f, what);
     }
 
-    // A quoted include, as a path under T5000/: "../json/read.h" from
+    // A quoted include, as a path in T5000's tree: "../json/read.h" from
     // "app/firmware_page.cpp" is "json/read.h". Empty when it climbs out.
     std::string resolve(const std::string& from, const std::string& inc)
     {

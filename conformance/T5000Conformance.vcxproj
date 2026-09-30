@@ -6,7 +6,7 @@
     headers they were taken from, and its BACnet codec against T3000's stack.
     main.cpp lists them.
 
-    Built by "T3000 - VS2019.sln", after BACnet_Stack_Library, and run by the
+    Built by "T3000\T3000 - VS2019.sln", after BACnet_Stack_Library, and run by the
     post-build event below, so a check that fails fails that build. It is
     not in T5000.sln: T5000 builds and tests with nothing of T3000's present,
     and this is the one place the two are compiled together.
@@ -46,7 +46,7 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <!--
-    Beside T5000's own output, not in "T3000 Output\release", which T3000's
+    Beside T5000's own output, not in "T3000\T3000 Output\release", which T3000's
     release workflows zip whole into its update package.
 
     StackOutDir is where BACnet_Stack_Library's project puts its import
@@ -57,10 +57,10 @@
     <IntDir>$(ProjectDir)..\obj\conformance\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Debug'">
-    <StackOutDir>$(ProjectDir)..\..\T3000 Output\debug\</StackOutDir>
+    <StackOutDir>$(ProjectDir)..\T3000\T3000 Output\debug\</StackOutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
-    <StackOutDir>$(ProjectDir)..\..\T3000 Output\release\</StackOutDir>
+    <StackOutDir>$(ProjectDir)..\T3000\T3000 Output\release\</StackOutDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
@@ -84,11 +84,11 @@
     <PostBuildEvent>
       <!--
         The DLL is copied beside the exe so that the run below loads the one
-        this build made, whatever PATH holds. "$(ProjectDir)..\.." is the
-        repository root, where the checks find T3000's source.
+        this build made, whatever PATH holds. "$(ProjectDir)..\T3000" is
+        T3000's tree, where the checks find T3000's source.
       -->
       <Command>copy /Y "$(StackOutDir)BACnet_Stack_Library.dll" "$(OutDir)BACnet_Stack_Library.dll" &gt;NUL
-"$(TargetPath)" --source-root "$(ProjectDir)..\.."</Command>
+"$(TargetPath)" --source-root "$(ProjectDir)..\T3000"</Command>
       <Message>Running the T5000 conformance checks against T3000</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -117,11 +117,11 @@
       accident - its ud_str.h is the stale copy of the wire format.
     -->
     <ClCompile Include="private_transfer_oracle.cpp">
-      <AdditionalIncludeDirectories>..\..\BacNetDllforVc\;..\..\BacNetDllforVc\MainCpp\;..\..\BacNetDllforVc\include\;..\..\BacNetDllforVc\object\;..\..\BacNetDllforVc\handler\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\T3000\BacNetDllforVc\;..\T3000\BacNetDllforVc\MainCpp\;..\T3000\BacNetDllforVc\include\;..\T3000\BacNetDllforVc\object\;..\T3000\BacNetDllforVc\handler\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>PRINT_ENABLED=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <!--
-      T3000's CRC tables, from ModbusDllforVc\ModbusDllforVc\crc.h, are
+      T3000's CRC tables, from T3000\ModbusDllforVc\ModbusDllforVc\crc.h, are
       included by path from this one file.
     -->
     <ClCompile Include="crc_oracle.cpp" />

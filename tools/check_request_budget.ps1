@@ -10,7 +10,7 @@
     request behind it. Each request has http::kRequestBudgetMs (5 s), from when
     its connection is accepted, to arrive in full.
 
-    The self-test (T5000/http/server_selftest.cpp) drives one connection at a
+    The self-test (http/server_selftest.cpp) drives one connection at a
     time through Server::answer, with a short budget. This checks the running
     server instead: that a request behind a stalled client is answered once the
     stalled one's budget is spent; that serve_forever gives each connection the
@@ -23,10 +23,10 @@
     sent to any device. It takes about 25 seconds.
 
 .EXAMPLE
-    pwsh -NoProfile -File T5000\tools\check_request_budget.ps1
+    pwsh -NoProfile -File tools\check_request_budget.ps1
 
 .EXAMPLE
-    pwsh -NoProfile -File T5000\tools\check_request_budget.ps1 -Exe C:\somewhere\T5000.exe
+    pwsh -NoProfile -File tools\check_request_budget.ps1 -Exe C:\somewhere\T5000.exe
 #>
 param(
     [string]$Exe = (Join-Path $PSScriptRoot '..\bin\Release\T5000.exe'),

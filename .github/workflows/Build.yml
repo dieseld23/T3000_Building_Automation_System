@@ -40,7 +40,7 @@ jobs:
 
       - name: Build webview ui
         run: |
-          cd T3000Webview
+          cd T3000/T3000Webview
           npm install
           npm run build
 
@@ -51,7 +51,7 @@ jobs:
 
       - name: Build webview api
         run: |
-          cd T3000Webview/api
+          cd T3000/T3000Webview/api
           cargo build --target=i686-pc-windows-msvc --release
 
       - name: Get T3000 version number
@@ -65,20 +65,20 @@ jobs:
 
       - name: Build Solution
         run: |
-          msbuild "T3000 - VS2019.sln" /p:Platform=x86 /p:Configuration=Release /p:ProjectVersion=${{ steps.version.outputs.version }}
+          msbuild "T3000\T3000 - VS2019.sln" /p:Platform=x86 /p:Configuration=Release /p:ProjectVersion=${{ steps.version.outputs.version }}
 
       - name: Clean & Organize Files
         continue-on-error: true
         run: |
-          del "T3000 Output\release\*.pdb"
-          del "T3000 Output\release\*.lib"
-          del "T3000 Output\release\*.exp"
-          del "T3000 Output\release\*.ilk"
-          del "T3000 Output\release\ReadSinglePropDescr.xml"
-          del "T3000 Output\release\BacnetExplore.exe.config"
-          xcopy "T3000Webview\dist\spa\" "T3000 Output\release\ResourceFile\webview\www\" /E /H /C /I /y
-          xcopy "T3000Webview\api\target\i686-pc-windows-msvc\release\t3_webview_api.dll" "T3000 Output\release\" /Y
-          xcopy "T3000Webview\api\target\i686-pc-windows-msvc\release\t3_webview_api.dll.lib" "T3000 Output\release\" /Y
+          del "T3000\T3000 Output\release\*.pdb"
+          del "T3000\T3000 Output\release\*.lib"
+          del "T3000\T3000 Output\release\*.exp"
+          del "T3000\T3000 Output\release\*.ilk"
+          del "T3000\T3000 Output\release\ReadSinglePropDescr.xml"
+          del "T3000\T3000 Output\release\BacnetExplore.exe.config"
+          xcopy "T3000\T3000Webview\dist\spa\" "T3000\T3000 Output\release\ResourceFile\webview\www\" /E /H /C /I /y
+          xcopy "T3000\T3000Webview\api\target\i686-pc-windows-msvc\release\t3_webview_api.dll" "T3000\T3000 Output\release\" /Y
+          xcopy "T3000\T3000Webview\api\target\i686-pc-windows-msvc\release\t3_webview_api.dll.lib" "T3000\T3000 Output\release\" /Y
 
       # -----------------------------------------------------------------------
       # SIGNING - origin-verification-compliant approach
@@ -113,16 +113,16 @@ jobs:
           New-Item -ItemType Directory -Path "signing-input" -Force
 
           $filesToSign = @(
-            "T3000 Output\release\T3000.exe",
-            "T3000 Output\release\BacnetExplore.exe",
-            "T3000 Output\release\ISP.exe",
-            "T3000 Output\release\ModbusPoll.exe",
-            "T3000 Output\release\Update.exe",
-            "T3000 Output\release\BACnet_Stack_Library.dll",
-            "T3000 Output\release\FlexSlideBar.dll",
-            "T3000 Output\release\ModbusDllforVc.dll",
-            "T3000 Output\release\T3000Controls.dll",
-            "T3000 Output\release\t3_webview_api.dll"
+            "T3000\T3000 Output\release\T3000.exe",
+            "T3000\T3000 Output\release\BacnetExplore.exe",
+            "T3000\T3000 Output\release\ISP.exe",
+            "T3000\T3000 Output\release\ModbusPoll.exe",
+            "T3000\T3000 Output\release\Update.exe",
+            "T3000\T3000 Output\release\BACnet_Stack_Library.dll",
+            "T3000\T3000 Output\release\FlexSlideBar.dll",
+            "T3000\T3000 Output\release\ModbusDllforVc.dll",
+            "T3000\T3000 Output\release\T3000Controls.dll",
+            "T3000\T3000 Output\release\t3_webview_api.dll"
           )
 
           # Excluded (3rd-party, not owned by Temco):
@@ -176,7 +176,7 @@ jobs:
         run: |
           $signedFiles = Get-ChildItem "signed-binaries" -Recurse -File
           foreach ($f in $signedFiles) {
-            Copy-Item $f.FullName "T3000 Output\release\" -Force
+            Copy-Item $f.FullName "T3000\T3000 Output\release\" -Force
             Write-Host "Restored signed: $($f.Name)"
           }
           Write-Host "All signed PE files copied back to release directory."
@@ -193,7 +193,7 @@ jobs:
         with:
           advinst-version: "21.4"
           advinst-enable-automation: "true"
-          aip-path: ${{ github.workspace }}\T3000.aip
+          aip-path: ${{ github.workspace }}\T3000\T3000.aip
           aip-build-name: DefaultBuild
           aip-package-name: T3000-setup.msi
           aip-output-dir: ${{ github.workspace }}\setup
@@ -240,11 +240,11 @@ jobs:
 
       - name: Prepare & zip the update files
         run: |
-          Rename-Item -Path ".\T3000 Output\release\Update.exe" -NewName "UpdateEng.exe"
-          Compress-Archive -Path ".\T3000 Output\release\*" -CompressionLevel Optimal -DestinationPath .\20T3000Update.zip
+          Rename-Item -Path ".\T3000\T3000 Output\release\Update.exe" -NewName "UpdateEng.exe"
+          Compress-Archive -Path ".\T3000\T3000 Output\release\*" -CompressionLevel Optimal -DestinationPath .\20T3000Update.zip
 
       - name: Upload the update files to artifacts
         uses: actions/upload-artifact@v4
         with:
           name: 20T3000Update
-          path: T3000 Output/release/*
+          path: T3000/T3000 Output/release/*

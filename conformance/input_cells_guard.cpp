@@ -135,7 +135,7 @@ namespace
             "T3000\\T3000_VS2019.vcxproj",
             "T3000\\config.props",
             "AppConfig.props",
-            "T5000\\T5000.vcxproj",
+            "..\\T5000.vcxproj",   // T5000's, at the root, beside T3000's tree
         };
         for (const char* file : files)
         {
@@ -156,7 +156,7 @@ namespace
         if (read_or_fail("T3000\\T3000_VS2019.vcxproj", project))
             check(occurrences(project, "<ProjectConfiguration Include=\"Release|Win32\">") == 1, "  for Win32, x86");
         std::string t5000;
-        if (read_or_fail("T5000\\T5000.vcxproj", t5000))
+        if (read_or_fail("..\\T5000.vcxproj", t5000))
             check(occurrences(t5000, "<ProjectConfiguration Include=\"Release|Win32\">") == 1, "  as T5000 is");
     }
 

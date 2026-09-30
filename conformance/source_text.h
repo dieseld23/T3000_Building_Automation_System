@@ -160,7 +160,7 @@ namespace t5000::conformance
         return true;
     }
 
-    // Reads a file under the repository root - T3000\global_define.h, say -
+    // Reads a file under T3000's tree - T3000\global_define.h, say -
     // into `text`. False, with the path tried, when it cannot be opened.
     inline bool read_source(const std::string& relative, std::string& text, std::string& error)
     {
@@ -168,7 +168,7 @@ namespace t5000::conformance
         std::ifstream f(path, std::ios::binary);
         if (!f)
         {
-            error = "cannot open " + path + " - pass --source-root <repository root> to T5000Conformance.exe";
+            error = "cannot open " + path + " - pass --source-root <repository>\\T3000 to T5000Conformance.exe";
             return false;
         }
         std::stringstream ss;

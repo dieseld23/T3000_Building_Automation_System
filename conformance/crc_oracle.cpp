@@ -23,7 +23,7 @@
 #include <string>
 #include <vector>
 
-#include "../../ModbusDllforVc/ModbusDllforVc/crc.h"
+#include "../T3000/ModbusDllforVc/ModbusDllforVc/crc.h"
 #include "../serial/rtu.h"
 #include "../testing/check.h"
 

@@ -11,7 +11,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BACnet_Stack_Library", "Bac
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FlexSlideBar", "FlexSlideBar\FlexSlideBar -  VS2019.vcxproj", "{9560EBEA-EB58-44F6-BB62-189833713FC0}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "T5000Conformance", "T5000\conformance\T5000Conformance.vcxproj", "{156B975E-E47D-49EC-A061-E2F46B2E491A}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "T5000Conformance", "..\conformance\T5000Conformance.vcxproj", "{156B975E-E47D-49EC-A061-E2F46B2E491A}"
 	ProjectSection(ProjectDependencies) = postProject
 		{E9A65567-B028-4278-881D-674604B2E126} = {E9A65567-B028-4278-881D-674604B2E126}
 	EndProjectSection

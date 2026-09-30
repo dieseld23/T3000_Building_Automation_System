@@ -314,7 +314,7 @@ namespace
         std::ifstream f(path, std::ios::binary);
         if (!require((bool)f, "T3000/global_define.h can be opened"))
         {
-            printf("        tried %s - pass --source-root <repository root> to T5000Conformance.exe\n", path.c_str());
+            printf("        tried %s - pass --source-root <repository>\\T3000 to T5000Conformance.exe\n", path.c_str());
             return false;
         }
         std::stringstream ss;
