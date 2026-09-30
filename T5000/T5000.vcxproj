@@ -191,6 +191,7 @@
     <ClCompile Include="web\nav_selftest.cpp" />
     <ClCompile Include="store\device_db_selftest.cpp" />
     <ClCompile Include="store\sqlite.cpp" />
+    <ClCompile Include="testing\fake_bootloader_selftest.cpp" />
     <ClCompile Include="wire\decode.cpp" />
     <ClCompile Include="wire\decode_selftest.cpp" />
     <ClCompile Include="wire\panel.cpp" />
@@ -251,8 +252,11 @@
     <ClInclude Include="http\server.h" />
     <ClInclude Include="json\read.h" />
     <ClInclude Include="testing\check.h" />
+    <ClInclude Include="testing\fake_bootloader.h" />
+    <ClInclude Include="testing\fake_rtu_bus.h" />
     <ClInclude Include="testing\fake_transport.h" />
     <ClInclude Include="testing\fake_serial_line.h" />
+    <ClInclude Include="testing\modbus_crc.h" />
     <ClInclude Include="testing\temp_file.h" />
     <ClInclude Include="web\devices_page.h" />
     <ClInclude Include="web\firmware_page.h" />
