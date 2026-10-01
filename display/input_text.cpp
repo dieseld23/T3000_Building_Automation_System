@@ -191,8 +191,9 @@ namespace t5000::display
 
     std::string thousandths(int32_t value)
     {
-        // ((float)value) / 1000, then "%.2f" (BacnetInput.cpp:1092-1093).
-        const float v = ((float)value) / 1000;
+        // ((double)value) / 1000, then "%.2f" (BacnetInput.cpp:1092-1093).
+        // In float until 2026-09-28 (temcocontrols 57781bda).
+        const double v = ((double)value) / 1000;
         char buf[32];
         snprintf(buf, sizeof(buf), "%.2f", v);
         return buf;

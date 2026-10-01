@@ -353,7 +353,9 @@ without the settings, as on older firmware. Any of the three that fails is a
 note, not a stop. The points are decoded as `fill_in_variable` decodes them,
 which guards its text as inputs are guarded. The grid is
 `BacnetVariable.cpp:209-478`, ported in `display/variable_text.cpp`: a
-number has three decimals, computed in float; an analog variable on range 20
+number has three decimals, computed in double (in float until T3000 changed
+it on 2026-09-28, as it did for Inputs and Outputs; `conformance/values_guard.cpp`
+pins the division in all three); an analog variable on range 20
 is a time; ranges 34-38 take the panel's own units, and 101-104 a name from
 its multi-state tables, cut out of the replies as T3000 cuts them
 (`display/variable_ranges.cpp`). T3000 looks a name up in tables 1-3 only, so

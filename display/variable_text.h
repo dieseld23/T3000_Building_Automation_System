@@ -48,8 +48,9 @@ namespace t5000::display
 
     VariableText variable_text(const wire::VariablePoint& p, const VariablePanel& panel);
 
-    // value / 1000 with three decimals, computed in float as T3000 computes
-    // it (:311-313) - three, where inputs and outputs show two.
+    // value / 1000 with three decimals, computed in double as T3000 computes
+    // it (:311-313) - three, where inputs and outputs show two. In float
+    // until 2026-09-28, where 123456700 was 123456.703.
     std::string variable_number(int32_t value);
 
     // intervaltotextfull(textbuf, seconds, 0, 0) (global_function.cpp:7856):

@@ -231,7 +231,9 @@ Outputs' Product Name.
 in `display/variable_ranges.cpp`; the reads in `app/variables_read.cpp`, with
 the multi-state and unit reads beside the others in `app/panel_read.cpp`.
 `conformance/variables_guard.cpp` checks the literals the port copies that no
-constant names.
+constant names, and `conformance/values_guard.cpp` that the three grids divide
+a value by 1000 in double, as T3000 has since 2026-09-28 (in float before:
+45 showed as 0.05, and shows as 0.04 now).
 
 **Stage 2 is the cliff** — the first code that writes to live equipment.
 Writes get their own transport, separate from the read path, which cannot

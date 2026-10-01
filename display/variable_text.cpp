@@ -63,8 +63,8 @@ namespace t5000::display
             const MsvTable& m = names.msv[table];
 
             // The state's name, looked up by the whole part of value / 1000,
-            // cut toward zero from a float: -500 looks up 0.
-            const float v = ((float)p.value) / 1000;
+            // cut toward zero from a double: -500 looks up 0.
+            const double v = ((double)p.value) / 1000;
             std::string name;
             t.value = msv_item_name(names, table, (int)v, name) ? name : variable_number(p.value);
 
@@ -209,7 +209,7 @@ namespace t5000::display
 
     std::string variable_number(int32_t value)
     {
-        const float v = ((float)value) / 1000;
+        const double v = ((double)value) / 1000;
         char buf[32];
         snprintf(buf, sizeof(buf), "%.3f", v);
         return buf;
