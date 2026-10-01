@@ -106,7 +106,7 @@ namespace
     {
         section("the panel types with a HOA Switch column");
 
-        const int with[] = { 9, 27, 11, 14, 19, 29, 10, 22, 26, 1, 5, 6, 21, 12, 7, 2, 3, 4, 44, 43, 104 };
+        const int with[] = { 9, 31, 11, 14, 19, 29, 10, 22, 26, 1, 5, 6, 21, 12, 7, 2, 3, 4, 44, 43, 104 };
         bool all = true;
         for (const int t : with)
             all = all && shows_hoa_switch(t);

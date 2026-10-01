@@ -12,7 +12,9 @@
 #include "points_json.h"
 #include "../discovery/scanner.h"
 #include "../offline/prog_file.h"
+#include "../store/sqlite.h"
 #include "../testing/check.h"
+#include "../testing/temp_file.h"
 
 #include <string.h>
 
@@ -48,16 +50,16 @@ namespace
         StoreStatus    status;
         Handle         handle = kNoHandle;
 
-        bool open()
+        bool open(const std::string& path = ":memory:")
         {
             std::string error;
-            if (!db.open(":memory:", error))
+            if (!db.open(path, error))
             {
-                printf("  (could not open a database in memory: %s)\n", error.c_str());
+                printf("  (could not open a database at %s: %s)\n", path.c_str(), error.c_str());
                 return false;
             }
             status.saving = true;
-            status.path   = ":memory:";
+            status.path   = path;
             return true;
         }
 
@@ -596,14 +598,14 @@ namespace
         if (!b.open() || !b.add(9901, ProductClassId::Tstat10, 11))
             return;
 
-        store::OfflinePoint far;
-        far.index = 70;
+        store::OfflinePoint beyond;
+        beyond.index = 70;
         const offline::InputBytes start = offline::default_input(70);
-        far.base.assign(start.begin(), start.end());
-        far.edited = far.base;
-        far.edited[offline::input_at::filter] = 1;
+        beyond.base.assign(start.begin(), start.end());
+        beyond.edited = beyond.base;
+        beyond.edited[offline::input_at::filter] = 1;
         std::string error;
-        check(b.db.save_offline_input(store::scanned_key(9901), far, error), "a change to input 71 is saved");
+        check(b.db.save_offline_input(store::scanned_key(9901), beyond, error), "a change to input 71 is saved");
 
         std::string message;
         Placement p;
@@ -964,6 +966,108 @@ namespace
                   "a device added by hand still refuses a file from another serial");
     }
 
+    void test_a_tstat11_file_from_before_its_renumbering_is_refused()
+    {
+        section("a TSTAT11's .prog file from before T3000 renumbered it gives panel type 27, and is refused");
+
+        // T3000 numbered TSTAT11 27 until 2026-09-28, and 31 since.
+        Bench b;
+        if (!b.open() || !b.add(9281, ProductClassId::Esp32T3Series, (int)static_cast<uint8_t>(MiniType::Tstat11)))
+            return;
+
+        std::string message;
+        check(!b.import(prog_of(9281, 27), true, &message), "a file giving panel type 27 is refused");
+        check(contains(message, "gives panel type 27, which is not a model of the") &&
+                  contains(message, "and this device is a TSTAT11"),
+              "  saying 27 is no model T5000 knows");
+        check(contains(message, "numbered TSTAT11 27 until 2026-09-28, and 31 since"), "  and that it was TSTAT11's");
+        check(b.import(prog_of(9281, 31), true, &message), "a file giving 31 is taken");
+
+        Bench bb;
+        if (bb.open() && bb.add(9282, ProductClassId::MiniPanelArm, 5))
+        {
+            check(!bb.import(prog_of(9282, 27), true, &message), "a T3-BB refuses a file giving 27");
+            check(contains(message, "gives panel type 27") && !contains(message, "TSTAT11"),
+                  "  without naming TSTAT11, which it is not");
+        }
+    }
+
+    void test_a_tstat11_saved_at_27_is_moved_to_31()
+    {
+        section("a TSTAT11 saved at 27, T3000's number for it until 2026-09-28, opens and is moved to 31");
+
+        // A list kept before T3000 renumbered TSTAT11 holds 27 for an entry
+        // added by hand as one, or a virtual one: a panel type T5000 no
+        // longer names, and no longer offers.
+        const int tstat11 = (int)static_cast<uint8_t>(MiniType::Tstat11);
+        TempFile file(L"tstat11");
+        uint32_t made = 0;
+        {
+            Bench b;
+            if (!b.open(file.utf8()) || !b.add(9981, ProductClassId::Esp32T3Series, tstat11))
+                return;
+            check(b.edit(0, offline::InputField::Label, "KEPT"), "an entry's input 1 is changed");
+            if (!b.add_virtual(ProductClassId::Esp32T3Series, tstat11))
+                return;
+            made = b.device()->serial_number;
+            check(b.edit(1, offline::InputField::Label, "ALSO"), "a virtual device's input 2 is changed");
+        }
+        {
+            store::Database raw;
+            std::string error;
+            if (!require(raw.open(file.utf8(), error), "the file opens directly"))
+                return;
+            check(raw.exec("UPDATE devices SET mini_type = 27", error), "both are put back at 27, as then saved");
+        }
+
+        Bench b;
+        b.status = open_saved_list(b.db, file.utf8(), b.registry);
+        if (!require(b.status.saving && b.status.restored == 2, "the list opens, with both"))
+            return;
+
+        const DeviceRecord* entry = nullptr;
+        const DeviceRecord* made_here = nullptr;
+        for (const auto& d : b.registry.devices())
+        {
+            if (!d.is_virtual() && d.serial_number == 9981)
+                entry = &d;
+            if (d.is_virtual() && d.serial_number == made)
+                made_here = &d;
+        }
+        if (!require(entry && made_here, "  the entry and the virtual device"))
+            return;
+        check(entry->mini_type == 27 && made_here->mini_type == 27, "  each at 27");
+        check(plan_offline_inputs(*entry).model != "TSTAT11", "  which is not TSTAT11 now");
+
+        const Handle entry_handle = entry->handle;
+        const Handle made_handle  = made_here->handle;
+        std::string message;
+        b.handle = entry_handle;
+        Placement place = b.device()->placement;
+        check(place_device(b.registry, b.db, entry_handle, place, b.status, message, tstat11),
+              "the entry is moved to TSTAT11");
+        check_eq(b.device()->mini_type, tstat11, "  at 31");
+        check(plan_offline_inputs(*b.device()).model == "TSTAT11", "  and is a TSTAT11");
+        const auto kept = b.saved(9981);
+        check(kept.size() == 1 && kept[0].index == 0, "  with its change kept");
+        check(contains(b.payload(), "\"label\":\"KEPT\""), "  and shown");
+
+        b.handle = made_handle;
+        place = b.device()->placement;
+        check(place_device(b.registry, b.db, made_handle, place, b.status, message, tstat11),
+              "the virtual device is moved to TSTAT11");
+        check_eq(b.device()->mini_type, tstat11, "  at 31");
+        const auto also = b.saved_virtual(made);
+        check(also.size() == 1 && also[0].index == 1, "  with its change kept");
+        check(contains(b.payload(), "\"label\":\"ALSO\""), "  and shown");
+
+        std::vector<DeviceRecord> restored;
+        std::string error;
+        check(b.db.load(restored, error) && restored.size() == 2 && restored[0].mini_type == tstat11 &&
+                  restored[1].mini_type == tstat11,
+              "both are saved at 31");
+    }
+
     void test_a_device_is_exported()
     {
         section("a device configured offline is exported as a .prog file, which imports back as it was");
@@ -1156,6 +1260,8 @@ int run_offline_inputs_tests()
     test_an_import_request_is_read_strictly();
     test_a_virtual_device_is_configured_offline();
     test_a_virtual_device_imports_a_file_of_its_model();
+    test_a_tstat11_file_from_before_its_renumbering_is_refused();
+    test_a_tstat11_saved_at_27_is_moved_to_31();
     test_a_device_is_exported();
     test_an_export_is_what_an_import_keeps();
     test_an_export_is_refused_where_a_change_is();

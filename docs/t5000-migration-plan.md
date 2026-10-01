@@ -134,8 +134,8 @@ MIRROR   44  T38AI8AO6DO   == PM_T38AI8AO6DO     COLLIDE  10  T3_BMS      vs PM_
 MIRROR   46  PID_T3PT12    == PM_T3PT12          COLLIDE  21  T3_ESP_LW   vs PM_T3IOA
 MIRROR   53  PID_T332AI    == PM_T332AI_ARM      COLLIDE  22  T3_NG3      vs PM_T332AI
 MIRROR   95  PID_T36CTA    == PM_T36CTA          COLLIDE  26  T3_3IIC     vs PM_T3PT10
-                                                 COLLIDE  27  T3_TSTAT11  vs PM_T3PERFORMANCE
                                                  COLLIDE  29  T3_RMC1232  vs PM_T36CT
+                                                 COLLIDE  31  T3_TSTAT11  vs PM_FWMTRANSDUCER
 ```
 
 It works today only because the colliding cases are unreachable in practice — a

@@ -53,8 +53,8 @@ namespace
             { MiniType::EspLw,    ProductClassId::T3IOA,          "T3_ESP_LW / PM_T3IOA (21)" },
             { MiniType::Ng3,      ProductClassId::T332AI,         "T3_NG3 / PM_T332AI (22)" },
             { MiniType::ThreeIic, ProductClassId::T3PT10,         "T3_3IIC / PM_T3PT10 (26)" },
-            { MiniType::Tstat11,  ProductClassId::T3Performance,  "T3_TSTAT11 / PM_T3PERFORMANCE (27)" },
             { MiniType::Rmc1232,  ProductClassId::T36CT,          "T3_RMC1232 / PM_T36CT (29)" },
+            { MiniType::Tstat11,  ProductClassId::FwmTransducer,  "T3_TSTAT11 / PM_FWMTRANSDUCER (31)" },
         };
 
         for (const auto& c : collisions)

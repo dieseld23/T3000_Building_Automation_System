@@ -551,6 +551,19 @@ namespace t5000::app
                 message = "This .prog file's settings give no panel type, so they do not say it was saved from a " +
                           plan.model + ". Its inputs are imported only into the model it was saved from.";
             }
+            else if (!find_model(d->product, type))
+            {
+                message = "This .prog file gives panel type " + std::to_string(type) + ", which is not a model of the " +
+                          std::string(to_string(d->product)) + " that T5000 knows, and this device is a " +
+                          plan.model + ". Its inputs are imported only into the model it was saved from.";
+
+                // T3000 numbered TSTAT11 27 until 2026-09-28 (device/product.h),
+                // so a TSTAT11's file saved before then gives 27. Refused all the
+                // same: 27 is also the ESP32 firmware's LSW sensor.
+                if (d->product == ProductClassId::Esp32T3Series && plan.type == MiniType::Tstat11 && type == 27)
+                    message += " T3000 numbered TSTAT11 27 until 2026-09-28, and 31 since, so a file saved from a "
+                               "TSTAT11 before then gives 27.";
+            }
             else
             {
                 message = std::string("This .prog file was saved from a ") +
