@@ -316,10 +316,13 @@ namespace
     {
         section("a request may carry more body only for a route that asks, from T5000's own page");
 
+        // As much as the Firmware page's check asks (app::kLargestFirmwareRequest).
+        const size_t big = 32u * 1024 * 1024;
+
         std::vector<Route> routes(2);
         routes[0].path = "/api/devices";
         routes[1].path     = "/api/firmware/check";
-        routes[1].max_body = 16u * 1024 * 1024;
+        routes[1].max_body = big;
 
         const auto head = [](const std::string& line, const std::string& origin) {
             std::string raw = line + "\r\nHost: 127.0.0.1:8730\r\n";
@@ -331,9 +334,9 @@ namespace
 
         check_eq((long)kMaxBody, 256L * 1024, "everything else: 256 KB");
         check_eq((long)body_limit(head("POST /api/firmware/check?handle=3&name=a.hex HTTP/1.1", own), 8730, routes),
-                 16L * 1024 * 1024, "a POST from T5000's page to the route that asks: its own limit");
+                 (long)big, "a POST from T5000's page to the route that asks: its own limit");
         check_eq((long)body_limit(head("POST /api/firmware/check HTTP/1.1", ""), 8730, routes),
-                 16L * 1024 * 1024, "  and from a script with no page");
+                 (long)big, "  and from a script with no page");
         check_eq((long)body_limit(head("GET /api/firmware/check HTTP/1.1", own), 8730, routes), (long)kMaxBody,
                  "a GET: 256 KB");
         check_eq((long)body_limit(head("POST /api/devices HTTP/1.1", own), 8730, routes), (long)kMaxBody,
@@ -353,14 +356,13 @@ namespace
         check_eq((long)body_limit(head("POST /api/firmware/check HTTP/1.1", own), 8730, asks_less), (long)kMaxBody,
                  "a route asking for less than 256 KB still gets 256 KB");
 
-        const size_t big = 16u * 1024 * 1024;
         Response refused;
         check(!body_refused(head("POST /api/firmware/check HTTP/1.1", own), big, 8730, routes, refused),
-              "16 MiB to the route that asks, from T5000's page: read");
+              "32 MiB to the route that asks, from T5000's page: read");
         check(body_refused(head("POST /api/firmware/check HTTP/1.1", own), big + 1, 8730, routes, refused),
               "  a byte more: refused");
         check_eq(refused.status, 413, "  with 413");
-        check(refused.body == "The request carries 16777217 bytes; it may carry 16777216.",
+        check(refused.body == "The request carries 33554433 bytes; it may carry 33554432.",
               "  saying how much it carries and how much it may");
         check(!body_refused(head("POST /api/devices HTTP/1.1", own), kMaxBody, 8730, routes, refused),
               "256 KB to any other route: read");
