@@ -25,7 +25,7 @@ namespace t5000::app
     }
 
     // T3000 pauses between its connect-time reads too (Sleep(50) at
-    // BacnetView.cpp:6476, :6570), and these are small controllers.
+    // BacnetView.cpp:6490, :6584), and these are small controllers.
     void pause_between_reads(const bacnet::ReadSettings& settings)
     {
         if (settings.pause_between_requests_ms > 0)
@@ -159,8 +159,8 @@ namespace t5000::app
         using namespace bacnet;
 
         // T3000 asks for these whether or not the digital names came back
-        // (BacnetView.cpp:6472), and for table 4 only once 0-3 have
-        // (:6563-6565).
+        // (BacnetView.cpp:6486), and for table 4 only once 0-3 have
+        // (:6577-6579).
         const ReadOutcome first_four = read_entities_from(transport, device, ReadCommand::AnalogCustomTables, 0, 4, 4,
                                                           (uint16_t)wire::kAnalogTableWireSize, settings, next_invoke_id);
         requests_sent += first_four.requests_sent;

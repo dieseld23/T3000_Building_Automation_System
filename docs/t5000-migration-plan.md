@@ -206,7 +206,7 @@ this right is what keeps every later stage from growing per-product branches.
 
 **Stage 1 needs three source-side dependencies** that are not behind a DLL
 export and must be ported as source: `GetInputLabelEx`
-(`BacnetInput.cpp:2228`), `GetInputFullLabelEx` (`:2273`), and the
+(`BacnetInput.cpp:2229`), `GetInputFullLabelEx` (`:2274`), and the
 `Device_Basic_Setting` global — all called from `InputsData.cpp:62-63, 87`.
 Plus the units tables (`global_define.h:823-894`), which are `CString` arrays.
 That is the source-side `CString` cost, and it lands here, not later.
@@ -1056,7 +1056,7 @@ payload. Four things about it are not to be copied:
   (198) sends whole (`ud_str.h:859`; `BacnetSetting.cpp:1804-2081`), and the
   cache is never cleared after, so the next settings edit can send the action
   again. Writing to flash (122) goes through the read function
-  (`BacnetView.cpp:5835`).
+  (`BacnetView.cpp:5836`).
 - **Some writes happen without being asked for:** time sync on reading the
   panel's time, a rename sent on connect, and writes when a field loses focus.
 

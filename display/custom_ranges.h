@@ -50,7 +50,7 @@ namespace t5000::display
         DigitalRange digital[wire::kCustomUnitCount];
 
         // Per table, because T3000 reads tables 0-3 and then 4 in two
-        // requests (BacnetView.cpp:6563-6565), and uses whatever arrived:
+        // requests (BacnetView.cpp:6577-6579), and uses whatever arrived:
         // Analog_Custom_Units is not gated by a flag.
         bool        analog_known[wire::kAnalogTableCount] = {};
         std::string analog[wire::kAnalogTableCount];   // Analog_Custom_Units

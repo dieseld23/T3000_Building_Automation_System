@@ -43,7 +43,7 @@ namespace t5000::device
 
     bool ptp_would_be_enabled(int product_id, int software_version)
     {
-        // BacnetView.cpp:7736 - note the ESP32 branch is unconditional and does
+        // BacnetView.cpp:7757 - note the ESP32 branch is unconditional and does
         // not consult the firmware version at all.
         if (product_id == pm(ProductClassId::Esp32T3Series))
             return true;

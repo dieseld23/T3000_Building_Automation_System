@@ -3,7 +3,7 @@
 // constants check nor the tables check in tables_guard.cpp can see.
 //
 //   - which multi-state tables T3000 reads on which firmware
-//     (BacnetView.cpp:6483-6547), and how it reads the custom units (:6571)
+//     (BacnetView.cpp:6497-6561), and how it reads the custom units (:6585)
 //   - that Get_Msv_Item_Name looks in tables 0-2 only, and how
 //     Get_Msv_Table_Name joins names (global_function.cpp:16855, :17025)
 //   - how Fresh_Variable_List shows a time and a number, and where its
@@ -80,7 +80,7 @@ namespace
 
     void test_what_is_read()
     {
-        section("the multi-state tables and custom units T3000 reads (BacnetView.cpp:6483-6571)");
+        section("the multi-state tables and custom units T3000 reads (BacnetView.cpp:6497-6585)");
 
         std::string text;
         if (!read_or_fail("T3000\\BacnetView.cpp", text))

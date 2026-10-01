@@ -37,7 +37,7 @@ read proceeds over Modbus.
 
 ## When the PTP tunnel is active
 
-`BacnetView.cpp:7736-7743`, after reading the device's identity:
+`BacnetView.cpp:7757-7764`, after reading the device's identity:
 
 ```c
 if ((Bacnet_Private_Device(read_data[7])) && (software_version >= 525))
@@ -133,7 +133,7 @@ the device's discovery socket, not its BACnet one, so the BACnet port is still
 the device's own claim (bytes 60-61), NAT or not.
 
 The read goes to that address directly. T3000 instead broadcasts Who-Is for
-the device instance and binds whatever address the I-Am comes from (`BacnetView.cpp:4307`). Skipping
+the device instance and binds whatever address the I-Am comes from (`BacnetView.cpp:4308`). Skipping
 it means no broadcast when a device is read. What the I-Am would have given -
 confirmation that the device at that address is still the one scanned - comes
 from the settings read instead, which is sent first: it carries the panel's
@@ -270,7 +270,7 @@ is `BACNETIP_PORT + 0..3` and `BACNETIP_PORT` is 47808,
 | --- | --- |
 | Checks only that a reply is a whole number of points (`global_function.cpp:4165`), then loops over the range the reply states - reading past the end of a short reply, and placing a reply for 10-19 onto 10-19 even if 0-9 was asked | The reply must name the command, range and exact point count that was sent |
 | No error handler for private transfer (`:8324-8325`): a refusal is silence, then a timeout | Error, Reject and Abort are decoded and reported, with class, code or reason |
-| A chunk that times out is logged and skipped (`BacnetView.cpp:4447`), leaving a grid with holes | All or nothing: a partial read shows no points and names the range that failed |
+| A chunk that times out is logged and skipped (`BacnetView.cpp:4448`), leaving a grid with holes | All or nothing: a partial read shows no points and names the range that failed |
 | Up to 10 retries x 3 attempts x 3 s per chunk | 2 attempts x 3 s, then the page is told |
 
 **What else is read, and in what order.** T3000 reads three things from a
@@ -295,7 +295,7 @@ says so:
 
 - **The settings.** When nothing answers, the read stops there, as T3000's
   does: it treats a panel whose settings do not come back as not connected
-  (`BacnetView.cpp:5905-5955`). When the panel answers with a refusal, T3000
+  (`BacnetView.cpp:5906-5956`). When the panel answers with a refusal, T3000
   would still show nothing. T5000 reads the inputs anyway, shows every row
   with no per-model rules, and the page says how that differs. The same goes
   for a reply that does not match the request. Neither applies to a device
@@ -304,7 +304,7 @@ says so:
   that needed them has a note. When nothing answers, the note says so, and
   the page goes on; the inputs are still asked for. As in T3000, the analog
   tables are asked for whether or not the digital names came back
-  (`BacnetView.cpp:6472`, `:6563`), and table 4 only when tables 0-3 did.
+  (`BacnetView.cpp:6486`, `:6577`), and table 4 only when tables 0-3 did.
 
 **How values are shown.** As T3000's Inputs grid shows them: `display/input_text.cpp`
 ports the loop at `BacnetInput.cpp:951-1237` column by column. The unit and
@@ -346,7 +346,7 @@ requests of ten 39-byte points, or more on an ESP32 T3 from firmware 63.7.
 Before them the Variables page (`app/variables_read.cpp`) reads the settings,
 the custom digital range names, the panel's multi-state tables
 (`READ_MSV_COMMAND`, 42) and its custom variable units (`READVARUNIT_T3000`,
-36), as T3000 does when it connects (`BacnetView.cpp:6472-6571`): 18 requests
+36), as T3000 does when it connects (`BacnetView.cpp:6486-6585`): 18 requests
 in all. The tables go in two requests, 0-1 and then 2 on firmware 60.7 and
 older, or 2-3 on newer, each sent whether or not the one before came back;
 without the settings, as on older firmware. Any of the three that fails is a

@@ -28,7 +28,7 @@ namespace t5000::device
     // How many inputs T3000 reads: BAC_INPUT_ITEM_COUNT, or, on a panel that
     // sizes its points from its settings, DYNAMIC_INPUT_ITEM_COUNT, which is
     // max_in when that is above 64 (global_function.cpp:17634-17636,
-    // BacnetView.cpp:4963-4966). At most 255: the index is one byte.
+    // BacnetView.cpp:4964-4967). At most 255: the index is one byte.
     int inputs_to_read(ProductClassId product, const wire::PanelSettings& settings);
 
     struct InputRows
@@ -47,7 +47,7 @@ namespace t5000::device
 
     // The chain itself, for any bacnet_device_type. Several codes it tests
     // are above 63 and so can never come from the settings; they reach it in
-    // T3000 by other routes (BacnetView.cpp:3776-3792), on products T5000
+    // T3000 by other routes (BacnetView.cpp:3777-3793), on products T5000
     // does not read. Exposed so the chain can be tested as the port it is.
     InputRows input_rows_for(int device_type, ProductClassId product, const wire::PanelSettings& settings);
 }

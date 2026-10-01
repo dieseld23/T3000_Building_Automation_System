@@ -1,6 +1,6 @@
 // Tests for what a panel's settings decide about its Outputs grid, against
 // the chain at BacnetOutput.cpp:418-545, the HOA list at :733-755, and the
-// ESP32 sizing at BacnetView.cpp:4963-4969.
+// ESP32 sizing at BacnetView.cpp:4964-4970.
 
 #include "output_rows.h"
 #include "../testing/check.h"

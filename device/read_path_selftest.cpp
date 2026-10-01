@@ -62,7 +62,7 @@ namespace
         check(ptp_would_be_enabled(pm(ProductClassId::Tstat10), 525), "525 does enable PTP");
         check(ptp_would_be_enabled(pm(ProductClassId::Tstat10), 526), "526 does enable PTP");
 
-        // BacnetView.cpp:7740 enables PTP for the ESP32 series without looking
+        // BacnetView.cpp:7761 enables PTP for the ESP32 series without looking
         // at the firmware version at all.
         check(ptp_would_be_enabled(pm(ProductClassId::Esp32T3Series), 0), "ESP32 ignores firmware entirely");
     }
