@@ -23,7 +23,7 @@
 namespace t5000::app
 {
     // The largest request that may carry a firmware file (http::body_limit).
-    // ISP's largest buffer is 0x3FFFFF bytes. It copies a .bin of any length
+    // ISP's largest buffer is 0x9FFFFF bytes. It copies a .bin of any length
     // into it, past its end (BinFileParser.cpp:82-83), where T5000 refuses a
     // .bin longer than the buffer (firmware/firmware_file.cpp). Of a
     // .hex of linear address records, it refuses a record whose address is
@@ -31,10 +31,26 @@ namespace t5000::app
     // end when it runs over (HexFileParser.cpp:566-569); T5000 refuses
     // both. A .hex of
     // sixteen-byte records that
-    // fills it is about 11.5 MB of text. 16 MiB takes that and the largest
-    // .bin. A larger request is refused without being read, and the page
-    // says so before it sends one.
-    inline constexpr size_t kLargestFirmwareRequest = 16u * 1024 * 1024;
+    // fills it is about 29.5 MB of text (largest_hex_text). 32 MiB takes that
+    // and the largest .bin; it was 16 MiB while the buffer was 0x3FFFFF. A
+    // larger request is refused without being read, and the page says so
+    // before it sends one.
+    inline constexpr size_t kLargestFirmwareRequest = 32u * 1024 * 1024;
+
+    // The length of a .hex that fills `buffer` from address 0 with
+    // sixteen-byte data records, each ":10" address "00" data checksum CRLF
+    // (45 bytes), an extended linear address record for each 64 KiB
+    // (":02000004" address checksum CRLF, 17 bytes), and the end record
+    // (":00000001FF" CRLF, 13 bytes).
+    constexpr size_t largest_hex_text(size_t buffer)
+    {
+        return (buffer + 15) / 16 * 45 + (buffer + 0xFFFF) / 0x10000 * 17 + 13;
+    }
+
+    static_assert(kLargestFirmwareRequest >= firmware::kBinBufferLength &&
+                      kLargestFirmwareRequest >= largest_hex_text(firmware::kBinBufferLength) &&
+                      kLargestFirmwareRequest >= largest_hex_text(firmware::kHexBufferLength),
+                  "the largest firmware request takes any file that fits ISP's buffers");
 
     // Which of ISP's paths a file for this device would go on, as T3000
     // hands a device to ISP (Dowmloadfile.cpp, COM_OR_NET and Subnote;
