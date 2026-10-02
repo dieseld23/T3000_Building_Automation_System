@@ -1,5 +1,5 @@
 // Tests for how many variables T3000 reads from a panel, against the
-// sizing at global_function.cpp:17673-17687 and BacnetView.cpp:4963-4971.
+// sizing at global_function.cpp:17673-17687 and BacnetView.cpp:4964-4972.
 
 #include "variable_rows.h"
 #include "../testing/check.h"

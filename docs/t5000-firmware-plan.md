@@ -123,9 +123,12 @@ file's data is sent as the buffer holds it:
 
 | Path | A `.bin` | A `.hex` |
 |---|---|---|
-| Serial (`FlashByCom`, `ISPDlg.cpp:2472-2523`) | 0x3FFFFF bytes of 0xFF | 0x1FFFFF bytes of 0x00 |
-| Network (`FlashByEthernet`, `:2185-2237`) | 0x3FFFFF bytes of 0xFF | 0x3FFFFF bytes of 0x00 |
+| Serial (`FlashByCom`, `ISPDlg.cpp:2472-2523`) | 0x9FFFFF bytes of 0xFF | 0x1FFFFF bytes of 0x00 |
+| Network (`FlashByEthernet`, `:2185-2237`) | 0x9FFFFF bytes of 0xFF | 0x9FFFFF bytes of 0x00 |
 | Behind a controller (`OnFlashSubID`, `:2090-2112`) | not read | 0x1FFFFF bytes of 0xFF |
+
+The `.bin` buffer, `c_nBinFileBufLen` (`Global_Struct.h:60`), was 0x3FFFFF
+bytes until ISP 6.4.7 (2026-09-28).
 
 On serial, the file's kind decides which thread flashes it and so how it
 is checked (`BeginWirteByCom`, `ComWriter.cpp:96-244`; a `.bin` is given
@@ -291,15 +294,15 @@ check is held the same way, with what it includes (S7).
   saved, and only when the settings give the device's own serial.
   **Check a file...** sends a `.hex` or `.bin` from disk to T5000 itself,
   as the body of `POST /api/firmware/check`, the one route that takes up
-  to 16 MiB, and only from T5000's own page or a local program that
+  to 32 MiB, and only from T5000's own page or a local program that
   names no other page; every other request stays at 256 KB, and a larger
   one is refused before it is read. ISP copies a `.bin` of any length
-  into its 0x3FFFFF-byte buffer, past its end; of a linear `.hex`, it
+  into its 0x9FFFFF-byte buffer, past its end; of a linear `.hex`, it
   refuses a record whose address is more than the buffer's length and
   writes any other whole, past the end when it runs over. T5000 refuses
-  all of these, and 16 MiB takes the
+  all of these, and 32 MiB takes the
   `.hex` of sixteen-byte records that
-  fills it, about 11.5 MB. T5000 reads the file as ISP would on the
+  fills it, about 29.5 MB. T5000 reads the file as ISP would on the
   device's path and shows what ISP and T5000 make of it, and the device
   as the check was told it. Nothing is sent to any device. The separation
   guard holds `app/firmware_page.*`, which does the checking, to reaching

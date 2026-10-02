@@ -121,6 +121,11 @@ namespace
         check(t.range == "Out of range" && t.units == "Unused", "range 9: Out of range, and units Unused");
         check(t.value == "-1.50", "negative values keep their sign");
         check(t.note.empty(), "all of that is what T3000 shows");
+
+        // In double since 2026-09-28 (BacnetOutput.cpp:902), where float gave 0.05.
+        check(output_text(analog_point(1, 45), 0, kUnknownPanel).value == "0.04", "45 is 0.04, divided in double");
+        check(output_text(digital_point(0, 1, 55), 0, kUnknownPanel).value == "0.06",
+              "  and a digital one on range 0 the same way (:916)");
     }
 
     void test_a_digital_output()

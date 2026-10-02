@@ -38,7 +38,7 @@ namespace t5000::display
 
         // Custom_Msv_Range: what the Units column shows for the table's
         // range. Empty until read, as T3000 empties it before each read
-        // (BacnetView.cpp:6479-6482).
+        // (BacnetView.cpp:6493-6496).
         std::string range;
     };
 
@@ -50,7 +50,7 @@ namespace t5000::display
         std::string units[wire::kVariableUnitCount];
 
         // Which tables were asked for: 0-2 on firmware 60.7 and older, 0-3
-        // on newer (BacnetView.cpp:6483-6547).
+        // on newer (BacnetView.cpp:6497-6561).
         bool     msv_asked[wire::kMsvTableCount] = {};
         MsvTable msv[wire::kMsvTableCount];
 

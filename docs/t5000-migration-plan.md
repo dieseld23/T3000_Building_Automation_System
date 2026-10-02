@@ -134,8 +134,8 @@ MIRROR   44  T38AI8AO6DO   == PM_T38AI8AO6DO     COLLIDE  10  T3_BMS      vs PM_
 MIRROR   46  PID_T3PT12    == PM_T3PT12          COLLIDE  21  T3_ESP_LW   vs PM_T3IOA
 MIRROR   53  PID_T332AI    == PM_T332AI_ARM      COLLIDE  22  T3_NG3      vs PM_T332AI
 MIRROR   95  PID_T36CTA    == PM_T36CTA          COLLIDE  26  T3_3IIC     vs PM_T3PT10
-                                                 COLLIDE  27  T3_TSTAT11  vs PM_T3PERFORMANCE
                                                  COLLIDE  29  T3_RMC1232  vs PM_T36CT
+                                                 COLLIDE  31  T3_TSTAT11  vs PM_FWMTRANSDUCER
 ```
 
 It works today only because the colliding cases are unreachable in practice — a
@@ -206,7 +206,7 @@ this right is what keeps every later stage from growing per-product branches.
 
 **Stage 1 needs three source-side dependencies** that are not behind a DLL
 export and must be ported as source: `GetInputLabelEx`
-(`BacnetInput.cpp:2228`), `GetInputFullLabelEx` (`:2273`), and the
+(`BacnetInput.cpp:2229`), `GetInputFullLabelEx` (`:2274`), and the
 `Device_Basic_Setting` global — all called from `InputsData.cpp:62-63, 87`.
 Plus the units tables (`global_define.h:823-894`), which are `CString` arrays.
 That is the source-side `CString` cost, and it lands here, not later.
@@ -231,7 +231,9 @@ Outputs' Product Name.
 in `display/variable_ranges.cpp`; the reads in `app/variables_read.cpp`, with
 the multi-state and unit reads beside the others in `app/panel_read.cpp`.
 `conformance/variables_guard.cpp` checks the literals the port copies that no
-constant names.
+constant names, and `conformance/values_guard.cpp` that the three grids divide
+a value by 1000 in double, as T3000 has since 2026-09-28 (in float before:
+45 showed as 0.05, and shows as 0.04 now).
 
 **Stage 2 is the cliff** — the first code that writes to live equipment.
 Writes get their own transport, separate from the read path, which cannot
@@ -1054,7 +1056,7 @@ payload. Four things about it are not to be copied:
   (198) sends whole (`ud_str.h:859`; `BacnetSetting.cpp:1804-2081`), and the
   cache is never cleared after, so the next settings edit can send the action
   again. Writing to flash (122) goes through the read function
-  (`BacnetView.cpp:5835`).
+  (`BacnetView.cpp:5836`).
 - **Some writes happen without being asked for:** time sync on reading the
   panel's time, a rename sent on connect, and writes when a field loses focus.
 

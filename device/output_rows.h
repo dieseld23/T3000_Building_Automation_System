@@ -43,7 +43,7 @@ namespace t5000::device
     // How many outputs T3000 reads: BAC_OUTPUT_ITEM_COUNT, or, on a panel
     // that sizes its points from its settings, DYNAMIC_OUTPUT_ITEM_COUNT,
     // which is max_out when that is above 64 (global_function.cpp:17655-17670,
-    // BacnetView.cpp:4963-4969). At most 255: the index is one byte. It is
+    // BacnetView.cpp:4964-4970). At most 255: the index is one byte. It is
     // also how many rows the grid has at all (output_item_limit_count).
     int outputs_to_read(ProductClassId product, const wire::PanelSettings& settings);
 

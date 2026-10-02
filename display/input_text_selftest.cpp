@@ -31,9 +31,9 @@ namespace
 
     const PanelContext kUnknownPanel;
 
-    void test_values_are_thousandths_rounded_in_float()
+    void test_values_are_thousandths_rounded_in_double()
     {
-        section("an analog value is value/1000 to two places, computed in float as T3000 does");
+        section("an analog value is value/1000 to two places, computed in double as T3000 does");
 
         check(thousandths(21500) == "21.50", "21500 is 21.50");
         check(thousandths(-4250) == "-4.25", "negative values keep their sign");
@@ -41,16 +41,20 @@ namespace
 
         // 0.045 is just below itself in double and just above in float, and
         // 0.055 the other way round, so the two disagree at two decimals.
-        // T3000 divides in float. (12.345 would not do: it is above .345 in
-        // both.)
-        char in_double[16];
-        snprintf(in_double, sizeof(in_double), "%.2f", 45 / 1000.0);
-        check(strcmp(in_double, "0.04") == 0, "in double, 45 rounds to 0.04");
-        check(thousandths(45) == "0.05", "but T3000 shows 0.05, and so does T5000");
+        // T3000 divided in float until 2026-09-28 (temcocontrols 57781bda),
+        // and divides in double since. (12.345 would not do: it is above
+        // .345 in both.)
+        char in_float[16];
+        snprintf(in_float, sizeof(in_float), "%.2f", ((float)45) / 1000);
+        check(strcmp(in_float, "0.05") == 0, "in float, 45 rounds to 0.05");
+        check(thousandths(45) == "0.04", "but T3000 shows 0.04 now, in double, and so does T5000");
 
-        snprintf(in_double, sizeof(in_double), "%.2f", 55 / 1000.0);
-        check(strcmp(in_double, "0.06") == 0, "in double, 55 rounds to 0.06");
-        check(thousandths(55) == "0.05", "but in float it is 0.05");
+        snprintf(in_float, sizeof(in_float), "%.2f", ((float)55) / 1000);
+        check(strcmp(in_float, "0.05") == 0, "in float, 55 rounds to 0.05");
+        check(thousandths(55) == "0.06", "but in double it is 0.06");
+
+        check(thousandths(-45) == "-0.04" && thousandths(-55) == "-0.06", "negative values the same way");
+        check(thousandths(5) == "0.01", "5 is 0.01, where float made it 0.00");
 
         const InputText t = input_text(analog_point(3, 21500), 0, kUnknownPanel);
         check(t.value == "21.50", "and that is the Value column");
@@ -322,7 +326,7 @@ namespace
 
 int run_input_text_tests()
 {
-    test_values_are_thousandths_rounded_in_float();
+    test_values_are_thousandths_rounded_in_double();
     test_an_analog_input_shows_units_and_range_by_range();
     test_analog_ranges_past_the_tables();
     test_custom_analog_ranges_say_they_are_custom();

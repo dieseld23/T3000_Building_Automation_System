@@ -277,10 +277,10 @@ namespace
         check(has(j, "\"serialNumber\":134341184") && has(j, "\"serialNumber\":134341189"), "  both of them");
         check(has(j, "\"canRead\":true,\"readWhy\":\"\""), "  the panel's settings can be read");
         check(has(j, "\"canRead\":false,\"readWhy\":\"") && has(j, "Modbus registers"), "  the Tstat8's cannot, and why");
-        check(has(j, "\"largestFile\":16777216}"), "and the largest file the page may send");
+        check(has(j, "\"largestFile\":33554432}"), "and the largest file the page may send");
 
         Registry empty;
-        check(firmware_list_json(empty) == "{\"devices\":[],\"largestFile\":16777216}", "an empty list");
+        check(firmware_list_json(empty) == "{\"devices\":[],\"largestFile\":33554432}", "an empty list");
     }
 }
 

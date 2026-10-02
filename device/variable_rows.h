@@ -15,7 +15,7 @@ namespace t5000::device
 {
     // BAC_VARIABLE_ITEM_COUNT, or, on a panel that sizes its points from its
     // settings, DYNAMIC_VARIABLE_ITEM_COUNT, which is max_var when that is
-    // above 128 (global_function.cpp:17673-17687, BacnetView.cpp:4963-4971).
+    // above 128 (global_function.cpp:17673-17687, BacnetView.cpp:4964-4972).
     // At most 255: the index is one byte.
     int variables_to_read(ProductClassId product, const wire::PanelSettings& settings);
 }

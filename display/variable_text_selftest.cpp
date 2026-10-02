@@ -91,18 +91,19 @@ namespace
 
     void test_numbers()
     {
-        section("a variable's number: value / 1000, three decimals, in float");
+        section("a variable's number: value / 1000, three decimals, in double");
 
         check(variable_number(21500) == "21.500", "21500 is 21.500");
         check(variable_number(-1234) == "-1.234", "negative values keep their sign");
         check(variable_number(0) == "0.000", "zero is 0.000");
         check(variable_number(1) == "0.001", "1 is 0.001");
 
-        // Far enough from 0 that a float cannot hold the thousandths.
-        char in_double[32];
-        snprintf(in_double, sizeof(in_double), "%.3f", 123456700 / 1000.0);
-        check(strcmp(in_double, "123456.700") == 0, "in double, 123456700 is 123456.700");
-        check(variable_number(123456700) == "123456.703", "but T3000 shows 123456.703, and so does T5000");
+        // Far enough from 0 that a float cannot hold the thousandths. T3000
+        // divided in float until 2026-09-28, and divides in double since.
+        char in_float[32];
+        snprintf(in_float, sizeof(in_float), "%.3f", ((float)123456700) / 1000);
+        check(strcmp(in_float, "123456.703") == 0, "in float, 123456700 is 123456.703");
+        check(variable_number(123456700) == "123456.700", "but T3000 shows 123456.700 now, and so does T5000");
     }
 
     void test_times()
@@ -243,8 +244,9 @@ namespace
         check(variable_text(digital(101, 0, 2999), panel).value == "Heat", "2999 looks up 2: cut, not rounded");
         check(variable_text(digital(101, 0, -500), panel).value == "Off", "-500 looks up 0: cut toward zero");
 
-        // In float, 16999999 is 17000000, so T3000 looks up 17000 where
-        // double arithmetic would look up 16999.
+        // In float, 16999999 is 17000000, so T3000 looked up 17000 until it
+        // divided in double (2026-09-28); now it looks up 16999, which no
+        // item names, and shows the number.
         std::vector<uint8_t> big(w::kMsvTableWireSize, 0);
         big[w::msv_item_at::status] = 1;
         memcpy(&big[w::msv_item_at::name], "Seventeen", 9);
@@ -252,8 +254,9 @@ namespace
         big[w::msv_item_at::value + 1] = (uint8_t)(17000 >> 8);
         VariablePanel wide = panel;
         take_msv_tables(big.data(), big.size(), 0, 1, wide.names);
-        check(variable_text(digital(101, 0, 16999999), wide).value == "Seventeen",
-              "16999999 looks up 17000, as the float T3000 computes in rounds it");
+        check(variable_text(digital(101, 0, 17000000), wide).value == "Seventeen", "17000000 looks up 17000");
+        check(variable_text(digital(101, 0, 16999999), wide).value == "16999.999",
+              "16999999 looks up 16999, cut from the double T3000 computes in, and shows the number");
         check(variable_text(digital(101, 0, 7000), panel).value == "7.000", "a value no item names: the number");
         check(variable_text(digital(102, 0, 1000), panel).value == "Pump B", "range 102: table 2");
 

@@ -220,7 +220,7 @@ namespace
               "T3-OEM is in it, as a TSTAT10 with panel type 11");
         check(has(json, "{\"name\":\"T3-OEM-12I\",\"productId\":10,\"miniType\":14}"), "  and T3-OEM-12I");
         check(has(json, "{\"name\":\"T3-BB\",\"productId\":74,\"miniType\":5}"), "T3-BB, as a MiniPanel ARM");
-        check(has(json, "{\"name\":\"TSTAT11\",\"productId\":88,\"miniType\":27}"), "TSTAT11, as an ESP32 T3");
+        check(has(json, "{\"name\":\"TSTAT11\",\"productId\":88,\"miniType\":31}"), "TSTAT11, as an ESP32 T3");
 
         const ModelTable models = known_models();
         for (int i = 0; i < models.count; i++)

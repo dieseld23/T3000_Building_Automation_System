@@ -138,7 +138,7 @@ namespace
         check_eq(f.image[0x202], 0xFF, "... filled with 0xFF");
 
         check(read("a.hex", asix_file(), Path::Network, f, why), "the same file on the network");
-        check_eq((long)f.image.size(), (long)kBinBufferLength, "on the network, a .hex is read into 0x3FFFFF bytes");
+        check_eq((long)f.image.size(), (long)kBinBufferLength, "on the network, a .hex is read into 0x9FFFFF bytes");
         check_eq(f.image[0x202], 0x00, "... filled with 0x00");
 
         // A segment address record first: read the same way, its two bytes
@@ -324,7 +324,7 @@ namespace
         check_eq((long)f.header_at, 0x100, "its header is at 0x100 when the company there is TEMCO");
         check_eq(f.header.version(), 6000, "... and read from there");
         check_eq((long)f.data_size, 0x400, "the data is the file's length");
-        check_eq((long)f.image.size(), (long)kBinBufferLength, "a .bin is read into 0x3FFFFF bytes");
+        check_eq((long)f.image.size(), (long)kBinBufferLength, "a .bin is read into 0x9FFFFF bytes");
         check_eq(f.image[0x3FF], 0x5A, "... the file copied in");
         check_eq(f.image[0x400], 0xFF, "... filled with 0xFF past it");
 
@@ -365,6 +365,12 @@ namespace
               "a .bin longer than ISP's buffer is refused");
         check(read_bin(bin_file("ASIX", kBinBufferLength, 0x100, "TEMCO"), Path::Serial, f, why),
               "one as long as the buffer is read");
+        check(read_bin(bin_file("ASIX", 0x3FFFFF + 1, 0x100, "TEMCO"), Path::Serial, f, why),
+              "one longer than ISP's buffer before 6.4.7, 0x3FFFFF, is read on serial");
+        check(read_bin(bin_file("ASIX", 0x3FFFFF + 1, 0x100, "TEMCO"), Path::Network, f, why),
+              "  and on the network");
+        check(!read_bin(bin_file("ASIX", kBinBufferLength + 1, 0x100, "TEMCO"), Path::Network, f, why),
+              "  where one longer than the buffer is refused too");
 
         const std::vector<uint8_t> small = { 'A', 'S', 'I', 'X' };
         check(read_bin(small, Path::Serial, f, why), "a .bin shorter than its header's place is read");

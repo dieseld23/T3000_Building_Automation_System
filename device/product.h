@@ -38,8 +38,8 @@
 //
 //     T3_BMS(10)     vs PM_TSTAT10(10)        T3_TSTAT10(9)  vs PM_TSTAT8(9)
 //     T3_ESP_LW(21)  vs PM_T3IOA(21)          T3_NG3(22)     vs PM_T332AI(22)
-//     T3_3IIC(26)    vs PM_T3PT10(26)         T3_TSTAT11(27) vs PM_T3PERFORMANCE(27)
-//     T3_RMC1232(29) vs PM_T36CT(29)
+//     T3_3IIC(26)    vs PM_T3PT10(26)         T3_RMC1232(29) vs PM_T36CT(29)
+//     T3_TSTAT11(31) vs PM_FWMTRANSDUCER(31)
 //
 // Those cases are unreachable in the shipping app because a private-data
 // panel's mini_type is never a thermostat model - an invariant held by
@@ -118,7 +118,11 @@ namespace t5000::device
         Bms = 10, Oem = 11, Tb11I = 12, FanModule = 13, Oem12I = 14,
         Airlab = 15,
         EspTransducer = 16, EspTstat9 = 17, EspSauter = 18, EspRmc = 19,
-        EspLw = 21, Ng3 = 22, ThreeIic = 26, Tstat11 = 27, Rmc1232 = 29,
+        EspLw = 21, Ng3 = 22, ThreeIic = 26, Rmc1232 = 29,
+        // 27 until T3000 moved it on 2026-09-28 (temcocontrols 57781bda). 27
+        // is the ESP32 firmware's LSW sensor (main/define.h,
+        // PROJECT_LSW_SENSOR), which T3000 does not name.
+        Tstat11 = 31,
         T322AI = 43, T38AI8AO6DO = 44, T3PT12 = 46, T332AI = 53, T36CTA = 95,
     };
 

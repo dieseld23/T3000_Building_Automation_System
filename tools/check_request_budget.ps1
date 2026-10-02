@@ -16,7 +16,7 @@
     stalled one's budget is spent; that serve_forever gives each connection the
     whole budget; that another site's page is refused on its head, without the
     server waiting for the body it declares; and that the largest body T5000
-    takes, 16 MiB to the Firmware page's check, arrives well inside the budget.
+    takes, 32 MiB to the Firmware page's check, arrives well inside the budget.
 
     It starts T5000.exe --no-browser with a scratch --db on 127.0.0.1:8730, so
     nothing else may be listening there, and stops it afterwards. Nothing is
@@ -212,8 +212,8 @@ try
     Check ($ms -lt 1000) 'at once, on its head, without waiting for the body' "took $ms ms"
 
     Write-Host ''
-    Write-Host "The largest body T5000 takes: 16 MiB to the Firmware page's check"
-    $size   = 16 * 1024 * 1024
+    Write-Host "The largest body T5000 takes: 32 MiB to the Firmware page's check"
+    $size   = 32 * 1024 * 1024   # app::kLargestFirmwareRequest
     $clock  = [Diagnostics.Stopwatch]::StartNew()
     $client = Open-Client
     Send-Text $client ("POST /api/firmware/check?handle=1&name=budget.bin HTTP/1.1`r`n${own}" +

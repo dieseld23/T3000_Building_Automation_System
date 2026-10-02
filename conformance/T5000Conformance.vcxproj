@@ -105,6 +105,7 @@
     <ClCompile Include="panel_guard.cpp" />
     <ClCompile Include="product_guard.cpp" />
     <ClCompile Include="tables_guard.cpp" />
+    <ClCompile Include="values_guard.cpp" />
     <ClCompile Include="variables_guard.cpp" />
     <ClCompile Include="wire_guard.cpp" />
     <ClCompile Include="write_command_guard.cpp" />

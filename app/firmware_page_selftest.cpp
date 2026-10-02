@@ -498,6 +498,71 @@ namespace
     }
 }
 
+namespace
+{
+    // A .hex of sixteen-byte records, with CRLF, filling `buffer` bytes from
+    // address 0, behind an extended linear address record for each 64 KiB.
+    // Built by hand rather than a record at a time with snprintf: it is
+    // 29.5 MB for ISP's .bin buffer.
+    std::string hex_filling(size_t buffer)
+    {
+        static const char digits[] = "0123456789ABCDEF";
+        std::string out;
+        out.reserve(largest_hex_text(buffer));
+        auto put = [&](const uint8_t* b, size_t n) {
+            uint8_t sum = 0;
+            out += ':';
+            for (size_t i = 0; i < n; i++)
+            {
+                out += digits[b[i] >> 4];
+                out += digits[b[i] & 15];
+                sum = (uint8_t)(sum + b[i]);
+            }
+            const uint8_t last = (uint8_t)(0x100 - sum);
+            out += digits[last >> 4];
+            out += digits[last & 15];
+            out += "\r\n";
+        };
+        for (size_t at = 0; at < buffer; at += 16)
+        {
+            if (at % 0x10000 == 0)
+            {
+                const uint8_t ela[] = { 2, 0, 0, 4, (uint8_t)(at >> 24), (uint8_t)(at >> 16) };
+                put(ela, sizeof ela);
+            }
+            const size_t n = buffer - at < 16 ? buffer - at : 16;
+            uint8_t rec[4 + 16] = { (uint8_t)n, (uint8_t)(at >> 8), (uint8_t)at, 0 };
+            for (size_t i = 0; i < n; i++)
+                rec[4 + i] = 0x5A;
+            put(rec, 4 + n);
+        }
+        const uint8_t end[] = { 0, 0, 0, 1 };
+        put(end, sizeof end);
+        return out;
+    }
+
+    void test_the_largest_request_takes_a_full_hex()
+    {
+        section("the largest firmware request takes a .hex that fills ISP's .bin buffer, which the network reads it into");
+
+        const std::string hex = hex_filling(fw::kBinBufferLength);
+        check(hex.size() <= largest_hex_text(fw::kBinBufferLength), "it is no longer than largest_hex_text says");
+        check(hex.size() <= kLargestFirmwareRequest, "the largest request takes it");
+        check(hex.size() > 16u * 1024 * 1024, "  where 16 MiB, the largest before ISP 6.4.7, would not");
+
+        fw::FirmwareFile f;
+        std::string why;
+        const bool read = fw::read_firmware("full.hex", (const uint8_t*)hex.data(), hex.size(), fw::Path::Network, f, why);
+        if (!require(read, "it is read on the network"))
+        {
+            printf("        %s\n", why.c_str());
+            return;
+        }
+        check_eq((long)f.data_size, (long)fw::kBinBufferLength, "  to the buffer's last byte");
+        check_eq(f.image[fw::kBinBufferLength - 1], 0x5A, "  which holds the file's data");
+    }
+}
+
 int run_firmware_page_tests()
 {
     test_the_path();
@@ -515,5 +580,6 @@ int run_firmware_page_tests()
     test_the_check_is_told_the_device_as_it_is_now();
     test_a_virtual_or_a_gone_device();
     test_the_path_decides_the_route();
+    test_the_largest_request_takes_a_full_hex();
     return 0;
 }

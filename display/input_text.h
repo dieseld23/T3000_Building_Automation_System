@@ -56,7 +56,8 @@ namespace t5000::display
     // one of the multi-state ranges 101-104.
     bool is_invalid_range(uint8_t range);
 
-    // value / 1000 with two decimals, computed in float as T3000 computes it.
-    // In double some values round the other way.
+    // value / 1000 with two decimals, computed in double as T3000 computes
+    // it. T3000 computed it in float until 2026-09-28, and some values round
+    // the other way in float: 45 is 0.05 there and 0.04 here.
     std::string thousandths(int32_t value);
 }

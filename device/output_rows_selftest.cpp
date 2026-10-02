@@ -1,6 +1,6 @@
 // Tests for what a panel's settings decide about its Outputs grid, against
 // the chain at BacnetOutput.cpp:418-545, the HOA list at :733-755, and the
-// ESP32 sizing at BacnetView.cpp:4963-4969.
+// ESP32 sizing at BacnetView.cpp:4964-4970.
 
 #include "output_rows.h"
 #include "../testing/check.h"
@@ -106,7 +106,7 @@ namespace
     {
         section("the panel types with a HOA Switch column");
 
-        const int with[] = { 9, 27, 11, 14, 19, 29, 10, 22, 26, 1, 5, 6, 21, 12, 7, 2, 3, 4, 44, 43, 104 };
+        const int with[] = { 9, 31, 11, 14, 19, 29, 10, 22, 26, 1, 5, 6, 21, 12, 7, 2, 3, 4, 44, 43, 104 };
         bool all = true;
         for (const int t : with)
             all = all && shows_hoa_switch(t);

@@ -45,7 +45,7 @@ namespace t5000::device
         std::string detail;
     };
 
-    // The firmware cutoff for the PTP tunnel, from BacnetView.cpp:7736.
+    // The firmware cutoff for the PTP tunnel, from BacnetView.cpp:7757.
     inline constexpr int kPtpMinimumFirmware = 525;
 
     // Mirrors Bacnet_Private_Device in T3000/global_function.cpp.
@@ -57,7 +57,7 @@ namespace t5000::device
     // the guard.
     bool is_refused_by_private_data(int protocol);
 
-    // Whether BacnetView.cpp:7736 would enable the PTP tunnel for this device.
+    // Whether BacnetView.cpp:7757 would enable the PTP tunnel for this device.
     bool ptp_would_be_enabled(int product_id, int software_version);
 
     // software_version is the value BacnetView computes as

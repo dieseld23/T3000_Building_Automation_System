@@ -13,10 +13,10 @@
 // ISP reads a file differently on each path it can send it on:
 //
 //   serial (FlashByCom, ISPDlg.cpp:2472-2523)   a name ending ".BIN" is read
-//       as a .bin into 0x3FFFFF bytes of 0xFF; anything else as a .hex into
+//       as a .bin into 0x9FFFFF bytes of 0xFF; anything else as a .hex into
 //       0x1FFFFF bytes of 0x00
-//   network (FlashByEthernet, :2185-2237)       ".bin" into 0x3FFFFF bytes
-//       of 0xFF; ".hex" into 0x3FFFFF bytes of 0x00
+//   network (FlashByEthernet, :2185-2237)       ".bin" into 0x9FFFFF bytes
+//       of 0xFF; ".hex" into 0x9FFFFF bytes of 0x00
 //   through a controller (OnFlashSubID, :2090-2112)   a .hex only, into
 //       0x1FFFFF bytes of 0xFF
 //
@@ -73,9 +73,10 @@ namespace t5000::firmware
         Arm64K = 2,
     };
 
-    // ISP's buffers (Global_Struct.h:58, 60).
+    // ISP's buffers (Global_Struct.h:58, 60). The .bin buffer was 0x3FFFFF
+    // until ISP 6.4.7 (2026-09-28); its comment there still says 512k.
     inline constexpr size_t kHexBufferLength = 0x1FFFFF;
-    inline constexpr size_t kBinBufferLength = 0x3FFFFF;
+    inline constexpr size_t kBinBufferLength = 0x9FFFFF;
 
     // ReadLineFromFile's limit (HexFileParser.cpp:306-315): the 256th
     // character of a line that is not its CR is "The Hex File is broken".

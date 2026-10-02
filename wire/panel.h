@@ -3,7 +3,7 @@
 // The panel's settings and its custom range tables, as bytes.
 //
 // Three blocks T3000 reads from a panel before it shows any point
-// (BacnetView.cpp:5905, :6472, :6563-6565):
+// (BacnetView.cpp:5906, :6486, :6577-6579):
 //
 //   READ_SETTING_COMMAND        one Str_Setting_Info       400 bytes
 //   READUNIT_T3000              eight Str_Units_element     25 bytes each
@@ -135,7 +135,7 @@ namespace t5000::wire
         uint8_t mini_type() const { return mini_type_byte & 0x3F; }
 
         // How T3000 compares firmware versions: main * 10 + sub, so 63.7 is
-        // 637 (BacnetView.cpp:4964 and a dozen others).
+        // 637 (BacnetView.cpp:4965 and a dozen others).
         int firmware() const { return (int)firmware_main * 10 + (int)firmware_sub; }
     };
 

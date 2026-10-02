@@ -12,7 +12,7 @@
 //
 // The device is addressed directly, by the IP and port its scan response gave.
 // T3000 instead sends Who-Is for the device instance up to three times and
-// waits for the I-Am to bind an address (BacnetView.cpp:4307). Skipping that
+// waits for the I-Am to bind an address (BacnetView.cpp:4308). Skipping that
 // means no broadcast goes out when a device is read, and the address used is
 // the one the operator just saw in the device list. What it gives up is a
 // check that the device at that address is still the instance the scan
@@ -76,7 +76,7 @@ namespace t5000::bacnet
         int attempts = 2;
 
         // Between requests. T3000 sleeps SEND_COMMAND_DELAY_TIME, 100 ms,
-        // after each chunk (BacnetView.cpp:4445). Kept, because the devices
+        // after each chunk (BacnetView.cpp:4446). Kept, because the devices
         // this talks to are small controllers and T3000's pacing is the only
         // pacing they have ever been tested against.
         int pause_between_requests_ms = 100;
@@ -113,7 +113,7 @@ namespace t5000::bacnet
     // with holes in it where some requests timed out looks like a device
     // with blank points, which is a different and false statement. T3000
     // does exactly that - it logs a timed-out chunk and carries on
-    // (BacnetView.cpp:4447).
+    // (BacnetView.cpp:4448).
     //
     // next_invoke_id is advanced for each request, so successive reads on
     // one transport do not reuse an id while a late reply to it could still
@@ -125,7 +125,7 @@ namespace t5000::bacnet
                               uint8_t& next_invoke_id);
 
     // The same, for entities [first, first + count). T3000 reads the custom
-    // analog tables as 0-3 and then 4 on its own (BacnetView.cpp:6563-6565).
+    // analog tables as 0-3 and then 4 on its own (BacnetView.cpp:6577-6579).
     ReadOutcome read_entities_from(ReadTransport& transport, const Endpoint& device,
                                    ReadCommand command, int first, int count, int group_size,
                                    uint16_t entity_size, const ReadSettings& settings,
@@ -211,7 +211,7 @@ namespace t5000::bacnet
 
     // BAC_OUTPUT_ITEM_COUNT = 64 and BAC_READ_OUTPUT_GROUP_NUMBER = 10
     // (global_define.h:442, :389): the same seven requests as inputs, of
-    // 45-byte points (BacnetView.cpp:5353-5377).
+    // 45-byte points (BacnetView.cpp:5354-5378).
     inline constexpr int kOutputCount       = 64;
     inline constexpr int kOutputsPerRequest = 10;
 
@@ -236,7 +236,7 @@ namespace t5000::bacnet
 
     // BAC_VARIABLE_ITEM_COUNT = 128 and BAC_READ_VARIABLE_GROUP_NUMBER = 10
     // (global_define.h:443, :390): thirteen requests, 0-9 to 120-127, of
-    // 39-byte points (BacnetView.cpp:5383-5402).
+    // 39-byte points (BacnetView.cpp:5384-5403).
     inline constexpr int kVariableCount       = 128;
     inline constexpr int kVariablesPerRequest = 10;
 

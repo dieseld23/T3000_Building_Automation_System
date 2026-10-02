@@ -93,7 +93,7 @@ namespace t5000::device
             { ProductClassId::Esp32T3Series, "T3 Series (ESP32)", DataPath::BacnetPrivateData,
               kFullController, SupportState::Implemented,
               "gets the PTP tunnel unconditionally, without the >=525 firmware "
-              "check other private-data devices need (BacnetView.cpp:7736)" },
+              "check other private-data devices need (BacnetView.cpp:7757)" },
             { ProductClassId::Tstat10, "TSTAT10", DataPath::BacnetPrivateData,
               kFullController, SupportState::Implemented,
               "a thermostat that is a private-data device - it has T3 program "

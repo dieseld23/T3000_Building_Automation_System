@@ -9,8 +9,8 @@
 //   4. its multi-state tables               READ_MSV_COMMAND            2 requests
 //   5. its custom variable units            READVARUNIT_T3000           1 request
 //
-// T3000 sends all five when it connects to a panel (BacnetView.cpp:5905,
-// :6472, :6483-6547, :6563-6571). A page asks for the ones its grid uses:
+// T3000 sends all five when it connects to a panel (BacnetView.cpp:5906,
+// :6486, :6497-6561, :6577-6585). A page asks for the ones its grid uses:
 // Inputs 1-3, Outputs 1-2, Variables 1, 2, 4 and 5. inputs_read.h says how
 // each failure is handled, and why.
 
@@ -123,7 +123,7 @@ namespace t5000::app
 
     // 4. The multi-state tables: 0-1, and then 2 on firmware 60.7 and
     // older or 2-3 on newer, each request sent whether or not the one before
-    // came back, as T3000 sends them (BacnetView.cpp:6483-6547). Without the
+    // came back, as T3000 sends them (BacnetView.cpp:6497-6561). Without the
     // settings, as on older firmware. A request that fails is a note.
     void read_msv_tables(bacnet::ReadTransport& transport, const bacnet::Endpoint& device,
                          const bacnet::ReadSettings& settings, uint8_t& next_invoke_id,
@@ -131,7 +131,7 @@ namespace t5000::app
 
     // The last firmware T3000 reads three multi-state tables from rather
     // than four: firmware0_rev_main * 10 + firmware0_rev_sub <= 607
-    // (BacnetView.cpp:6483).
+    // (BacnetView.cpp:6497).
     inline constexpr int kLastThreeTableFirmware = 607;
 
     // 5. The custom variable units, 0-4 in one request (:6571). The same,

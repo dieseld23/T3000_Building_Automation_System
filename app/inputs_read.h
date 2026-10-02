@@ -7,8 +7,8 @@
 //   3. its custom analog table names        READANALOG_CUS_TABLE_T3000  2 requests
 //   4. its inputs                           READINPUT_T3000             7 requests
 //
-// T3000 sends 1-3 when it connects to a panel (BacnetView.cpp:5905, :6472,
-// :6563-6565) and 4 when the Inputs list is loaded. T5000 has no connection
+// T3000 sends 1-3 when it connects to a panel (BacnetView.cpp:5906, :6486,
+// :6577-6579) and 4 when the Inputs list is loaded. T5000 has no connection
 // to keep them in, so it sends all four each time the page is opened.
 //
 // Where T5000 departs from T3000, it is to show more rather than less, and
